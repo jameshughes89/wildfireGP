@@ -31,7 +31,7 @@ cell_size_m : float
     real data is loaded, this should be set from the raster metadata.
 wind_speed : float
     Wind speed in km/h. Wind is the dominant driver of fire spread direction and rate (Rothermel, 1972). Modelled as a
-    uniform field — per-node variation would require meteorological downscaling data not generally available at the
+    uniform field - per-node variation would require meteorological downscaling data not generally available at the
     resolution we operate at.
 wind_direction : float
     Wind direction in degrees (0 = north, clockwise). Uniform across the landscape. Degrees picked for matching real
