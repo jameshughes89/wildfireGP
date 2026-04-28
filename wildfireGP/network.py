@@ -1,15 +1,20 @@
 """
 Wildfire landscape graph construction and management.
 
-A landscape is represented as a NetworkX grid graph where each node corresponds to a spatial patch and carries four
-attributes: state, fuel, slope, and elevation. Fire weather (wind and moisture) is stored as graph-level attributes, as
-these quantities are meteorologically driven and effectively uniform across the landscape at the scales we model.
+A landscape is represented as a NetworkX grid graph where each node corresponds to a spatial patch and carries five
+attributes: state, terrain, fuel, slope, and elevation. Fire weather (wind and moisture) is stored as graph-level
+attributes, as these quantities are meteorologically driven and effectively uniform across the landscape at the scales
+we model.
 
 Node attributes
 ---------------
 state : NodeState
     Dynamic fire state of the patch (UNBURNED, BURNING, BURNED, or TREATED). Initialised to UNBURNED; modified by the
     spread simulation.
+terrain : TerrainType
+    Physical terrain category: LAND (burnable), WATER (low-elevation basin), or ROCK (steep slope). WATER and ROCK
+    nodes have fuel=0 and are non-burnable. Stored explicitly so the spread model and GP terminals can distinguish
+    terrain type without re-inferring it from elevation or slope.
 fuel : float in [0, 1]
     Relative fuel load. Higher values indicate more burnable material and increase ignition probability and burn
     duration. Currently assigned via spatially correlated synthetic generation. When real data loading is added, this
@@ -83,6 +88,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 
 STATE = "state"
+TERRAIN = "terrain"
 FUEL = "fuel"
 SLOPE = "slope"
 ELEVATION = "elevation"
@@ -97,6 +103,12 @@ class NodeState(enum.Enum):
     BURNING = 1
     BURNED = 2
     TREATED = 3
+
+
+class TerrainType(enum.Enum):
+    LAND = 0
+    WATER = 1
+    ROCK = 2
 
 
 def create_grid(
@@ -125,23 +137,28 @@ def create_grid(
     :param cell_size_m: Side length of each grid cell in metres. Stored as a graph attribute for use by the spread model
         and real data loaders. Default 100m matches Canadian FBP operational scale.
     :param seed: Random seed for reproducibility.
-    :return: Grid graph with STATE, FUEL, SLOPE, and ELEVATION node attributes. Wind and moisture are not set.
+    :return: Grid graph with STATE, TERRAIN, FUEL, SLOPE, and ELEVATION node attributes. Wind and moisture are not set.
     """
     rng = np.random.default_rng(seed)
     graph = nx.grid_2d_graph(rows, cols)
 
-    terrain = _normalize(gaussian_filter(rng.random((rows, cols)), sigma=smoothing))
-    dy, dx = np.gradient(terrain)
+    terrain_height = _normalize(gaussian_filter(rng.random((rows, cols)), sigma=smoothing))
+    dy, dx = np.gradient(terrain_height)
     slope_norm = _normalize(np.sqrt(dx**2 + dy**2))
     fuel_norm = _normalize(gaussian_filter(rng.random((rows, cols)), sigma=smoothing))
 
+    terrain_type = np.full((rows, cols), TerrainType.LAND, dtype=object)
     if water_fraction > 0.0:
-        fuel_norm[terrain < water_fraction] = 0.0
+        mask = terrain_height < water_fraction
+        fuel_norm[mask] = 0.0
+        terrain_type[mask] = TerrainType.WATER
     if rock_fraction > 0.0:
-        fuel_norm[slope_norm > 1.0 - rock_fraction] = 0.0
+        mask = slope_norm > 1.0 - rock_fraction
+        fuel_norm[mask] = 0.0
+        terrain_type[mask] = TerrainType.ROCK
 
     graph.graph[CELL_SIZE] = cell_size_m
-    _attach_node_attributes(graph, fuel_norm, slope_norm, terrain)
+    _attach_node_attributes(graph, fuel_norm, slope_norm, terrain_height, terrain_type)
     return graph
 
 
@@ -178,10 +195,15 @@ def reset_states(graph: nx.Graph) -> None:
 
 
 def _attach_node_attributes(
-    graph: nx.Graph, fuel_array: np.ndarray, slope_array: np.ndarray, elevation_array: np.ndarray
+    graph: nx.Graph,
+    fuel_array: np.ndarray,
+    slope_array: np.ndarray,
+    elevation_array: np.ndarray,
+    terrain_type_array: np.ndarray,
 ) -> None:
     for i, j in graph.nodes:
         graph.nodes[(i, j)][STATE] = NodeState.UNBURNED
+        graph.nodes[(i, j)][TERRAIN] = terrain_type_array[i, j]
         graph.nodes[(i, j)][FUEL] = float(fuel_array[i, j])
         graph.nodes[(i, j)][SLOPE] = float(slope_array[i, j])
         graph.nodes[(i, j)][ELEVATION] = float(elevation_array[i, j])
