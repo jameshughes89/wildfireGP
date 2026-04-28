@@ -11,12 +11,12 @@ import numpy as np
 
 from wildfireGP.network import FUEL, SLOPE, STATE, NodeState
 
-_WATER = np.array([0.36, 0.61, 0.84])
-_ROCK = np.array([0.62, 0.62, 0.62])
-_BURNING = np.array([1.0, 0.40, 0.0])
-_BURNED = np.array([0.16, 0.16, 0.16])
-_TREATED = np.array([0.61, 0.35, 0.71])
-_FUEL_CMAP = plt.cm.YlGn
+_WATER = np.array([0.36, 0.61, 0.84])    # steel blue
+_ROCK = np.array([0.62, 0.62, 0.62])     # medium grey
+_BURNING = np.array([1.0, 0.40, 0.0])   # orange
+_BURNED = np.array([0.16, 0.16, 0.16])  # charcoal
+_TREATED = np.array([0.61, 0.35, 0.71]) # purple
+_FUEL_CMAP = plt.cm.YlGn                 # yellow-green to dark-green by fuel load
 
 
 def draw(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
