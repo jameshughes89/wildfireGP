@@ -11,12 +11,12 @@ import numpy as np
 
 from wildfireGP.network import FUEL, SLOPE, STATE, NodeState
 
-_WATER = np.array([0.36, 0.61, 0.84])    # steel blue
-_ROCK = np.array([0.62, 0.62, 0.62])     # medium grey
+_WATER = np.array([0.36, 0.61, 0.84])   # steel blue
+_ROCK = np.array([0.62, 0.62, 0.62])    # medium grey
 _BURNING = np.array([1.0, 0.40, 0.0])   # orange
 _BURNED = np.array([0.16, 0.16, 0.16])  # charcoal
 _TREATED = np.array([0.61, 0.35, 0.71]) # purple
-_FUEL_CMAP = plt.cm.YlGn                 # yellow-green to dark-green by fuel load
+_FUEL_CMAP = plt.cm.YlGn                # yellow-green -> dark-green by fuel load
 
 
 def draw(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
@@ -25,7 +25,8 @@ def draw(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
 
     State takes priority for non-UNBURNED nodes: BURNING is orange, BURNED is charcoal, TREATED is purple. For UNBURNED 
     nodes, fuel=0 cells are rendered as water (blue) or rock (grey) based on slope - high slope implies rock - and 
-    burnable cells use a yellow-green to dark-green gradient by fuel load.
+    burnable cells use a yellow-green to dark-green gradient by fuel load. WARNING: The cutoff can cause issues with
+    water/rock rendering if water values in network are high.
 
     :param graph: The landscape graph to render.
     :param ax: Axes to draw on. Creates a new figure if None.
