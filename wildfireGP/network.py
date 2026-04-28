@@ -12,9 +12,9 @@ state : NodeState
     Dynamic fire state of the patch (UNBURNED, BURNING, BURNED, or TREATED). Initialised to UNBURNED; modified by the
     spread simulation.
 terrain : TerrainType
-    Physical terrain category: LAND (burnable), WATER (low-elevation basin), or ROCK (steep slope). WATER and ROCK
-    nodes have fuel=0 and are non-burnable. Stored explicitly so the spread model and GP terminals can distinguish
-    terrain type without re-inferring it from elevation or slope.
+    Physical terrain category: LAND (burnable), WATER (low-elevation basin), or ROCK (steep slope). WATER and ROCK nodes
+    have fuel=0 and are non-burnable. Stored explicitly so the spread model and GP terminals can distinguish terrain
+    type without re-inferring it from elevation or slope.
 fuel : float in [0, 1]
     Relative fuel load. Higher values indicate more burnable material and increase ignition probability and burn
     duration. Currently assigned via spatially correlated synthetic generation. When real data loading is added, this
@@ -31,9 +31,9 @@ elevation : float in [0, 1]
 Graph-level attributes
 ----------------------
 cell_size_m : float
-    Side length of each grid cell in metres. Defaults to 100m, matching Canadian FBP operational scale. A 50x50 grid
-    at 100m represents a 5km x 5km landscape, which is a meaningful scale for resource allocation decisions. When
-    real data is loaded, this should be set from the raster metadata.
+    Side length of each grid cell in metres. Defaults to 100m, matching Canadian FBP operational scale. A 50x50 grid at
+    100m represents a 5km x 5km landscape, which is a meaningful scale for resource allocation decisions. When real data
+    is loaded, this should be set from the raster metadata.
 wind_speed : float
     Wind speed in km/h. Wind is the dominant driver of fire spread direction and rate (Rothermel, 1972). Modelled as a
     uniform field - per-node variation would require meteorological downscaling data not generally available at the
