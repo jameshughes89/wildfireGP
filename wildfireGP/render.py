@@ -2,13 +2,12 @@
 Landscape and simulation state rendering.
 
 Node colours encode both the underlying terrain and the current fire state, with state taking priority over terrain for
-non-UNBURNED nodes. Four render functions are provided, each visualising a different aspect of the landscape.
+non-UNBURNED nodes. Elevation contour lines are overlaid to give terrain context without a separate view.
 """
 
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-from matplotlib.colors import LightSource
 
 from wildfireGP.network import ELEVATION, FUEL, STATE, TERRAIN, NodeState, TerrainType
 
@@ -18,106 +17,28 @@ _BURNING = np.array([1.0, 0.40, 0.0])   # orange
 _BURNED = np.array([0.16, 0.16, 0.16])  # charcoal
 _TREATED = np.array([0.61, 0.35, 0.71]) # purple
 _FUEL_CMAP = plt.cm.YlGn                # yellow-green -> dark-green by fuel load
-_ELEV_CMAP = plt.cm.terrain             # elevation colormap for draw_elevation
 
 
 def draw(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
     """
-    Render the landscape graph as a static image.
+    Render the landscape graph as a static image with elevation contour lines overlaid.
 
     State takes priority for non-UNBURNED nodes: BURNING is orange, BURNED is charcoal, TREATED is purple. For UNBURNED
     nodes, terrain type determines colour: WATER is blue, ROCK is grey, LAND uses a yellow-green to dark-green gradient
-    by fuel load.
+    by fuel load. White contour lines at eight elevation levels provide terrain context.
 
     :param graph: The landscape graph to render.
     :param ax: Axes to draw on. Creates a new figure if None.
     :return: The axes containing the rendered image.
     """
     rows, cols = _grid_dims(graph)
+    elevation = _build_elevation(graph, rows, cols)
 
     if ax is None:
         _, ax = plt.subplots()
 
     ax.imshow(_build_rgb(graph, rows, cols), origin="upper")
-    ax.set_axis_off()
-    return ax
-
-
-def draw_hillshaded(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
-    """
-    Render the landscape with hillshading blended into the fuel and terrain colours.
-
-    A simulated northwest light source shades the terrain based on elevation, making ridges and valleys immediately
-    readable. The colour scheme is identical to draw(); hillshading only modulates brightness.
-
-    :param graph: The landscape graph to render.
-    :param ax: Axes to draw on. Creates a new figure if None.
-    :return: The axes containing the rendered image.
-    """
-    rows, cols = _grid_dims(graph)
-    rgb = _build_rgb(graph, rows, cols)
-    elevation = _build_elevation(graph, rows, cols)
-
-    intensity = LightSource(azdeg=315, altdeg=45).hillshade(elevation, vert_exag=1.0)
-    intensity = 0.5 + 0.5 * intensity  # scale to [0.5, 1.0] so shadows are never fully black
-    rgb = np.clip(rgb * intensity[:, :, np.newaxis], 0, 1)
-
-    if ax is None:
-        _, ax = plt.subplots()
-
-    ax.imshow(rgb, origin="upper")
-    ax.set_axis_off()
-    return ax
-
-
-def draw_contours(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
-    """
-    Render the landscape with elevation contour lines overlaid.
-
-    The base render is identical to draw(). White contour lines are drawn on top at eight elevation levels,
-    giving a topographic map feel.
-
-    :param graph: The landscape graph to render.
-    :param ax: Axes to draw on. Creates a new figure if None.
-    :return: The axes containing the rendered image.
-    """
-    rows, cols = _grid_dims(graph)
-    elevation = _build_elevation(graph, rows, cols)
-
-    ax = draw(graph, ax=ax)
     ax.contour(elevation, levels=8, colors="white", alpha=0.6, linewidths=0.7, origin="upper")
-    return ax
-
-
-def draw_elevation(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
-    """
-    Render elevation as a standalone bubble map.
-
-    Each node is drawn as a square marker sized and coloured by elevation. Higher nodes are larger and brighter.
-    Fire state and fuel are not shown; this view is purely for inspecting terrain structure.
-
-    :param graph: The landscape graph to render.
-    :param ax: Axes to draw on. Creates a new figure if None.
-    :return: The axes containing the rendered image.
-    """
-    rows, cols = _grid_dims(graph)
-
-    is_, js, elevations = [], [], []
-    for i, j in graph.nodes:
-        is_.append(i)
-        js.append(j)
-        elevations.append(graph.nodes[(i, j)][ELEVATION])
-
-    elevations = np.array(elevations)
-    sizes = 20 + elevations * 200  # scale marker area from 20 to 220
-
-    if ax is None:
-        _, ax = plt.subplots()
-
-    ax.set_facecolor("#1a1a1a")
-    ax.scatter(js, is_, s=sizes, c=elevations, cmap=_ELEV_CMAP, marker="s", linewidths=0)
-    ax.set_xlim(-1, cols)
-    ax.set_ylim(rows, -1)
     ax.set_axis_off()
     return ax
 
