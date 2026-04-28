@@ -5,9 +5,11 @@ from wildfireGP.network import (
     FUEL_MOISTURE,
     SLOPE,
     STATE,
+    TERRAIN,
     WIND_DIRECTION,
     WIND_SPEED,
     NodeState,
+    TerrainType,
     create_grid,
     reset_states,
     set_fuel_moisture,
@@ -57,6 +59,21 @@ def test_create_grid_same_seed_elevation_is_reproducible():
 def test_create_grid_different_seeds_fuel_differs():
     g1, g2 = create_grid(5, 5, seed=0), create_grid(5, 5, seed=1)
     assert [g1.nodes[n][FUEL] for n in g1.nodes] != [g2.nodes[n][FUEL] for n in g2.nodes]
+
+
+def test_create_grid_default_terrain_type_is_land():
+    graph = create_grid(10, 10, seed=0)
+    assert all(graph.nodes[n][TERRAIN] == TerrainType.LAND for n in graph.nodes)
+
+
+def test_create_grid_water_fraction_sets_terrain_type_water():
+    graph = create_grid(20, 20, water_fraction=0.2, seed=0)
+    assert any(graph.nodes[n][TERRAIN] == TerrainType.WATER for n in graph.nodes)
+
+
+def test_create_grid_rock_fraction_sets_terrain_type_rock():
+    graph = create_grid(20, 20, rock_fraction=0.2, seed=0)
+    assert any(graph.nodes[n][TERRAIN] == TerrainType.ROCK for n in graph.nodes)
 
 
 def test_create_grid_water_fraction_sets_fuel_to_zero():
