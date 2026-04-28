@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
-from wildfireGP.network import FUEL, SLOPE, STATE, NodeState
+from wildfireGP.network import FUEL, STATE, TERRAIN, NodeState, TerrainType
 
 _WATER = np.array([0.36, 0.61, 0.84])   # steel blue
 _ROCK = np.array([0.62, 0.62, 0.62])    # medium grey
@@ -23,10 +23,9 @@ def draw(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
     """
     Render the landscape graph as a static image.
 
-    State takes priority for non-UNBURNED nodes: BURNING is orange, BURNED is charcoal, TREATED is purple. For UNBURNED 
-    nodes, fuel=0 cells are rendered as water (blue) or rock (grey) based on slope - high slope implies rock - and 
-    burnable cells use a yellow-green to dark-green gradient by fuel load. WARNING: The cutoff can cause issues with
-    water/rock rendering if water values in network are high.
+    State takes priority for non-UNBURNED nodes: BURNING is orange, BURNED is charcoal, TREATED is purple. For UNBURNED
+    nodes, terrain type determines colour: WATER is blue, ROCK is grey, LAND uses a yellow-green to dark-green gradient
+    by fuel load.
 
     :param graph: The landscape graph to render.
     :param ax: Axes to draw on. Creates a new figure if None.
@@ -40,8 +39,8 @@ def draw(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
     for i, j in graph.nodes:
         node = graph.nodes[(i, j)]
         state = node[STATE]
+        terrain = node[TERRAIN]
         fuel = node[FUEL]
-        slope = node[SLOPE]
 
         if state == NodeState.BURNING:
             color = _BURNING
@@ -49,8 +48,10 @@ def draw(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
             color = _BURNED
         elif state == NodeState.TREATED:
             color = _TREATED
-        elif fuel == 0.0:
-            color = _ROCK if slope > 0.5 else _WATER
+        elif terrain == TerrainType.WATER:
+            color = _WATER
+        elif terrain == TerrainType.ROCK:
+            color = _ROCK
         else:
             color = np.array(_FUEL_CMAP(fuel)[:3])
 
