@@ -12,7 +12,6 @@ from wildfireGP.network import (
     set_wind,
 )
 
-
 # ---------------------------------------------------------------------------
 # create_grid
 # ---------------------------------------------------------------------------
@@ -50,6 +49,12 @@ def test_create_grid_different_seeds_differ():
     g1 = create_grid(5, 5, seed=0)
     g2 = create_grid(5, 5, seed=1)
     assert [g1.nodes[n][FUEL] for n in g1.nodes] != [g2.nodes[n][FUEL] for n in g2.nodes]
+
+
+def test_create_grid_nonburnable_patches():
+    graph = create_grid(20, 20, nonburnable_fraction=0.3, seed=0)
+    zero_fuel = sum(1 for n in graph.nodes if graph.nodes[n][FUEL] == 0.0)
+    assert zero_fuel > 1
 
 
 def test_create_grid_no_wind_or_moisture_set():
