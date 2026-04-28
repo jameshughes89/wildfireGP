@@ -52,10 +52,14 @@ def test_create_grid_different_seeds_differ():
     assert [g1.nodes[n][FUEL] for n in g1.nodes] != [g2.nodes[n][FUEL] for n in g2.nodes]
 
 
-def test_create_grid_nonburnable_patches():
-    graph = create_grid(20, 20, nonburnable_fraction=0.3, seed=0)
-    zero_fuel = sum(1 for n in graph.nodes if graph.nodes[n][FUEL] == 0.0)
-    assert zero_fuel > 1
+def test_create_grid_water_patches():
+    graph = create_grid(20, 20, water_fraction=0.2, seed=0)
+    assert sum(1 for n in graph.nodes if graph.nodes[n][FUEL] == 0.0) > 1
+
+
+def test_create_grid_rock_patches():
+    graph = create_grid(20, 20, rock_fraction=0.2, seed=0)
+    assert sum(1 for n in graph.nodes if graph.nodes[n][FUEL] == 0.0) > 1
 
 
 def test_create_grid_cell_size_default():

@@ -98,7 +98,8 @@ def create_grid(
     rows: int,
     cols: int,
     smoothing: float = 3.0,
-    nonburnable_fraction: float = 0.0,
+    water_fraction: float = 0.0,
+    rock_fraction: float = 0.0,
     cell_size_m: float = 100.0,
     seed: int | None = None,
 ) -> nx.Graph:
@@ -112,9 +113,10 @@ def create_grid(
     :param cols: Number of columns in the grid.
     :param smoothing: Gaussian filter sigma. Higher values produce smoother, larger-scale spatial patterns. Default 3.0
         gives patch sizes of roughly 3 nodes.
-    :param nonburnable_fraction: Approximate total fraction of nodes to mark as non-burnable (fuel=0). Split evenly
-        between water (lowest elevation cells) and rock (steepest cells), each receiving half the fraction. Default
-        0.0 produces no non-burnable patches.
+    :param water_fraction: Fraction of nodes to mark as water (fuel=0), selected from the lowest-elevation cells.
+        Default 0.0 produces no water.
+    :param rock_fraction: Fraction of nodes to mark as rock (fuel=0), selected from the steepest cells. Default 0.0
+        produces no rock.
     :param cell_size_m: Side length of each grid cell in metres. Stored as a graph attribute for use by the spread model
         and real data loaders. Default 100m matches Canadian FBP operational scale.
     :param seed: Random seed for reproducibility.
@@ -128,10 +130,10 @@ def create_grid(
     slope_norm = _normalize(np.sqrt(dx**2 + dy**2))
     fuel_norm = _normalize(gaussian_filter(rng.random((rows, cols)), sigma=smoothing))
 
-    if nonburnable_fraction > 0.0:
-        half = nonburnable_fraction / 2
-        fuel_norm[terrain < half] = 0.0
-        fuel_norm[slope_norm > 1.0 - half] = 0.0
+    if water_fraction > 0.0:
+        fuel_norm[terrain < water_fraction] = 0.0
+    if rock_fraction > 0.0:
+        fuel_norm[slope_norm > 1.0 - rock_fraction] = 0.0
 
     graph.graph[CELL_SIZE] = cell_size_m
     _attach_node_attributes(graph, fuel_norm, slope_norm)
