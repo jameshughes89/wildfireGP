@@ -58,8 +58,8 @@ def draw_hillshaded(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
     rgb = _build_rgb(graph, rows, cols)
     elevation = _build_elevation(graph, rows, cols)
 
-    intensity = LightSource(azdeg=315, altdeg=45).hillshade(elevation, vert_exag=2.0)
-    intensity = 0.3 + 0.7 * intensity  # scale to [0.3, 1.0] so shadows are never fully black
+    intensity = LightSource(azdeg=315, altdeg=45).hillshade(elevation, vert_exag=1.0)
+    intensity = 0.5 + 0.5 * intensity  # scale to [0.5, 1.0] so shadows are never fully black
     rgb = np.clip(rgb * intensity[:, :, np.newaxis], 0, 1)
 
     if ax is None:
@@ -85,7 +85,7 @@ def draw_contours(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
     elevation = _build_elevation(graph, rows, cols)
 
     ax = draw(graph, ax=ax)
-    ax.contour(elevation, levels=8, colors="white", alpha=0.5, linewidths=0.5, origin="upper")
+    ax.contour(elevation, levels=8, colors="white", alpha=0.6, linewidths=0.7, origin="upper")
     return ax
 
 
@@ -109,7 +109,7 @@ def draw_elevation(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
         elevations.append(graph.nodes[(i, j)][ELEVATION])
 
     elevations = np.array(elevations)
-    sizes = 5 + elevations * 50  # scale marker area from 5 to 55
+    sizes = 20 + elevations * 200  # scale marker area from 20 to 220
 
     if ax is None:
         _, ax = plt.subplots()
