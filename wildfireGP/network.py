@@ -133,15 +133,15 @@ def create_grid(
     :param rows: Number of rows in the grid.
     :param cols: Number of columns in the grid.
     :param terrain_smoothing: Gaussian filter sigma for the terrain heightmap. Controls the spatial scale of hills,
-        valleys, and ridges. Higher values produce broader, more gradual terrain. Default 3.0.
-    :param fuel_smoothing: Gaussian filter sigma for the fuel field. Controls the spatial scale of fuel patches.
-        Higher values produce larger, more homogeneous fuel zones. Default 3.0.
+        valleys, and ridges. Higher values produce broader, more gradual terrain.
+    :param fuel_smoothing: Gaussian filter sigma for the fuel field. Controls the spatial scale of fuel patches. Higher
+        values produce larger, more homogeneous fuel zones.
     :param water_fraction: Fraction of nodes to mark as water (fuel=0), selected from the lowest-elevation cells.
         Default 0.0 produces no water.
     :param rock_fraction: Fraction of nodes to mark as rock (fuel=0), selected from the steepest cells. Default 0.0
         produces no rock.
-    :param cell_size_m: Side length of each grid cell in metres. Stored as a graph attribute for use by the spread
-        model and real data loaders. Default 100m matches Canadian FBP operational scale.
+    :param cell_size_m: Side length of each grid cell in metres. Stored as a graph attribute for use by the spread model
+        and real data loaders. Default 100m matches Canadian FBP operational scale.
     :param seed: Random seed for reproducibility.
     :return: Grid graph with STATE, TERRAIN, FUEL, SLOPE, and ELEVATION node attributes. Wind and moisture are not set.
     """
