@@ -18,6 +18,13 @@ fuel : float in [0, 1]
     is derived from categorical fuel type classifications:
       - Canadian FBP system: 16 fuel types (Forestry Canada Fire Danger Group, 1992)
       - US LANDFIRE: Scott-Burgan 40 fuel models (Scott & Burgan, 2005)
+    The default mappings (FBP_FUEL_MAP, SCOTT_BURGAN_FUEL_MAP) use approximate
+    values based on known relative fire behavior of each fuel type. For
+    publication-quality results, replace these with surface fuel consumption
+    values (kg/m²) from the FBP tables (Forestry Canada, 1992) evaluated at a
+    standard reference condition (e.g., BUI=50, ISI=10), normalized to [0, 1].
+    Both mappings are overrideable via the fuel_map parameter in the raster
+    loading functions.
 slope : float in [0, 1]
     Terrain steepness normalised to [0, 1]. Fire spread rate increases with
     slope (Rothermel, 1972). Derived from a DEM via numpy.gradient.
@@ -134,6 +141,11 @@ class NodeState(enum.Enum):
 # Canadian FBP fuel types -> relative fuel load [0, 1].
 # Integer codes from NRCan FBP Fuel Types GeoTIFF (v20191114).
 # Verify against your specific data product and override if codes differ.
+#
+# Values are approximate, based on known relative fire behavior of each type.
+# For publication-quality work, replace with surface fuel consumption (kg/m²)
+# from the FBP system tables (Forestry Canada Fire Danger Group, 1992) at a
+# standard reference condition (e.g., BUI=50, ISI=10), normalized to [0, 1].
 FBP_FUEL_MAP: dict[int, float] = {
     0: 0.0,   # Non-fuel (water, rock, urban, agriculture)
     1: 0.5,   # C-1: Spruce-Lichen Woodland
@@ -158,6 +170,10 @@ FBP_FUEL_MAP: dict[int, float] = {
 
 # US LANDFIRE Scott-Burgan 40 fuel models -> relative fuel load [0, 1].
 # Integer codes are the standard LANDFIRE fuel model numbers.
+#
+# Values are approximate. For publication-quality work, replace with fuel
+# load values from Scott & Burgan (2005) Table 1 (total fuel load, kg/m²),
+# normalized to [0, 1].
 SCOTT_BURGAN_FUEL_MAP: dict[int, float] = {
     # Non-burnable
     91: 0.0, 92: 0.0, 93: 0.0, 98: 0.0, 99: 0.0,
