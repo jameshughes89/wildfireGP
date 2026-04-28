@@ -56,6 +56,18 @@ def test_create_grid_same_seed_elevation_is_reproducible():
     assert [g1.nodes[n][ELEVATION] for n in g1.nodes] == [g2.nodes[n][ELEVATION] for n in g2.nodes]
 
 
+def test_create_grid_independent_smoothing_fuel_differs():
+    g1 = create_grid(10, 10, terrain_smoothing=1.0, fuel_smoothing=5.0, seed=0)
+    g2 = create_grid(10, 10, terrain_smoothing=5.0, fuel_smoothing=1.0, seed=0)
+    assert [g1.nodes[n][FUEL] for n in g1.nodes] != [g2.nodes[n][FUEL] for n in g2.nodes]
+
+
+def test_create_grid_independent_smoothing_slope_differs():
+    g1 = create_grid(10, 10, terrain_smoothing=1.0, fuel_smoothing=5.0, seed=0)
+    g2 = create_grid(10, 10, terrain_smoothing=5.0, fuel_smoothing=1.0, seed=0)
+    assert [g1.nodes[n][SLOPE] for n in g1.nodes] != [g2.nodes[n][SLOPE] for n in g2.nodes]
+
+
 def test_create_grid_different_seeds_fuel_differs():
     g1, g2 = create_grid(5, 5, seed=0), create_grid(5, 5, seed=1)
     assert [g1.nodes[n][FUEL] for n in g1.nodes] != [g2.nodes[n][FUEL] for n in g2.nodes]
