@@ -97,6 +97,8 @@ WIND_SPEED = "wind_speed"
 WIND_DIRECTION = "wind_direction"
 FUEL_MOISTURE = "fuel_moisture"
 CELL_SIZE = "cell_size_m"
+ROWS = "rows"
+COLS = "cols"
 
 
 class NodeState(enum.Enum):
@@ -164,6 +166,8 @@ def create_grid(
         terrain_type[mask] = TerrainType.ROCK
 
     graph.graph[CELL_SIZE] = cell_size_m
+    graph.graph[ROWS] = rows
+    graph.graph[COLS] = cols
     _attach_node_attributes(graph, fuel_norm, slope_norm, terrain_height, terrain_type)
     return graph
 

@@ -1,8 +1,10 @@
 from wildfireGP.network import (
     CELL_SIZE,
+    COLS,
     ELEVATION,
     FUEL,
     FUEL_MOISTURE,
+    ROWS,
     SLOPE,
     STATE,
     TERRAIN,
@@ -104,6 +106,14 @@ def test_create_grid_default_cell_size_is_100():
 
 def test_create_grid_custom_cell_size_stored_on_graph():
     assert create_grid(3, 3, cell_size_m=30.0).graph[CELL_SIZE] == 30.0
+
+
+def test_create_grid_rows_stored_on_graph():
+    assert create_grid(4, 5).graph[ROWS] == 4
+
+
+def test_create_grid_cols_stored_on_graph():
+    assert create_grid(4, 5).graph[COLS] == 5
 
 
 def test_create_grid_default_wind_speed_not_stored():
