@@ -1,4 +1,5 @@
 from wildfireGP.network import (
+    CELL_SIZE,
     FUEL,
     FUEL_MOISTURE,
     SLOPE,
@@ -55,6 +56,16 @@ def test_create_grid_nonburnable_patches():
     graph = create_grid(20, 20, nonburnable_fraction=0.3, seed=0)
     zero_fuel = sum(1 for n in graph.nodes if graph.nodes[n][FUEL] == 0.0)
     assert zero_fuel > 1
+
+
+def test_create_grid_cell_size_default():
+    graph = create_grid(3, 3)
+    assert graph.graph[CELL_SIZE] == 100.0
+
+
+def test_create_grid_cell_size_custom():
+    graph = create_grid(3, 3, cell_size_m=30.0)
+    assert graph.graph[CELL_SIZE] == 30.0
 
 
 def test_create_grid_no_wind_or_moisture_set():

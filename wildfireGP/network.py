@@ -21,6 +21,10 @@ slope : float in [0, 1]
 
 Graph-level attributes
 ----------------------
+cell_size_m : float
+    Side length of each grid cell in metres. Defaults to 100m, matching Canadian FBP operational scale. A 50x50 grid
+    at 100m represents a 5km x 5km landscape, which is a meaningful scale for resource allocation decisions. When
+    real data is loaded, this should be set from the raster metadata.
 wind_speed : float
     Wind speed in km/h. Wind is the dominant driver of fire spread direction and rate (Rothermel, 1972). Modelled as a
     uniform field — per-node variation would require meteorological downscaling data not generally available at the
@@ -80,6 +84,7 @@ SLOPE = "slope"
 WIND_SPEED = "wind_speed"
 WIND_DIRECTION = "wind_direction"
 FUEL_MOISTURE = "fuel_moisture"
+CELL_SIZE = "cell_size_m"
 
 
 class NodeState(enum.Enum):
@@ -90,7 +95,12 @@ class NodeState(enum.Enum):
 
 
 def create_grid(
-    rows: int, cols: int, smoothing: float = 3.0, nonburnable_fraction: float = 0.0, seed: int | None = None
+    rows: int,
+    cols: int,
+    smoothing: float = 3.0,
+    nonburnable_fraction: float = 0.0,
+    cell_size_m: float = 100.0,
+    seed: int | None = None,
 ) -> nx.Graph:
     """
     Create a synthetic landscape grid graph with spatially correlated fuel and slope.
@@ -105,6 +115,8 @@ def create_grid(
     :param nonburnable_fraction: Threshold controlling how much of the landscape becomes non-burnable. Cells with
         terrain elevation below this value become water; cells with slope above 1 - nonburnable_fraction become rock.
         Both are set to fuel=0. Default 0.0 produces no non-burnable patches.
+    :param cell_size_m: Side length of each grid cell in metres. Stored as a graph attribute for use by the spread
+        model and real data loaders. Default 100m matches Canadian FBP operational scale.
     :param seed: Random seed for reproducibility.
     :return: Grid graph with STATE, FUEL, and SLOPE node attributes. Wind and moisture are not set.
     """
@@ -120,6 +132,7 @@ def create_grid(
         fuel_norm[terrain < nonburnable_fraction] = 0.0
         fuel_norm[slope_norm > 1.0 - nonburnable_fraction] = 0.0
 
+    graph.graph[CELL_SIZE] = cell_size_m
     _attach_node_attributes(graph, fuel_norm, slope_norm)
     return graph
 
