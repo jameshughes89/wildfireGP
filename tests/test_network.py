@@ -50,6 +50,7 @@ def test_create_grid_reproducible():
     for node in g1.nodes:
         assert g1.nodes[node][FUEL] == g2.nodes[node][FUEL]
         assert g1.nodes[node][SLOPE] == g2.nodes[node][SLOPE]
+        assert g1.nodes[node][ELEVATION] == g2.nodes[node][ELEVATION]
 
 
 def test_create_grid_different_seeds_differ():
@@ -110,10 +111,10 @@ def test_set_fuel_moisture():
 
 def test_reset_states():
     graph = create_grid(3, 3)
-    for node in list(graph.nodes)[:3]:
-        graph.nodes[node][STATE] = NodeState.BURNING
-    for node in list(graph.nodes)[3:5]:
-        graph.nodes[node][STATE] = NodeState.BURNED
+    nodes = list(graph.nodes)
+    graph.nodes[nodes[0]][STATE] = NodeState.BURNING
+    graph.nodes[nodes[1]][STATE] = NodeState.BURNED
+    graph.nodes[nodes[2]][STATE] = NodeState.TREATED
 
     reset_states(graph)
 
