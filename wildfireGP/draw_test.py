@@ -1,11 +1,10 @@
 import matplotlib.pyplot as plt
 
 from wildfireGP.network import NodeState, create_grid
-from wildfireGP.render import draw
+from wildfireGP.render import draw, draw_contours, draw_elevation, draw_hillshaded
 
-graph = create_grid(50, 50, water_fraction=0.08, rock_fraction=0.08, seed=42)
+graph = create_grid(100, 100, smoothing=5, water_fraction=0.1, rock_fraction=0.1)
 
-# Manually set a few nodes to non-UNBURNED states so all colours are visible.
 nodes = list(graph.nodes)
 for n in nodes[100:115]:
     graph.nodes[n]["state"] = NodeState.BURNING
@@ -14,9 +13,16 @@ for n in nodes[115:130]:
 for n in nodes[130:145]:
     graph.nodes[n]["state"] = NodeState.TREATED
 
-fig, ax = plt.subplots(figsize=(8, 8))
-draw(graph, ax=ax)
-ax.set_title("draw() manual test")
+fig, axes = plt.subplots(2, 2, figsize=(14, 14))
+draw(graph, ax=axes[0, 0])
+axes[0, 0].set_title("draw")
+draw_hillshaded(graph, ax=axes[0, 1])
+axes[0, 1].set_title("draw_hillshaded")
+draw_contours(graph, ax=axes[1, 0])
+axes[1, 0].set_title("draw_contours")
+draw_elevation(graph, ax=axes[1, 1])
+axes[1, 1].set_title("draw_elevation")
+
 plt.tight_layout()
 plt.savefig("draw_test.png", dpi=150)
 print("saved draw_test.png")
