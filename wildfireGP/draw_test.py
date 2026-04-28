@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from wildfireGP.network import NodeState, create_grid
 from wildfireGP.render import draw, draw_contours, draw_elevation, draw_hillshaded
 
-graph = create_grid(100, 100, smoothing=5, water_fraction=0.1, rock_fraction=0.1)
+graph = create_grid(100, 100, terrain_smoothing=5, fuel_smoothing=5, water_fraction=0.1, rock_fraction=0.1)
 
 nodes = list(graph.nodes)
 for n in nodes[100:115]:
