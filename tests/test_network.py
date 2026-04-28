@@ -1,5 +1,6 @@
 from wildfireGP.network import (
     CELL_SIZE,
+    ELEVATION,
     FUEL,
     FUEL_MOISTURE,
     SLOPE,
@@ -36,6 +37,11 @@ def test_create_grid_fuel_in_range():
 def test_create_grid_slope_in_range():
     graph = create_grid(10, 10)
     assert all(0.0 <= graph.nodes[n][SLOPE] <= 1.0 for n in graph.nodes)
+
+
+def test_create_grid_elevation_in_range():
+    graph = create_grid(10, 10)
+    assert all(0.0 <= graph.nodes[n][ELEVATION] <= 1.0 for n in graph.nodes)
 
 
 def test_create_grid_reproducible():

@@ -2,9 +2,9 @@
 Wildfire landscape graph construction and management.
 
 This module defines the graph contract used throughout wildfireGP. A landscape is represented as a NetworkX grid graph
-where each node corresponds to a spatial patch and carries three attributes: state, fuel, and slope. Fire weather (wind
-and moisture) is stored as graph-level attributes, as these quantities are meteorologically driven and effectively
-uniform across the landscape at the scales we model.
+where each node corresponds to a spatial patch and carries four attributes: state, fuel, slope, and elevation. Fire
+weather (wind and moisture) is stored as graph-level attributes, as these quantities are meteorologically driven and
+effectively uniform across the landscape at the scales we model.
 
 Node attributes
 ---------------
@@ -18,6 +18,10 @@ fuel : float in [0, 1]
 slope : float in [0, 1]
     Terrain steepness normalised to [0, 1]. Fire spread rate increases with slope (Rothermel, 1972). Derived from a
     synthetic terrain heightmap via numpy.gradient; will use a real DEM when real data loading is added.
+elevation : float in [0, 1]
+    Relative terrain height normalised to [0, 1]. Useful as a GP terminal for deprioritising high-elevation nodes that
+    fire is unlikely to reach, and for identifying low-elevation basins where water collects. Synthetically generated
+    from the same heightmap as slope; will be derived from a DEM when real data loading is added.
 
 Graph-level attributes
 ----------------------
@@ -81,6 +85,7 @@ from scipy.ndimage import gaussian_filter
 STATE = "state"
 FUEL = "fuel"
 SLOPE = "slope"
+ELEVATION = "elevation"
 WIND_SPEED = "wind_speed"
 WIND_DIRECTION = "wind_direction"
 FUEL_MOISTURE = "fuel_moisture"
@@ -120,7 +125,7 @@ def create_grid(
     :param cell_size_m: Side length of each grid cell in metres. Stored as a graph attribute for use by the spread model
         and real data loaders. Default 100m matches Canadian FBP operational scale.
     :param seed: Random seed for reproducibility.
-    :return: Grid graph with STATE, FUEL, and SLOPE node attributes. Wind and moisture are not set.
+    :return: Grid graph with STATE, FUEL, SLOPE, and ELEVATION node attributes. Wind and moisture are not set.
     """
     rng = np.random.default_rng(seed)
     graph = nx.grid_2d_graph(rows, cols)
@@ -136,7 +141,7 @@ def create_grid(
         fuel_norm[slope_norm > 1.0 - rock_fraction] = 0.0
 
     graph.graph[CELL_SIZE] = cell_size_m
-    _attach_node_attributes(graph, fuel_norm, slope_norm)
+    _attach_node_attributes(graph, fuel_norm, slope_norm, terrain)
     return graph
 
 
@@ -172,11 +177,14 @@ def reset_states(graph: nx.Graph) -> None:
         graph.nodes[node][STATE] = NodeState.UNBURNED
 
 
-def _attach_node_attributes(graph: nx.Graph, fuel_array: np.ndarray, slope_array: np.ndarray) -> None:
+def _attach_node_attributes(
+    graph: nx.Graph, fuel_array: np.ndarray, slope_array: np.ndarray, elevation_array: np.ndarray
+) -> None:
     for i, j in graph.nodes:
         graph.nodes[(i, j)][STATE] = NodeState.UNBURNED
         graph.nodes[(i, j)][FUEL] = float(fuel_array[i, j])
         graph.nodes[(i, j)][SLOPE] = float(slope_array[i, j])
+        graph.nodes[(i, j)][ELEVATION] = float(elevation_array[i, j])
 
 
 def _normalize(array: np.ndarray) -> np.ndarray:
