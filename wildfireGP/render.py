@@ -9,14 +9,23 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
-from wildfireGP.network import ELEVATION, FUEL, STATE, TERRAIN, NodeState, TerrainType
+from wildfireGP.network import (
+    COLS,
+    ELEVATION,
+    FUEL,
+    ROWS,
+    STATE,
+    TERRAIN,
+    NodeState,
+    TerrainType,
+)
 
-_WATER = np.array([0.36, 0.61, 0.84])   # steel blue
-_ROCK = np.array([0.62, 0.62, 0.62])    # medium grey
-_BURNING = np.array([1.0, 0.40, 0.0])   # orange
+_WATER = np.array([0.36, 0.61, 0.84])  # steel blue
+_ROCK = np.array([0.62, 0.62, 0.62])  # medium grey
+_BURNING = np.array([1.0, 0.40, 0.0])  # orange
 _BURNED = np.array([0.16, 0.16, 0.16])  # charcoal
-_TREATED = np.array([0.61, 0.35, 0.71]) # purple
-_FUEL_CMAP = plt.cm.YlGn                # yellow-green -> dark-green by fuel load
+_TREATED = np.array([0.61, 0.35, 0.71])  # purple
+_FUEL_CMAP = plt.cm.YlGn  # yellow-green -> dark-green by fuel load
 
 
 def draw(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
@@ -37,16 +46,14 @@ def draw(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
     if ax is None:
         _, ax = plt.subplots()
 
-    ax.imshow(_build_rgb(graph, rows, cols), origin="upper")
-    ax.contour(elevation, levels=8, colors="white", alpha=0.6, linewidths=0.7, origin="upper")
+    ax.imshow(_build_rgb(graph, rows, cols))
+    ax.contour(elevation, levels=8, colors="white", alpha=0.5, linewidths=1.0)
     ax.set_axis_off()
     return ax
 
 
 def _grid_dims(graph: nx.Graph) -> tuple[int, int]:
-    rows = max(i for i, j in graph.nodes) + 1
-    cols = max(j for i, j in graph.nodes) + 1
-    return rows, cols
+    return graph.graph[ROWS], graph.graph[COLS]
 
 
 def _build_rgb(graph: nx.Graph, rows: int, cols: int) -> np.ndarray:
@@ -79,3 +86,24 @@ def _build_elevation(graph: nx.Graph, rows: int, cols: int) -> np.ndarray:
     for i, j in graph.nodes:
         elevation[i, j] = graph.nodes[(i, j)][ELEVATION]
     return elevation
+
+
+if __name__ == "__main__":
+    from wildfireGP.network import create_grid
+
+    graph = create_grid(100, 100, terrain_smoothing=10, fuel_smoothing=3, water_fraction=0.1, rock_fraction=0.1)
+
+    nodes = list(graph.nodes)
+    for n in nodes[100:115]:
+        graph.nodes[n]["state"] = NodeState.BURNING
+    for n in nodes[115:130]:
+        graph.nodes[n]["state"] = NodeState.BURNED
+    for n in nodes[130:145]:
+        graph.nodes[n]["state"] = NodeState.TREATED
+
+    fig, ax_map = plt.subplots(figsize=(8, 8))
+    draw(graph, ax=ax_map)
+
+    plt.tight_layout()
+    plt.savefig("draw_test.png", dpi=150)
+    print("saved draw_test.png")
