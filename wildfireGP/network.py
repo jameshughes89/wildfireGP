@@ -99,6 +99,7 @@ FUEL_MOISTURE = "fuel_moisture"
 CELL_SIZE = "cell_size_m"
 ROWS = "rows"
 COLS = "cols"
+BURN_TIMER = "burn_timer"
 
 
 class NodeState(enum.Enum):
@@ -202,6 +203,7 @@ def reset_states(graph: nx.Graph) -> None:
     """
     for node in graph.nodes:
         graph.nodes[node][STATE] = NodeState.UNBURNED
+        graph.nodes[node][BURN_TIMER] = 0
 
 
 def _attach_node_attributes(
@@ -213,6 +215,7 @@ def _attach_node_attributes(
 ) -> None:
     for i, j in graph.nodes:
         graph.nodes[(i, j)][STATE] = NodeState.UNBURNED
+        graph.nodes[(i, j)][BURN_TIMER] = 0
         graph.nodes[(i, j)][TERRAIN] = terrain_type_array[i, j]
         graph.nodes[(i, j)][FUEL] = float(fuel_array[i, j])
         graph.nodes[(i, j)][SLOPE] = float(slope_array[i, j])
