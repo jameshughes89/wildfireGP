@@ -10,11 +10,9 @@ from wildfireGP.network import (
     FUEL_MOISTURE,
     SLOPE,
     STATE,
-    TERRAIN,
     WIND_DIRECTION,
     WIND_SPEED,
     NodeState,
-    TerrainType,
     create_grid,
     set_fuel_moisture,
     set_wind,
@@ -27,13 +25,10 @@ from wildfireGP.features import (
     elevation,
     fuel_level,
     fuel_moisture,
-    is_burnable,
     is_burned,
     is_burning,
-    is_rock,
     is_treated,
     is_unburned,
-    is_water,
     slope,
     unburned_neighbor_count,
     wind_direction,
@@ -70,16 +65,8 @@ def test_fuel_level_returns_node_fuel():
     assert fuel_level(g, _NODE) == g.nodes[_NODE][FUEL]
 
 
-def test_fuel_level_is_zero_for_water():
+def test_fuel_level_is_zero_when_set_to_zero():
     g = _graph()
-    g.nodes[_NODE][TERRAIN] = TerrainType.WATER
-    g.nodes[_NODE][FUEL] = 0.0
-    assert fuel_level(g, _NODE) == 0.0
-
-
-def test_fuel_level_is_zero_for_rock():
-    g = _graph()
-    g.nodes[_NODE][TERRAIN] = TerrainType.ROCK
     g.nodes[_NODE][FUEL] = 0.0
     assert fuel_level(g, _NODE) == 0.0
 
@@ -93,47 +80,6 @@ def test_slope_returns_node_slope():
     g = _graph()
     assert slope(g, _NODE) == g.nodes[_NODE][SLOPE]
 
-
-def test_is_water_true_for_water_terrain():
-    g = _graph()
-    g.nodes[_NODE][TERRAIN] = TerrainType.WATER
-    assert is_water(g, _NODE)
-
-
-def test_is_water_false_for_land():
-    g = _graph()
-    g.nodes[_NODE][TERRAIN] = TerrainType.LAND
-    assert not is_water(g, _NODE)
-
-
-def test_is_rock_true_for_rock_terrain():
-    g = _graph()
-    g.nodes[_NODE][TERRAIN] = TerrainType.ROCK
-    assert is_rock(g, _NODE)
-
-
-def test_is_rock_false_for_land():
-    g = _graph()
-    g.nodes[_NODE][TERRAIN] = TerrainType.LAND
-    assert not is_rock(g, _NODE)
-
-
-def test_is_burnable_true_for_land():
-    g = _graph()
-    g.nodes[_NODE][TERRAIN] = TerrainType.LAND
-    assert is_burnable(g, _NODE)
-
-
-def test_is_burnable_false_for_water():
-    g = _graph()
-    g.nodes[_NODE][TERRAIN] = TerrainType.WATER
-    assert not is_burnable(g, _NODE)
-
-
-def test_is_burnable_false_for_rock():
-    g = _graph()
-    g.nodes[_NODE][TERRAIN] = TerrainType.ROCK
-    assert not is_burnable(g, _NODE)
 
 
 # ---------------------------------------------------------------------------

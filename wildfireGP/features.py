@@ -1,9 +1,8 @@
 """
 Per-node and graph-level feature functions for the GP language.
 
-All per-node functions take (graph, node) and return a scalar. Graph-level functions take (graph,) only. These are the
-sole building blocks wired into the DEAP primitive set in language.py — every value the GP language can read about the
-world comes through one of these functions, even when the implementation is a direct attribute lookup.
+These are the sole building blocks wired into the DEAP primitive set in language.py --- every value the GP language can
+read about the world comes through one of these functions, even when the implementation is a direct attribute lookup.
 """
 
 import math
@@ -17,11 +16,9 @@ from wildfireGP.network import (
     FUEL_MOISTURE,
     SLOPE,
     STATE,
-    TERRAIN,
     WIND_DIRECTION,
     WIND_SPEED,
     NodeState,
-    TerrainType,
 )
 from wildfireGP.spread import MAX_BURN_STEPS
 
@@ -45,20 +42,6 @@ def slope(graph: nx.Graph, node: tuple) -> float:
     return graph.nodes[node][SLOPE]
 
 
-def is_water(graph: nx.Graph, node: tuple) -> bool:
-    """True if the node is a water body (non-burnable, fuel=0)."""
-    return graph.nodes[node][TERRAIN] == TerrainType.WATER
-
-
-def is_rock(graph: nx.Graph, node: tuple) -> bool:
-    """True if the node is a rocky cliff (non-burnable, fuel=0)."""
-    return graph.nodes[node][TERRAIN] == TerrainType.ROCK
-
-
-def is_burnable(graph: nx.Graph, node: tuple) -> bool:
-    """True if the node is land (not water or rock)."""
-    return graph.nodes[node][TERRAIN] == TerrainType.LAND
-
 
 # ---------------------------------------------------------------------------
 # Fire state
@@ -81,7 +64,6 @@ def is_treated(graph: nx.Graph, node: tuple) -> bool:
 
 
 def burn_duration(graph: nx.Graph, node: tuple) -> int:
-    """Steps elapsed since ignition. 0 for nodes that are not currently burning."""
     if graph.nodes[node][STATE] != NodeState.BURNING:
         return 0
     initial = max(1, math.ceil(graph.nodes[node][FUEL] * MAX_BURN_STEPS))
