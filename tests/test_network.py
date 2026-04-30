@@ -1,5 +1,4 @@
 from wildfireGP.network import (
-    BURN_TIMER,
     CELL_SIZE,
     COLS,
     ELEVATION,
@@ -147,11 +146,6 @@ def test_set_fuel_moisture_stores_value_on_graph():
     assert graph.graph[FUEL_MOISTURE] == 0.25
 
 
-def test_create_grid_default_burn_timer_is_zero():
-    graph = create_grid(3, 3)
-    assert all(graph.nodes[n][BURN_TIMER] == 0 for n in graph.nodes)
-
-
 def test_reset_states_all_nodes_become_unburned():
     graph = create_grid(3, 3)
     nodes = list(graph.nodes)
@@ -160,12 +154,3 @@ def test_reset_states_all_nodes_become_unburned():
     graph.nodes[nodes[2]][STATE] = NodeState.TREATED
     reset_states(graph)
     assert all(graph.nodes[n][STATE] == NodeState.UNBURNED for n in graph.nodes)
-
-
-def test_reset_states_all_burn_timers_return_to_zero():
-    graph = create_grid(3, 3)
-    nodes = list(graph.nodes)
-    graph.nodes[nodes[0]][BURN_TIMER] = 3
-    graph.nodes[nodes[1]][BURN_TIMER] = 7
-    reset_states(graph)
-    assert all(graph.nodes[n][BURN_TIMER] == 0 for n in graph.nodes)

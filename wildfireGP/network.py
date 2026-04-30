@@ -1,20 +1,16 @@
 """
 Wildfire landscape graph construction and management.
 
-A landscape is represented as a NetworkX grid graph where each node corresponds to a spatial patch and carries six
-attributes: state, burn_timer, terrain, fuel, slope, and elevation. Fire weather (wind and moisture) is stored as
-graph-level attributes, as these quantities are meteorologically driven and effectively uniform across the landscape at
-the scales we model.
+A landscape is represented as a NetworkX grid graph where each node corresponds to a spatial patch and carries five
+attributes: state, terrain, fuel, slope, and elevation. Fire weather (wind and moisture) is stored as graph-level
+attributes, as these quantities are meteorologically driven and effectively uniform across the landscape at the scales
+we model.
 
 Node attributes
 ---------------
 state : NodeState
     Dynamic fire state of the patch (UNBURNED, BURNING, BURNED, or TREATED). Initialised to UNBURNED; modified by the
     spread simulation.
-burn_timer : int >= 0
-    Remaining timesteps the node will continue burning. Set to ceil(fuel * MAX_BURN_STEPS) when a node ignites;
-    decremented each timestep; transition to BURNED occurs when it reaches zero. Initialised to 0 for all nodes. Exposed
-    as a node attribute so GP terminals can read burn progress directly.
 terrain : TerrainType
     Physical terrain category: LAND (burnable), WATER (low-elevation basin), or ROCK (steep slope). WATER and ROCK nodes
     have fuel=0 and are non-burnable. Stored explicitly so the spread model and GP terminals can distinguish terrain
@@ -103,7 +99,6 @@ FUEL_MOISTURE = "fuel_moisture"
 CELL_SIZE = "cell_size_m"
 ROWS = "rows"
 COLS = "cols"
-BURN_TIMER = "burn_timer"
 
 
 class NodeState(enum.Enum):
@@ -207,7 +202,6 @@ def reset_states(graph: nx.Graph) -> None:
     """
     for node in graph.nodes:
         graph.nodes[node][STATE] = NodeState.UNBURNED
-        graph.nodes[node][BURN_TIMER] = 0
 
 
 def _attach_node_attributes(
@@ -219,7 +213,6 @@ def _attach_node_attributes(
 ) -> None:
     for i, j in graph.nodes:
         graph.nodes[(i, j)][STATE] = NodeState.UNBURNED
-        graph.nodes[(i, j)][BURN_TIMER] = 0
         graph.nodes[(i, j)][TERRAIN] = terrain_type_array[i, j]
         graph.nodes[(i, j)][FUEL] = float(fuel_array[i, j])
         graph.nodes[(i, j)][SLOPE] = float(slope_array[i, j])
