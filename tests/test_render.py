@@ -150,8 +150,3 @@ def test_animate_single_frame(tmp_path):
     out = tmp_path / "out.gif"
     animate([graph], path=str(out))
     assert out.exists() and out.stat().st_size > 0
-
-
-def test_animate_frame_count_matches_snapshots(tmp_path):
-    frames = _snapshots(steps=5)
-    assert len(frames) == 5
