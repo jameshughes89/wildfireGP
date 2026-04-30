@@ -1,13 +1,19 @@
+import math
+
 import matplotlib.pyplot as plt
 import numpy as np
 
 from wildfireGP.network import (
+    BURN_TIMER,
     ELEVATION,
+    FUEL,
     STATE,
     TERRAIN,
     NodeState,
     TerrainType,
     create_grid,
+    set_fuel_moisture,
+    set_wind,
 )
 from wildfireGP.render import (
     _BURNED,
@@ -17,8 +23,10 @@ from wildfireGP.render import (
     _WATER,
     _build_elevation,
     _build_rgb,
+    animate,
     draw,
 )
+from wildfireGP.spread import MAX_BURN_STEPS
 
 _NODE = (1, 1)
 
@@ -107,3 +115,47 @@ def test_build_elevation_values_match_node_elevation_attributes():
     graph = create_grid(3, 3, seed=0)
     elevation = _build_elevation(graph, 3, 3)
     assert all(elevation[i, j] == graph.nodes[(i, j)][ELEVATION] for i, j in graph.nodes)
+
+
+def _burning_graph(seed=0):
+    graph = create_grid(5, 5, seed=seed)
+    set_wind(graph, speed=20.0, direction=0.0)
+    set_fuel_moisture(graph, moisture=0.1)
+    node = (2, 2)
+    graph.nodes[node][STATE] = NodeState.BURNING
+    graph.nodes[node][BURN_TIMER] = max(1, math.ceil(graph.nodes[node][FUEL] * MAX_BURN_STEPS))
+    return graph
+
+
+def test_animate_creates_gif(tmp_path):
+    out = tmp_path / "out.gif"
+    rng = np.random.default_rng(0)
+    animate(_burning_graph(), steps=3, rng=rng, path=str(out))
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_animate_does_not_leave_open_figures(tmp_path):
+    before = len(plt.get_fignums())
+    rng = np.random.default_rng(0)
+    animate(_burning_graph(), steps=3, rng=rng, path=str(tmp_path / "out.gif"))
+    assert len(plt.get_fignums()) == before
+
+
+def test_animate_advances_simulation(tmp_path):
+    graph = _burning_graph(seed=1)
+    rng = np.random.default_rng(1)
+    animate(graph, steps=5, rng=rng, path=str(tmp_path / "out.gif"))
+    states = [graph.nodes[n][STATE] for n in graph.nodes]
+    assert NodeState.BURNED in states or NodeState.BURNING in states
+
+
+def test_animate_stops_early_when_fire_extinguished(tmp_path):
+    graph = create_grid(3, 3, seed=0)
+    set_wind(graph, speed=0.0, direction=0.0)
+    set_fuel_moisture(graph, moisture=1.0)
+    node = (1, 1)
+    graph.nodes[node][STATE] = NodeState.BURNING
+    graph.nodes[node][BURN_TIMER] = 1
+    rng = np.random.default_rng(0)
+    animate(graph, steps=20, rng=rng, path=str(tmp_path / "out.gif"))
+    assert (tmp_path / "out.gif").exists()
