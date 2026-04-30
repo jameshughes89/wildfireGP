@@ -5,8 +5,6 @@ These are the sole building blocks wired into the DEAP primitive set in language
 read about the world comes through one of these functions, even when the implementation is a direct attribute lookup.
 """
 
-import math
-
 import networkx as nx
 
 from wildfireGP.network import (
@@ -20,7 +18,6 @@ from wildfireGP.network import (
     WIND_SPEED,
     NodeState,
 )
-from wildfireGP.spread import MAX_BURN_STEPS
 
 
 # ---------------------------------------------------------------------------
@@ -63,11 +60,8 @@ def is_treated(graph: nx.Graph, node: tuple) -> bool:
     return graph.nodes[node][STATE] == NodeState.TREATED
 
 
-def burn_duration(graph: nx.Graph, node: tuple) -> int:
-    if graph.nodes[node][STATE] != NodeState.BURNING:
-        return 0
-    initial = max(1, math.ceil(graph.nodes[node][FUEL] * MAX_BURN_STEPS))
-    return initial - graph.nodes[node][BURN_TIMER]
+def burn_steps_remaining(graph: nx.Graph, node: tuple) -> int:
+    return graph.nodes[node][BURN_TIMER]
 
 
 # ---------------------------------------------------------------------------

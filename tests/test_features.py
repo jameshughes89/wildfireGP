@@ -1,7 +1,4 @@
-import math
-
 import networkx as nx
-import pytest
 
 from wildfireGP.network import (
     BURN_TIMER,
@@ -18,7 +15,7 @@ from wildfireGP.network import (
     set_wind,
 )
 from wildfireGP.features import (
-    burn_duration,
+    burn_steps_remaining,
     burned_neighbor_count,
     burning_neighbor_count,
     distance_to_fire,
@@ -34,7 +31,6 @@ from wildfireGP.features import (
     wind_direction,
     wind_speed,
 )
-from wildfireGP.spread import MAX_BURN_STEPS
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -114,33 +110,25 @@ def test_is_treated_true_when_treated():
     assert is_treated(g, _NODE)
 
 
-def test_burn_duration_zero_for_unburned():
+def test_burn_steps_remaining_zero_for_unburned():
     g = _graph()
-    assert burn_duration(g, _NODE) == 0
+    assert burn_steps_remaining(g, _NODE) == 0
 
 
-def test_burn_duration_zero_for_burned():
+def test_burn_steps_remaining_returns_burn_timer():
     g = _graph()
-    g.nodes[_NODE][STATE] = NodeState.BURNED
-    assert burn_duration(g, _NODE) == 0
-
-
-def test_burn_duration_zero_at_moment_of_ignition():
-    g = _graph()
-    g.nodes[_NODE][FUEL] = 0.8
-    initial = max(1, math.ceil(0.8 * MAX_BURN_STEPS))
     g.nodes[_NODE][STATE] = NodeState.BURNING
-    g.nodes[_NODE][BURN_TIMER] = initial
-    assert burn_duration(g, _NODE) == 0
+    g.nodes[_NODE][BURN_TIMER] = 3
+    assert burn_steps_remaining(g, _NODE) == 3
 
 
-def test_burn_duration_increments_as_timer_decrements():
+def test_burn_steps_remaining_decreases_as_fire_progresses():
     g = _graph()
-    g.nodes[_NODE][FUEL] = 0.8
-    initial = max(1, math.ceil(0.8 * MAX_BURN_STEPS))
     g.nodes[_NODE][STATE] = NodeState.BURNING
-    g.nodes[_NODE][BURN_TIMER] = initial - 2
-    assert burn_duration(g, _NODE) == 2
+    g.nodes[_NODE][BURN_TIMER] = 4
+    assert burn_steps_remaining(g, _NODE) > 0
+    g.nodes[_NODE][BURN_TIMER] = 1
+    assert burn_steps_remaining(g, _NODE) == 1
 
 
 # ---------------------------------------------------------------------------
