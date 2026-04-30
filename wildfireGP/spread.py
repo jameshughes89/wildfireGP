@@ -1,9 +1,16 @@
 """
 Probabilistic wildfire spread model as a cellular automaton on a NetworkX grid graph.
 
-Each timestep, every BURNING node attempts to ignite each UNBURNED neighbour, then immediately transitions to BURNED.
-WATER, ROCK, and TREATED nodes are non-burnable and are never ignited. This matches the single-timestep burn duration
-used by Alexandridis et al. (2008).
+Each timestep, every BURNING node attempts to ignite each UNBURNED neighbour, then decrements its burn timer.
+When the timer reaches zero the node transitions to BURNED. WATER, ROCK, and TREATED nodes are non-burnable and are
+never ignited.
+
+Alexandridis et al. (2008) use single-timestep burn duration, which is physically reasonable at their 5x5m cell size
+where a small vegetation patch is consumed quickly. At a 100x100m cell size a single cell represents a hectare of forest
+that in reality burns for hours or days, continuously threatening its neighbours throughout. Collapsing that to one
+timestep would make high-fuel and low-fuel cells indistinguishable in burn duration. We therefore use a burn timer
+proportional to fuel load: burn_timer = ceil(fuel * MAX_BURN_STEPS) on ignition, so denser fuel burns longer and has
+more opportunities to ignite neighbours.
 
 Spread probability
 ------------------
@@ -38,17 +45,16 @@ Slope factor (Alexandridis et al., 2008):
 
 Scale and timestep
 ------------------
-Alexandridis et al. (2008) use 5x5m cells. This model targets 100x100m cells, representing a 25 km² landscape at
-50x50 nodes — consistent with initial attack resource allocation decisions. Spotting (long-range ember transport) is
-present in the original paper, where skipping 3-4 cells represents a realistic 15-20m ember carry. At 100m resolution
-the same physical phenomenon falls within a single cell and is implicitly captured by the ignition probability, so a
-separate spotting sub-model is not warranted.
+Alexandridis et al. (2008) use 5x5m cells. This model targets 100x100m cells. Spotting (long-range ember transport) is
+present in the original paper, where skipping several cells corresponds to tens of meters, occasionally up to ~100m. At
+100m resolution the same physical phenomenon falls within a single cell or within an adjacent cell, and is implicitly
+captured by the ignition probability, so a separate spotting sub-model is not warranted.
 
 The constants c1, c2, and a_s were calibrated at 5x5m resolution and bundle together physical spread rate, cell size,
 and timestep duration into a single value. At 100m cells, one timestep implicitly represents a proportionally longer
-real-world duration — the ignition probabilities and directional sensitivities remain valid, but the model makes no
-claim about the wall-clock duration of a timestep. This is consistent with using the simulator to rank GP allocation
-strategies against each other rather than to reproduce physically accurate spread rates.
+real-world duration --- the functional form of the ignition probabilities and directional sensitivities remains valid,
+but the model makes no claim about the wall-clock duration of a timestep. This is consistent with using the simulator to
+rank GP allocation strategies against each other rather than to reproduce physically accurate spread rates.
 
 Wind and moisture must be set on the graph before calling spread_step. Raises KeyError if either is missing.
 
@@ -66,6 +72,7 @@ import math
 import numpy as np
 
 from wildfireGP.network import (
+    BURN_TIMER,
     CELL_SIZE,
     ELEVATION,
     FUEL,
@@ -78,6 +85,8 @@ from wildfireGP.network import (
     TerrainType,
 )
 
+MAX_BURN_STEPS = 5
+
 _C1 = 0.045   # Alexandridis et al. (2008): downwind amplification coefficient
 _C2 = 0.131   # Alexandridis et al. (2008): directional sensitivity coefficient
 _A_S = 0.078  # Alexandridis et al. (2008): slope sensitivity coefficient
@@ -88,7 +97,8 @@ def spread_step(graph, rng: np.random.Generator) -> None:
     """
     Advance the fire simulation by one timestep.
 
-    Each BURNING node attempts to ignite each UNBURNED neighbour, then transitions to BURNED.
+    Each BURNING node attempts to ignite each UNBURNED neighbour, then decrements its burn timer.
+    When the timer reaches zero the node transitions to BURNED.
 
     :param graph: Landscape graph with WIND_SPEED, WIND_DIRECTION, and FUEL_MOISTURE set as graph-level attributes.
     :param rng: NumPy random generator for reproducible stochastic ignition.
@@ -115,11 +125,15 @@ def spread_step(graph, rng: np.random.Generator) -> None:
             if rng.random() < p:
                 to_ignite.append(neighbour)
 
-        to_burn_out.append(node)
+        graph.nodes[node][BURN_TIMER] -= 1
+        if graph.nodes[node][BURN_TIMER] <= 0:
+            to_burn_out.append(node)
 
     for node in to_ignite:
         if graph.nodes[node][STATE] == NodeState.UNBURNED:
             graph.nodes[node][STATE] = NodeState.BURNING
+            fuel = graph.nodes[node][FUEL]
+            graph.nodes[node][BURN_TIMER] = max(1, math.ceil(fuel * MAX_BURN_STEPS))
 
     for node in to_burn_out:
         graph.nodes[node][STATE] = NodeState.BURNED

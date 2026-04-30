@@ -1,7 +1,10 @@
+import math
+
 import numpy as np
 import pytest
 
 from wildfireGP.network import (
+    BURN_TIMER,
     ELEVATION,
     FUEL,
     STATE,
@@ -12,7 +15,7 @@ from wildfireGP.network import (
     set_fuel_moisture,
     set_wind,
 )
-from wildfireGP.spread import ignition_probability, spread_step
+from wildfireGP.spread import MAX_BURN_STEPS, ignition_probability, spread_step
 
 
 def _setup(rows=5, cols=5, seed=0, wind_speed=20.0, wind_dir=0.0, moisture=0.2):
@@ -36,12 +39,37 @@ def test_spread_step_missing_moisture_raises():
         spread_step(graph, np.random.default_rng(0))
 
 
-def test_spread_step_burning_node_transitions_to_burned_after_one_step():
+def test_spread_step_burning_node_with_timer_one_transitions_to_burned():
     graph = _setup()
     node = (2, 2)
     graph.nodes[node][STATE] = NodeState.BURNING
+    graph.nodes[node][BURN_TIMER] = 1
     spread_step(graph, np.random.default_rng(0))
     assert graph.nodes[node][STATE] == NodeState.BURNED
+
+
+def test_spread_step_burning_node_decrements_timer():
+    graph = _setup()
+    node = (2, 2)
+    graph.nodes[node][STATE] = NodeState.BURNING
+    graph.nodes[node][BURN_TIMER] = 3
+    spread_step(graph, np.random.default_rng(0))
+    assert graph.nodes[node][BURN_TIMER] == 2
+    assert graph.nodes[node][STATE] == NodeState.BURNING
+
+
+def test_spread_step_ignited_node_burn_timer_set_from_fuel():
+    graph = _setup(moisture=0.0, wind_speed=0.0)
+    src = (2, 2)
+    dst = (2, 3)
+    graph.nodes[src][STATE] = NodeState.BURNING
+    graph.nodes[src][BURN_TIMER] = 1
+    graph.nodes[dst][FUEL] = 0.8
+    graph.nodes[dst][TERRAIN] = TerrainType.LAND
+    spread_step(graph, np.random.default_rng(0))
+    if graph.nodes[dst][STATE] == NodeState.BURNING:
+        expected = max(1, math.ceil(0.8 * MAX_BURN_STEPS))
+        assert graph.nodes[dst][BURN_TIMER] == expected
 
 
 def test_spread_step_no_burning_nodes_leaves_graph_unchanged():

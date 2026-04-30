@@ -1,16 +1,20 @@
 """
 Wildfire landscape graph construction and management.
 
-A landscape is represented as a NetworkX grid graph where each node corresponds to a spatial patch and carries five
-attributes: state, terrain, fuel, slope, and elevation. Fire weather (wind and moisture) is stored as graph-level
-attributes, as these quantities are meteorologically driven and effectively uniform across the landscape at the scales
-we model.
+A landscape is represented as a NetworkX grid graph where each node corresponds to a spatial patch and carries six
+attributes: state, burn_timer, terrain, fuel, slope, and elevation. Fire weather (wind and moisture) is stored as
+graph-level attributes, as these quantities are meteorologically driven and effectively uniform across the landscape at
+the scales we model.
 
 Node attributes
 ---------------
 state : NodeState
     Dynamic fire state of the patch (UNBURNED, BURNING, BURNED, or TREATED). Initialised to UNBURNED; modified by the
     spread simulation.
+burn_timer : int >= 0
+    Remaining timesteps the node will continue burning. Set to ceil(fuel * MAX_BURN_STEPS) on ignition; decremented
+    each timestep; node transitions to BURNED when it reaches zero. Initialised to 0 for all nodes. Readable by GP
+    terminals as a measure of remaining fire intensity at a node.
 terrain : TerrainType
     Physical terrain category: LAND (burnable), WATER (low-elevation basin), or ROCK (steep slope). WATER and ROCK nodes
     have fuel=0 and are non-burnable. Stored explicitly so the spread model and GP terminals can distinguish terrain
@@ -36,7 +40,7 @@ cell_size_m : float
     is loaded, this should be set from the raster metadata.
 wind_speed : float
     Wind speed in km/h. Wind is the dominant driver of fire spread direction and rate (Rothermel, 1972). Modelled as a
-    uniform field - per-node variation would require meteorological downscaling data not generally available at the
+    uniform field --- per-node variation would require meteorological downscaling data not generally available at the
     resolution we operate at.
 wind_direction : float
     Wind direction in degrees (0 = north, clockwise). Uniform across the landscape. Degrees picked for matching real
@@ -99,6 +103,7 @@ FUEL_MOISTURE = "fuel_moisture"
 CELL_SIZE = "cell_size_m"
 ROWS = "rows"
 COLS = "cols"
+BURN_TIMER = "burn_timer"
 
 
 class NodeState(enum.Enum):
@@ -202,6 +207,7 @@ def reset_states(graph: nx.Graph) -> None:
     """
     for node in graph.nodes:
         graph.nodes[node][STATE] = NodeState.UNBURNED
+        graph.nodes[node][BURN_TIMER] = 0
 
 
 def _attach_node_attributes(
@@ -213,6 +219,7 @@ def _attach_node_attributes(
 ) -> None:
     for i, j in graph.nodes:
         graph.nodes[(i, j)][STATE] = NodeState.UNBURNED
+        graph.nodes[(i, j)][BURN_TIMER] = 0
         graph.nodes[(i, j)][TERRAIN] = terrain_type_array[i, j]
         graph.nodes[(i, j)][FUEL] = float(fuel_array[i, j])
         graph.nodes[(i, j)][SLOPE] = float(slope_array[i, j])
