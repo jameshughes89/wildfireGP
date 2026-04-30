@@ -8,6 +8,7 @@ non-UNBURNED nodes. Elevation contour lines are overlaid to give terrain context
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+from matplotlib.animation import FuncAnimation
 
 from wildfireGP.network import (
     COLS,
@@ -52,6 +53,36 @@ def draw(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
     return ax
 
 
+def animate(graph: nx.Graph, steps: int, rng: np.random.Generator, path: str, fps: int = 4) -> None:
+    """
+    Run the fire spread simulation and save an animation.
+
+    Advances the simulation one timestep per frame, stopping early if fire goes out. The graph is modified in place.
+
+    :param graph: Landscape graph with WIND_SPEED, WIND_DIRECTION, and FUEL_MOISTURE set, and at least one BURNING node.
+    :param steps: Maximum number of timesteps (frames) to render.
+    :param rng: NumPy random generator for the spread model.
+    :param path: Output file path. Extension determines format (.gif, .mp4).
+    :param fps: Frames per second. Default 4.
+    """
+    from wildfireGP.spread import spread_step
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    step_counter = [0]
+
+    def update(_frame: int) -> None:
+        ax.clear()
+        draw(graph, ax=ax)
+        ax.set_title(f"Step {step_counter[0]}")
+        step_counter[0] += 1
+        if any(graph.nodes[n][STATE] == NodeState.BURNING for n in graph.nodes):
+            spread_step(graph, rng)
+
+    anim = FuncAnimation(fig, update, frames=steps, interval=1000 // fps)
+    anim.save(path, writer="pillow", fps=fps)
+    plt.close(fig)
+
+
 def _grid_dims(graph: nx.Graph) -> tuple[int, int]:
     return graph.graph[ROWS], graph.graph[COLS]
 
@@ -89,21 +120,31 @@ def _build_elevation(graph: nx.Graph, rows: int, cols: int) -> np.ndarray:
 
 
 if __name__ == "__main__":
-    from wildfireGP.network import create_grid
+    import math
 
-    graph = create_grid(100, 100, terrain_smoothing=10, fuel_smoothing=3, water_fraction=0.1, rock_fraction=0.1)
+    from wildfireGP.network import NodeState, create_grid, set_fuel_moisture, set_wind
+    from wildfireGP.spread import MAX_BURN_STEPS, BURN_TIMER
 
-    nodes = list(graph.nodes)
-    for n in nodes[100:115]:
-        graph.nodes[n]["state"] = NodeState.BURNING
-    for n in nodes[115:130]:
-        graph.nodes[n]["state"] = NodeState.BURNED
-    for n in nodes[130:145]:
-        graph.nodes[n]["state"] = NodeState.TREATED
+    graph = create_grid(50, 50, terrain_smoothing=10, fuel_smoothing=3, water_fraction=0.05, rock_fraction=0.05, seed=42)
+    set_wind(graph, speed=20.0, direction=45.0)
+    set_fuel_moisture(graph, moisture=0.1)
+
+    ignition_node = (25, 25)
+    graph.nodes[ignition_node][STATE] = NodeState.BURNING
+    graph.nodes[ignition_node][BURN_TIMER] = max(1, math.ceil(graph.nodes[ignition_node][FUEL] * MAX_BURN_STEPS))
 
     fig, ax_map = plt.subplots(figsize=(8, 8))
     draw(graph, ax=ax_map)
-
     plt.tight_layout()
     plt.savefig("draw_test.png", dpi=150)
     print("saved draw_test.png")
+
+    graph2 = create_grid(50, 50, terrain_smoothing=10, fuel_smoothing=3, water_fraction=0.05, rock_fraction=0.05, seed=42)
+    set_wind(graph2, speed=20.0, direction=45.0)
+    set_fuel_moisture(graph2, moisture=0.1)
+    graph2.nodes[ignition_node][STATE] = NodeState.BURNING
+    graph2.nodes[ignition_node][BURN_TIMER] = max(1, math.ceil(graph2.nodes[ignition_node][FUEL] * MAX_BURN_STEPS))
+
+    rng = np.random.default_rng(42)
+    animate(graph2, steps=40, rng=rng, path="spread_animation.gif", fps=4)
+    print("saved spread_animation.gif")
