@@ -184,3 +184,28 @@ def _ignition_probability(graph, src: tuple, dst: tuple, wind_speed_ms: float, w
 
     p = fuel * (1.0 - moisture) * p_wind * p_slope
     return min(1.0, max(0.0, p))
+
+
+if __name__ == "__main__":
+    from wildfireGP.network import NodeState, create_grid, set_fuel_moisture, set_wind
+
+    rng = np.random.default_rng(42)
+    graph = create_grid(50, 50, terrain_smoothing=10, fuel_smoothing=3, water_fraction=0.05, rock_fraction=0.05, seed=42)
+    set_wind(graph, speed=20.0, direction=45.0)
+    set_fuel_moisture(graph, moisture=0.1)
+
+    ignition_node = (25, 25)
+    graph.nodes[ignition_node][STATE] = NodeState.BURNING
+    graph.nodes[ignition_node][BURN_TIMER] = max(1, math.ceil(graph.nodes[ignition_node][FUEL] * MAX_BURN_STEPS))
+
+    print(f"{'Step':>4}  {'Burning':>8}  {'Burned':>8}  {'Unburned':>9}")
+    for step in range(30):
+        burning = sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING)
+        burned = sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNED)
+        unburned = sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.UNBURNED)
+        print(f"{step:>4}  {burning:>8}  {burned:>8}  {unburned:>9}")
+        if burning == 0:
+            break
+        spread_step(graph, rng)
+
+    print("done")
