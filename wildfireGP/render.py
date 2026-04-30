@@ -53,32 +53,25 @@ def draw(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
     return ax
 
 
-def animate(graph: nx.Graph, steps: int, rng: np.random.Generator, path: str, fps: int = 4) -> None:
+def animate(graphs: list[nx.Graph], path: str, fps: int = 4) -> None:
     """
-    Run the fire spread simulation and save an animation.
+    Save an animation from a sequence of landscape graph snapshots.
 
-    Advances the simulation one timestep per frame, stopping early if fire goes out. The graph is modified in place.
+    Each graph in the sequence is rendered as one frame using draw(). The caller is responsible for running the
+    simulation and collecting snapshots (e.g. via copy.deepcopy after each spread_step call).
 
-    :param graph: Landscape graph with WIND_SPEED, WIND_DIRECTION, and FUEL_MOISTURE set, and at least one BURNING node.
-    :param steps: Maximum number of timesteps (frames) to render.
-    :param rng: NumPy random generator for the spread model.
+    :param graphs: Ordered list of graph snapshots, one per frame.
     :param path: Output file path. Extension determines format (.gif, .mp4).
     :param fps: Frames per second. Default 4.
     """
-    from wildfireGP.spread import spread_step
-
     fig, ax = plt.subplots(figsize=(8, 8))
-    step_counter = [0]
 
-    def update(_frame: int) -> None:
+    def update(frame: int) -> None:
         ax.clear()
-        draw(graph, ax=ax)
-        ax.set_title(f"Step {step_counter[0]}")
-        step_counter[0] += 1
-        if any(graph.nodes[n][STATE] == NodeState.BURNING for n in graph.nodes):
-            spread_step(graph, rng)
+        draw(graphs[frame], ax=ax)
+        ax.set_title(f"Step {frame}")
 
-    anim = FuncAnimation(fig, update, frames=steps, interval=1000 // fps)
+    anim = FuncAnimation(fig, update, frames=len(graphs), interval=1000 // fps)
     anim.save(path, writer="pillow", fps=fps)
     plt.close(fig)
 
@@ -120,10 +113,11 @@ def _build_elevation(graph: nx.Graph, rows: int, cols: int) -> np.ndarray:
 
 
 if __name__ == "__main__":
+    import copy
     import math
 
     from wildfireGP.network import NodeState, create_grid, set_fuel_moisture, set_wind
-    from wildfireGP.spread import MAX_BURN_STEPS, BURN_TIMER
+    from wildfireGP.spread import BURN_TIMER, MAX_BURN_STEPS, spread_step
 
     graph = create_grid(50, 50, terrain_smoothing=10, fuel_smoothing=3, water_fraction=0.05, rock_fraction=0.05, seed=42)
     set_wind(graph, speed=20.0, direction=45.0)
@@ -139,12 +133,13 @@ if __name__ == "__main__":
     plt.savefig("draw_test.png", dpi=150)
     print("saved draw_test.png")
 
-    graph2 = create_grid(50, 50, terrain_smoothing=10, fuel_smoothing=3, water_fraction=0.05, rock_fraction=0.05, seed=42)
-    set_wind(graph2, speed=20.0, direction=45.0)
-    set_fuel_moisture(graph2, moisture=0.1)
-    graph2.nodes[ignition_node][STATE] = NodeState.BURNING
-    graph2.nodes[ignition_node][BURN_TIMER] = max(1, math.ceil(graph2.nodes[ignition_node][FUEL] * MAX_BURN_STEPS))
-
     rng = np.random.default_rng(42)
-    animate(graph2, steps=40, rng=rng, path="spread_animation.gif", fps=4)
+    snapshots = [copy.deepcopy(graph)]
+    for _ in range(39):
+        if not any(graph.nodes[n][STATE] == NodeState.BURNING for n in graph.nodes):
+            break
+        spread_step(graph, rng)
+        snapshots.append(copy.deepcopy(graph))
+
+    animate(snapshots, path="spread_animation.gif", fps=4)
     print("saved spread_animation.gif")
