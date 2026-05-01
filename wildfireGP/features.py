@@ -40,13 +40,33 @@ def slope(graph: nx.Graph, node: tuple) -> float:
     return graph.nodes[node][SLOPE]
 
 
+def mean_neighbour_elevation(graph: nx.Graph, node: tuple) -> float:
+    neighbours = list(graph.neighbors(node))
+    return sum(graph.nodes[n][ELEVATION] for n in neighbours) / len(neighbours)
+
+
 # ---------------------------------------------------------------------------
 # Neighbourhood
 # ---------------------------------------------------------------------------
 
 
+def mean_neighbour_fuel(graph: nx.Graph, node: tuple) -> float:
+    neighbours = list(graph.neighbors(node))
+    return sum(graph.nodes[n][FUEL] for n in neighbours) / len(neighbours)
+
+
 def burning_neighbour_count(graph: nx.Graph, node: tuple) -> int:
     return sum(1 for n in graph.neighbors(node) if graph.nodes[n][STATE] == NodeState.BURNING)
+
+
+def burning_two_hop_count(graph: nx.Graph, node: tuple) -> int:
+    one_hop = set(graph.neighbors(node))
+    two_hop: set[tuple] = set()
+    for neighbour in one_hop:
+        two_hop.update(graph.neighbors(neighbour))
+    two_hop.discard(node)
+    two_hop.difference_update(one_hop)
+    return sum(1 for n in two_hop if graph.nodes[n][STATE] == NodeState.BURNING)
 
 
 def unburned_neighbour_count(graph: nx.Graph, node: tuple) -> int:

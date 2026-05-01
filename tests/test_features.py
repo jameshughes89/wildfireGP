@@ -1,11 +1,14 @@
 from wildfireGP.features import (
     TREATMENTS_REMAINING,
     burning_neighbour_count,
+    burning_two_hop_count,
     distance_to_fire,
     elevation,
     elevation_delta_to_fire,
     fuel_level,
     fuel_moisture,
+    mean_neighbour_elevation,
+    mean_neighbour_fuel,
     precompute_fire_map,
     slope,
     total_burned,
@@ -75,9 +78,59 @@ def test_slope_returns_node_slope():
     assert slope(g, _NODE) == g.nodes[_NODE][SLOPE]
 
 
+def test_mean_neighbour_elevation_returns_average_of_neighbour_elevation():
+    g = _graph()
+    g.nodes[(0, 1)][ELEVATION] = 0.2
+    g.nodes[(1, 0)][ELEVATION] = 0.4
+    g.nodes[(1, 2)][ELEVATION] = 0.6
+    g.nodes[(2, 1)][ELEVATION] = 0.8
+    assert mean_neighbour_elevation(g, _NODE) == 0.5
+
+
+def test_mean_neighbour_elevation_includes_zero_elevation_neighbours():
+    g = _graph()
+    g.nodes[(0, 1)][ELEVATION] = 0.0
+    g.nodes[(1, 0)][ELEVATION] = 0.0
+    g.nodes[(1, 2)][ELEVATION] = 1.0
+    g.nodes[(2, 1)][ELEVATION] = 1.0
+    assert mean_neighbour_elevation(g, _NODE) == 0.5
+
+
+def test_mean_neighbour_elevation_uses_available_neighbours_for_edge_node():
+    g = _graph()
+    g.nodes[(0, 1)][ELEVATION] = 0.2
+    g.nodes[(1, 0)][ELEVATION] = 0.8
+    assert mean_neighbour_elevation(g, (0, 0)) == 0.5
+
+
 # ---------------------------------------------------------------------------
 # Neighbourhood
 # ---------------------------------------------------------------------------
+
+
+def test_mean_neighbour_fuel_returns_average_of_neighbour_fuel():
+    g = _graph()
+    g.nodes[(0, 1)][FUEL] = 0.2
+    g.nodes[(1, 0)][FUEL] = 0.4
+    g.nodes[(1, 2)][FUEL] = 0.6
+    g.nodes[(2, 1)][FUEL] = 0.8
+    assert mean_neighbour_fuel(g, _NODE) == 0.5
+
+
+def test_mean_neighbour_fuel_includes_zero_fuel_neighbours():
+    g = _graph()
+    g.nodes[(0, 1)][FUEL] = 0.0
+    g.nodes[(1, 0)][FUEL] = 0.0
+    g.nodes[(1, 2)][FUEL] = 1.0
+    g.nodes[(2, 1)][FUEL] = 1.0
+    assert mean_neighbour_fuel(g, _NODE) == 0.5
+
+
+def test_mean_neighbour_fuel_uses_available_neighbours_for_edge_node():
+    g = _graph()
+    g.nodes[(0, 1)][FUEL] = 0.2
+    g.nodes[(1, 0)][FUEL] = 0.8
+    assert mean_neighbour_fuel(g, (0, 0)) == 0.5
 
 
 def test_burning_neighbour_count_zero_with_no_fire():
@@ -90,6 +143,26 @@ def test_burning_neighbour_count_counts_burning_neighbours():
     g.nodes[(0, 1)][STATE] = NodeState.BURNING
     g.nodes[(1, 0)][STATE] = NodeState.BURNING
     assert burning_neighbour_count(g, _NODE) == 2
+
+
+def test_burning_two_hop_count_counts_nodes_exactly_two_hops_away():
+    g = create_grid(5, 5, seed=0)
+    g.nodes[(0, 2)][STATE] = NodeState.BURNING
+    g.nodes[(2, 0)][STATE] = NodeState.BURNING
+    assert burning_two_hop_count(g, (2, 2)) == 2
+
+
+def test_burning_two_hop_count_excludes_immediate_neighbours():
+    g = create_grid(5, 5, seed=0)
+    g.nodes[(1, 2)][STATE] = NodeState.BURNING
+    g.nodes[(0, 2)][STATE] = NodeState.BURNING
+    assert burning_two_hop_count(g, (2, 2)) == 1
+
+
+def test_burning_two_hop_count_deduplicates_nodes_reached_by_multiple_paths():
+    g = create_grid(5, 5, seed=0)
+    g.nodes[(1, 1)][STATE] = NodeState.BURNING
+    assert burning_two_hop_count(g, (2, 2)) == 1
 
 
 def test_unburned_neighbour_count_all_unburned_by_default():
