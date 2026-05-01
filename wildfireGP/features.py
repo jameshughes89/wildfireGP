@@ -3,6 +3,13 @@ Per-node and graph-level feature functions for the GP language.
 
 These are the sole building blocks wired into the DEAP primitive set in language.py --- every value the GP language can
 read about the world comes through one of these functions, even when the implementation is a direct attribute lookup.
+
+Distance convention
+-------------------
+Spatial distance is measured in graph hops (Chebyshev distance: max(|Δrow|, |Δcol|)), not Euclidean distance. With a
+Moore (8-connectivity) neighbourhood, both cardinal and diagonal neighbours are one spread step away, so hop count
+directly represents how many timesteps the fire needs to reach a node. Euclidean distance would be physically accurate
+but would conflate proximity in time (what the GP reasons about) with proximity in space.
 """
 
 import math
