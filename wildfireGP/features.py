@@ -6,6 +6,7 @@ read about the world comes through one of these functions, even when the impleme
 """
 
 import math
+from collections import deque
 
 import networkx as nx
 
@@ -87,43 +88,44 @@ def unburnable_neighbour_count(graph: nx.Graph, node: tuple) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Spatial
+# Spatial — requires precompute_fire_map to be called first each simulation step
 # ---------------------------------------------------------------------------
 
-def distance_to_fire(graph: nx.Graph, node: tuple) -> float:
-    ri, ci = node
-    best = float("inf")
+_NEAREST_FIRE = "nearest_fire"
+
+
+def precompute_fire_map(graph: nx.Graph) -> None:
+    nearest: dict[tuple, tuple] = {}
+    queue: deque[tuple] = deque()
     for n in graph.nodes:
         if graph.nodes[n][STATE] == NodeState.BURNING:
-            d = abs(n[0] - ri) + abs(n[1] - ci)
-            if d < best:
-                best = d
-    return best
+            nearest[n] = n
+            queue.append(n)
+    while queue:
+        current = queue.popleft()
+        for neighbour in graph.neighbors(current):
+            if neighbour not in nearest:
+                nearest[neighbour] = nearest[current]
+                queue.append(neighbour)
+    graph.graph[_NEAREST_FIRE] = nearest
+
+
+def distance_to_fire(graph: nx.Graph, node: tuple) -> float:
+    fire = graph.graph[_NEAREST_FIRE].get(node)
+    if fire is None:
+        return float("inf")
+    return abs(node[0] - fire[0]) + abs(node[1] - fire[1])
 
 
 def wind_fire_alignment(graph: nx.Graph, node: tuple) -> float:
-    """
-    Cosine similarity between the wind direction and the vector from the nearest burning node to this node.
-    +1: directly downwind of nearest fire. -1: directly upwind. 0: crosswind or no fire.
-    """
-    ri, ci = node
-    best_dist = float("inf")
-    best_fire = None
-    for n in graph.nodes:
-        if graph.nodes[n][STATE] == NodeState.BURNING:
-            d = abs(n[0] - ri) + abs(n[1] - ci)
-            if d < best_dist:
-                best_dist = d
-                best_fire = n
-
-    if best_fire is None or best_dist == 0:
+    fire = graph.graph[_NEAREST_FIRE].get(node)
+    if fire is None or fire == node:
         return 0.0
-
-    fi, fj = best_fire
-    north = fi - ri   # positive = fire is south, vector points north (row decreases going north)
-    east = ci - fj    # positive = fire is west, vector points east
+    ri, ci = node
+    fi, fj = fire
+    north = fi - ri
+    east = ci - fj
     mag = math.sqrt(north ** 2 + east ** 2)
-
     wind_toward_rad = math.radians(graph.graph[WIND_DIRECTION]) + math.pi
     return (north * math.cos(wind_toward_rad) + east * math.sin(wind_toward_rad)) / mag
 
