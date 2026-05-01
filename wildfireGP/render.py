@@ -116,10 +116,10 @@ if __name__ == "__main__":
     import copy
     import math
 
-    from wildfireGP.network import NodeState, create_grid, set_fuel_moisture, set_wind
+    from wildfireGP.network import create_grid, set_fuel_moisture, set_wind
     from wildfireGP.spread import BURN_TIMER, MAX_BURN_STEPS, spread_step
 
-    graph = create_grid(50, 50, terrain_smoothing=10, fuel_smoothing=3, water_fraction=0.05, rock_fraction=0.05, seed=42)
+    graph = create_grid(50, 50, terrain_smoothing=10, fuel_smoothing=3, water_fraction=0.05, rock_fraction=0.05)
     set_wind(graph, speed=20.0, direction=45.0)
     set_fuel_moisture(graph, moisture=0.1)
 
@@ -133,9 +133,9 @@ if __name__ == "__main__":
     plt.savefig("draw_test.png", dpi=150)
     print("saved draw_test.png")
 
-    rng = np.random.default_rng(42)
+    rng = np.random.default_rng()
     snapshots = [copy.deepcopy(graph)]
-    for _ in range(39):
+    for _ in range(50):
         if not any(graph.nodes[n][STATE] == NodeState.BURNING for n in graph.nodes):
             break
         spread_step(graph, rng)

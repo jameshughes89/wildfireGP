@@ -69,6 +69,7 @@ Van Wagner, C.E. (1987). Development and Structure of the Canadian Forest Fire W
 
 import math
 
+import networkx as nx
 import numpy as np
 
 from wildfireGP.network import (
@@ -87,13 +88,13 @@ from wildfireGP.network import (
 
 MAX_BURN_STEPS = 5
 
-_C1 = 0.045   # Alexandridis et al. (2008): downwind amplification coefficient
-_C2 = 0.131   # Alexandridis et al. (2008): directional sensitivity coefficient
+_C1 = 0.045  # Alexandridis et al. (2008): downwind amplification coefficient
+_C2 = 0.131  # Alexandridis et al. (2008): directional sensitivity coefficient
 _A_S = 0.078  # Alexandridis et al. (2008): slope sensitivity coefficient
 _KMH_TO_MS = 1.0 / 3.6
 
 
-def spread_step(graph, rng: np.random.Generator) -> None:
+def spread_step(graph: nx.Graph, rng: np.random.Generator) -> None:
     """
     Advance the fire simulation by one timestep.
 
@@ -116,30 +117,15 @@ def spread_step(graph, rng: np.random.Generator) -> None:
         if graph.nodes[node][STATE] != NodeState.BURNING:
             continue
 
-        for neighbour in graph.neighbors(node):
-            if graph.nodes[neighbour][STATE] != NodeState.UNBURNED:
-                continue
-            if not _is_burnable(graph, neighbour):
-                continue
-            p = _ignition_probability(graph, node, neighbour, wind_speed_ms, wind_dir_rad, moisture, cell_size)
-            if rng.random() < p:
-                to_ignite.append(neighbour)
-
-        graph.nodes[node][BURN_TIMER] -= 1
-        if graph.nodes[node][BURN_TIMER] <= 0:
+        to_ignite.extend(_ignition_targets(graph, node, rng, wind_speed_ms, wind_dir_rad, moisture, cell_size))
+        if _decrement_burn_timer(graph, node):
             to_burn_out.append(node)
 
-    for node in to_ignite:
-        if graph.nodes[node][STATE] == NodeState.UNBURNED:
-            graph.nodes[node][STATE] = NodeState.BURNING
-            fuel = graph.nodes[node][FUEL]
-            graph.nodes[node][BURN_TIMER] = max(1, math.ceil(fuel * MAX_BURN_STEPS))
-
-    for node in to_burn_out:
-        graph.nodes[node][STATE] = NodeState.BURNED
+    _ignite_nodes(graph, to_ignite)
+    _burn_out_nodes(graph, to_burn_out)
 
 
-def ignition_probability(graph, src: tuple, dst: tuple) -> float:
+def ignition_probability(graph: nx.Graph, src: tuple, dst: tuple) -> float:
     """
     Compute the ignition probability from BURNING node src to UNBURNED node dst.
 
@@ -158,13 +144,62 @@ def ignition_probability(graph, src: tuple, dst: tuple) -> float:
     return _ignition_probability(graph, src, dst, wind_speed_ms, wind_dir_rad, moisture, cell_size)
 
 
-def _is_burnable(graph, node: tuple) -> bool:
+def _is_burnable(graph: nx.Graph, node: tuple) -> bool:
     terrain = graph.nodes[node][TERRAIN]
     return terrain not in (TerrainType.WATER, TerrainType.ROCK)
 
 
-def _ignition_probability(graph, src: tuple, dst: tuple, wind_speed_ms: float, wind_dir_rad: float,
-                           moisture: float, cell_size: float) -> float:
+def _can_ignite(graph: nx.Graph, node: tuple) -> bool:
+    return graph.nodes[node][STATE] == NodeState.UNBURNED and _is_burnable(graph, node)
+
+
+def _ignition_targets(
+    graph: nx.Graph,
+    node: tuple,
+    rng: np.random.Generator,
+    wind_speed_ms: float,
+    wind_dir_rad: float,
+    moisture: float,
+    cell_size: float,
+) -> list[tuple]:
+    targets = []
+    for neighbour in graph.neighbors(node):
+        if not _can_ignite(graph, neighbour):
+            continue
+        p = _ignition_probability(graph, node, neighbour, wind_speed_ms, wind_dir_rad, moisture, cell_size)
+        if rng.random() < p:
+            targets.append(neighbour)
+    return targets
+
+
+def _decrement_burn_timer(graph: nx.Graph, node: tuple) -> bool:
+    graph.nodes[node][BURN_TIMER] -= 1
+    return graph.nodes[node][BURN_TIMER] <= 0
+
+
+def _ignite_nodes(graph: nx.Graph, nodes: list[tuple]) -> None:
+    for node in nodes:
+        if graph.nodes[node][STATE] != NodeState.UNBURNED:
+            continue
+        graph.nodes[node][STATE] = NodeState.BURNING
+        fuel = graph.nodes[node][FUEL]
+        graph.nodes[node][BURN_TIMER] = max(1, math.ceil(fuel * MAX_BURN_STEPS))
+
+
+def _burn_out_nodes(graph: nx.Graph, nodes: list[tuple]) -> None:
+    for node in nodes:
+        graph.nodes[node][STATE] = NodeState.BURNED
+
+
+def _ignition_probability(
+    graph: nx.Graph,
+    src: tuple,
+    dst: tuple,
+    wind_speed_ms: float,
+    wind_dir_rad: float,
+    moisture: float,
+    cell_size: float,
+) -> float:
     fuel = graph.nodes[dst][FUEL]
     if fuel == 0.0:
         return 0.0
@@ -187,10 +222,12 @@ def _ignition_probability(graph, src: tuple, dst: tuple, wind_speed_ms: float, w
 
 
 if __name__ == "__main__":
-    from wildfireGP.network import NodeState, create_grid, set_fuel_moisture, set_wind
+    from wildfireGP.network import create_grid, set_fuel_moisture, set_wind
 
     rng = np.random.default_rng(42)
-    graph = create_grid(50, 50, terrain_smoothing=10, fuel_smoothing=3, water_fraction=0.05, rock_fraction=0.05, seed=42)
+    graph = create_grid(
+        50, 50, terrain_smoothing=10, fuel_smoothing=3, water_fraction=0.05, rock_fraction=0.05, seed=42
+    )
     set_wind(graph, speed=20.0, direction=45.0)
     set_fuel_moisture(graph, moisture=0.1)
 
@@ -199,7 +236,7 @@ if __name__ == "__main__":
     graph.nodes[ignition_node][BURN_TIMER] = max(1, math.ceil(graph.nodes[ignition_node][FUEL] * MAX_BURN_STEPS))
 
     print(f"{'Step':>4}  {'Burning':>8}  {'Burned':>8}  {'Unburned':>9}")
-    for step in range(30):
+    for step in range(50):
         burning = sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING)
         burned = sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNED)
         unburned = sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.UNBURNED)
