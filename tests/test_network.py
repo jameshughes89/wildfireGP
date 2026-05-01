@@ -24,6 +24,18 @@ def test_create_grid_4by5_has_20_nodes():
     assert create_grid(4, 5).number_of_nodes() == 20
 
 
+def test_create_grid_interior_node_has_8_neighbours():
+    assert len(list(create_grid(5, 5).neighbors((2, 2)))) == 8
+
+
+def test_create_grid_edge_node_has_5_neighbours():
+    assert len(list(create_grid(5, 5).neighbors((0, 2)))) == 5
+
+
+def test_create_grid_corner_node_has_3_neighbours():
+    assert len(list(create_grid(5, 5).neighbors((0, 0)))) == 3
+
+
 def test_create_grid_default_all_nodes_unburned():
     graph = create_grid(4, 5)
     assert all(graph.nodes[n][STATE] == NodeState.UNBURNED for n in graph.nodes)

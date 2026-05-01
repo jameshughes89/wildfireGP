@@ -80,19 +80,27 @@ def test_slope_returns_node_slope():
 
 def test_mean_neighbour_elevation_returns_average_of_neighbour_elevation():
     g = _graph()
+    g.nodes[(0, 0)][ELEVATION] = 0.2
     g.nodes[(0, 1)][ELEVATION] = 0.2
+    g.nodes[(0, 2)][ELEVATION] = 0.4
     g.nodes[(1, 0)][ELEVATION] = 0.4
     g.nodes[(1, 2)][ELEVATION] = 0.6
+    g.nodes[(2, 0)][ELEVATION] = 0.6
     g.nodes[(2, 1)][ELEVATION] = 0.8
+    g.nodes[(2, 2)][ELEVATION] = 0.8
     assert mean_neighbour_elevation(g, _NODE) == 0.5
 
 
 def test_mean_neighbour_elevation_includes_zero_elevation_neighbours():
     g = _graph()
+    g.nodes[(0, 0)][ELEVATION] = 0.0
     g.nodes[(0, 1)][ELEVATION] = 0.0
+    g.nodes[(0, 2)][ELEVATION] = 0.0
     g.nodes[(1, 0)][ELEVATION] = 0.0
     g.nodes[(1, 2)][ELEVATION] = 1.0
+    g.nodes[(2, 0)][ELEVATION] = 1.0
     g.nodes[(2, 1)][ELEVATION] = 1.0
+    g.nodes[(2, 2)][ELEVATION] = 1.0
     assert mean_neighbour_elevation(g, _NODE) == 0.5
 
 
@@ -100,6 +108,7 @@ def test_mean_neighbour_elevation_uses_available_neighbours_for_edge_node():
     g = _graph()
     g.nodes[(0, 1)][ELEVATION] = 0.2
     g.nodes[(1, 0)][ELEVATION] = 0.8
+    g.nodes[(1, 1)][ELEVATION] = 0.5
     assert mean_neighbour_elevation(g, (0, 0)) == 0.5
 
 
@@ -110,19 +119,27 @@ def test_mean_neighbour_elevation_uses_available_neighbours_for_edge_node():
 
 def test_mean_neighbour_fuel_returns_average_of_neighbour_fuel():
     g = _graph()
+    g.nodes[(0, 0)][FUEL] = 0.2
     g.nodes[(0, 1)][FUEL] = 0.2
+    g.nodes[(0, 2)][FUEL] = 0.4
     g.nodes[(1, 0)][FUEL] = 0.4
     g.nodes[(1, 2)][FUEL] = 0.6
+    g.nodes[(2, 0)][FUEL] = 0.6
     g.nodes[(2, 1)][FUEL] = 0.8
+    g.nodes[(2, 2)][FUEL] = 0.8
     assert mean_neighbour_fuel(g, _NODE) == 0.5
 
 
 def test_mean_neighbour_fuel_includes_zero_fuel_neighbours():
     g = _graph()
+    g.nodes[(0, 0)][FUEL] = 0.0
     g.nodes[(0, 1)][FUEL] = 0.0
+    g.nodes[(0, 2)][FUEL] = 0.0
     g.nodes[(1, 0)][FUEL] = 0.0
     g.nodes[(1, 2)][FUEL] = 1.0
+    g.nodes[(2, 0)][FUEL] = 1.0
     g.nodes[(2, 1)][FUEL] = 1.0
+    g.nodes[(2, 2)][FUEL] = 1.0
     assert mean_neighbour_fuel(g, _NODE) == 0.5
 
 
@@ -130,6 +147,7 @@ def test_mean_neighbour_fuel_uses_available_neighbours_for_edge_node():
     g = _graph()
     g.nodes[(0, 1)][FUEL] = 0.2
     g.nodes[(1, 0)][FUEL] = 0.8
+    g.nodes[(1, 1)][FUEL] = 0.5
     assert mean_neighbour_fuel(g, (0, 0)) == 0.5
 
 
@@ -166,26 +184,26 @@ def test_burning_two_hop_count_excludes_immediate_neighbours():
 
 def test_burning_two_hop_count_deduplicates_nodes_reached_by_multiple_paths():
     g = create_grid(5, 5, seed=0)
-    g.nodes[(1, 1)][STATE] = NodeState.BURNING
+    g.nodes[(0, 2)][STATE] = NodeState.BURNING  # reachable from (2, 2) via (1, 1), (1, 2), and (1, 3)
     assert burning_two_hop_count(g, (2, 2)) == 1
 
 
 def test_burning_two_hop_count_uses_available_two_hop_nodes_for_edge_node():
     g = create_grid(5, 5, seed=0)
     g.nodes[(0, 2)][STATE] = NodeState.BURNING
-    g.nodes[(1, 1)][STATE] = NodeState.BURNING
+    g.nodes[(2, 0)][STATE] = NodeState.BURNING
     assert burning_two_hop_count(g, (0, 0)) == 2
 
 
 def test_unburned_neighbour_count_all_unburned_by_default():
     g = _graph()
-    assert unburned_neighbour_count(g, _NODE) == 4
+    assert unburned_neighbour_count(g, _NODE) == 8
 
 
 def test_unburned_neighbour_count_excludes_burning():
     g = _graph()
     g.nodes[(0, 1)][STATE] = NodeState.BURNING
-    assert unburned_neighbour_count(g, _NODE) == 3
+    assert unburned_neighbour_count(g, _NODE) == 7
 
 
 def test_unburnable_neighbour_count_includes_burned():
@@ -263,11 +281,11 @@ def test_distance_to_fire_zero_when_node_is_burning():
     assert distance_to_fire(g, _NODE) == 0
 
 
-def test_distance_to_fire_manhattan_distance():
+def test_distance_to_fire_hop_count():
     g = create_grid(5, 5, seed=0)
     g.nodes[(4, 4)][STATE] = NodeState.BURNING
     precompute_fire_map(g)
-    assert distance_to_fire(g, (0, 0)) == 8
+    assert distance_to_fire(g, (0, 0)) == 4
 
 
 def test_distance_to_fire_nearest_when_multiple_burning():

@@ -4,7 +4,8 @@ Wildfire landscape graph construction and management.
 A landscape is represented as a NetworkX grid graph where each node corresponds to a spatial patch and carries six
 attributes: state, burn_timer, terrain, fuel, slope, and elevation. Fire weather (wind and moisture) is stored as
 graph-level attributes, as these quantities are meteorologically driven and effectively uniform across the landscape at
-the scales we model.
+the scales we model. Nodes use a Moore (8-connectivity) neighbourhood: each cell is connected to its four cardinal
+neighbours and four diagonal neighbours, matching the Alexandridis et al. (2008) fire spread model.
 
 Node attributes
 ---------------
@@ -12,9 +13,9 @@ state : NodeState
     Dynamic fire state of the patch (UNBURNED, BURNING, BURNED, or TREATED). Initialised to UNBURNED; modified by the
     spread simulation.
 burn_timer : int >= 0
-    Remaining timesteps the node will continue burning. Set to ceil(fuel * MAX_BURN_STEPS) on ignition; decremented
-    each timestep; node transitions to BURNED when it reaches zero. Initialised to 0 for all nodes and maintained as
-    internal spread-model state rather than a GP feature.
+    Remaining timesteps the node will continue burning. Set to ceil(fuel * MAX_BURN_STEPS) on ignition; decremented each
+    timestep; node transitions to BURNED when it reaches zero. Initialised to 0 for all nodes and maintained as internal
+    spread-model state rather than a GP feature.
 terrain : TerrainType
     Physical terrain category: LAND (burnable), WATER (low-elevation basin), or ROCK (steep slope). WATER and ROCK nodes
     have fuel=0 and are non-burnable. Stored explicitly so the spread model and GP terminals can distinguish terrain
@@ -151,9 +152,14 @@ def create_grid(
         and real data loaders. Default 100m matches Canadian FBP operational scale.
     :param seed: Random seed for reproducibility.
     :return: Grid graph with STATE, TERRAIN, FUEL, SLOPE, and ELEVATION node attributes. Wind and moisture are not set.
+        Nodes are connected with a Moore (8-connectivity) neighbourhood.
     """
     rng = np.random.default_rng(seed)
     graph = nx.grid_2d_graph(rows, cols)
+    for i in range(rows - 1):
+        for j in range(cols - 1):
+            graph.add_edge((i, j), (i + 1, j + 1))
+            graph.add_edge((i + 1, j), (i, j + 1))
 
     terrain_height = _normalize(gaussian_filter(rng.random((rows, cols)), sigma=terrain_smoothing))
     dy, dx = np.gradient(terrain_height)

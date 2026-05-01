@@ -88,29 +88,34 @@ def unburnable_neighbour_count(graph: nx.Graph, node: tuple) -> int:
 # ---------------------------------------------------------------------------
 
 _NEAREST_FIRE = "nearest_fire"
+_FIRE_DISTANCE = "fire_distance"
 
 
 def precompute_fire_map(graph: nx.Graph) -> None:
     nearest: dict[tuple, tuple] = {}
+    distance: dict[tuple, int] = {}
     queue: deque[tuple] = deque()
     for n in graph.nodes:
         if graph.nodes[n][STATE] == NodeState.BURNING:
             nearest[n] = n
+            distance[n] = 0
             queue.append(n)
     while queue:
         current = queue.popleft()
         for neighbour in graph.neighbors(current):
             if neighbour not in nearest:
                 nearest[neighbour] = nearest[current]
+                distance[neighbour] = distance[current] + 1
                 queue.append(neighbour)
     graph.graph[_NEAREST_FIRE] = nearest
+    graph.graph[_FIRE_DISTANCE] = distance
 
 
 def distance_to_fire(graph: nx.Graph, node: tuple) -> float:
-    fire = graph.graph[_NEAREST_FIRE].get(node)
-    if fire is None:
+    dist = graph.graph[_FIRE_DISTANCE].get(node)
+    if dist is None:
         return float("inf")
-    return abs(node[0] - fire[0]) + abs(node[1] - fire[1])
+    return dist
 
 
 def elevation_delta_to_fire(graph: nx.Graph, node: tuple) -> float:

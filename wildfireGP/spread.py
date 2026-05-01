@@ -45,10 +45,12 @@ Slope factor (Alexandridis et al., 2008):
 
 Scale and timestep
 ------------------
-Alexandridis et al. (2008) use 5x5m cells. This model targets 100x100m cells. Spotting (long-range ember transport) is
-present in the original paper, where skipping several cells corresponds to tens of meters, occasionally up to ~100m. At
-100m resolution the same physical phenomenon falls within a single cell or within an adjacent cell, and is implicitly
-captured by the ignition probability, so a separate spotting sub-model is not warranted.
+Alexandridis et al. (2008) use 5x5m cells and a Moore (8-connectivity) neighbourhood. This model matches both. Spotting
+(long-range ember transport) is present in the original paper, where skipping several cells corresponds to tens of
+meters, occasionally up to ~100m. At 100m resolution the same physical phenomenon falls within a single cell or within
+an adjacent cell, and is implicitly captured by the ignition probability, so a separate spotting sub-model is not
+warranted. For diagonal neighbours the actual cell-centre distance is cell_size * sqrt(2), used when computing the
+slope factor.
 
 The constants c1, c2, and a_s were calibrated at 5x5m resolution and bundle together physical spread rate, cell size,
 and timestep duration into a single value. At 100m cells, one timestep implicitly represents a proportionally longer
@@ -214,7 +216,8 @@ def _ignition_probability(
     p_wind = math.exp(_C1 * wind_speed_ms) * math.exp(_C2 * wind_speed_ms * (math.cos(theta) - 1))
 
     elev_diff = graph.nodes[dst][ELEVATION] - graph.nodes[src][ELEVATION]
-    slope_tan = elev_diff / cell_size if cell_size > 0 else 0.0
+    actual_dist = cell_size * math.sqrt(2) if (si != di and sj != dj) else cell_size
+    slope_tan = elev_diff / actual_dist if actual_dist > 0 else 0.0
     p_slope = math.exp(_A_S * slope_tan)
 
     p = fuel * (1.0 - moisture) * p_wind * p_slope
