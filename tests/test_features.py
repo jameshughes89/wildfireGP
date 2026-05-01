@@ -152,6 +152,11 @@ def test_burning_two_hop_count_counts_nodes_exactly_two_hops_away():
     assert burning_two_hop_count(g, (2, 2)) == 2
 
 
+def test_burning_two_hop_count_zero_with_no_fire():
+    g = create_grid(5, 5, seed=0)
+    assert burning_two_hop_count(g, (2, 2)) == 0
+
+
 def test_burning_two_hop_count_excludes_immediate_neighbours():
     g = create_grid(5, 5, seed=0)
     g.nodes[(1, 2)][STATE] = NodeState.BURNING
@@ -163,6 +168,13 @@ def test_burning_two_hop_count_deduplicates_nodes_reached_by_multiple_paths():
     g = create_grid(5, 5, seed=0)
     g.nodes[(1, 1)][STATE] = NodeState.BURNING
     assert burning_two_hop_count(g, (2, 2)) == 1
+
+
+def test_burning_two_hop_count_uses_available_two_hop_nodes_for_edge_node():
+    g = create_grid(5, 5, seed=0)
+    g.nodes[(0, 2)][STATE] = NodeState.BURNING
+    g.nodes[(1, 1)][STATE] = NodeState.BURNING
+    assert burning_two_hop_count(g, (0, 0)) == 2
 
 
 def test_unburned_neighbour_count_all_unburned_by_default():
@@ -349,12 +361,6 @@ def test_elevation_delta_to_fire_correct_value():
     g.nodes[(2, 2)][ELEVATION] = 0.7
     precompute_fire_map(g)
     assert abs(elevation_delta_to_fire(g, (2, 2)) - 0.4) < 1e-9
-
-
-def test_treatments_remaining_returns_graph_attribute():
-    g = _graph()
-    g.graph[TREATMENTS_REMAINING] = 10
-    assert treatments_remaining(g) == 10
 
 
 def test_treatments_remaining_reflects_updates():
