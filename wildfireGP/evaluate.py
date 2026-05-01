@@ -92,4 +92,4 @@ def _apply_treatments(graph: nx.Graph, func: Callable[[nx.Graph, tuple], float],
 
 def _safe_score(func: Callable[[nx.Graph, tuple], float], graph: nx.Graph, node: tuple) -> float:
     score = func(graph, node)
-    return float("-inf") if math.isnan(score) else score
+    return score if math.isfinite(score) else float("-inf")

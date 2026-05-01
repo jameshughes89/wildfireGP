@@ -1,6 +1,6 @@
 import numpy as np
 
-from wildfireGP.evaluate import evaluate
+from wildfireGP.evaluate import _safe_score, evaluate
 from wildfireGP.features import distance_to_fire, precompute_fire_map
 from wildfireGP.network import STATE, create_grid, set_fuel_moisture, set_wind
 
@@ -110,3 +110,18 @@ def test_evaluate_nan_score_treated_last():
     total_burned, _ = evaluate(nan_for_all, g, [ignition], treatments_per_step=2, max_steps=3, rng=_rng())
     assert nan_count > 0
     assert total_burned <= 1
+
+
+def test_safe_score_clamps_positive_inf():
+    g = _setup()
+    assert _safe_score(lambda graph, node: float("inf"), g, (0, 0)) == float("-inf")
+
+
+def test_safe_score_clamps_nan():
+    g = _setup()
+    assert _safe_score(lambda graph, node: float("nan"), g, (0, 0)) == float("-inf")
+
+
+def test_safe_score_preserves_finite():
+    g = _setup()
+    assert _safe_score(lambda graph, node: 3.14, g, (0, 0)) == 3.14
