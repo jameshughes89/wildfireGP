@@ -1,5 +1,6 @@
 from wildfireGP.features import (
     TREATMENTS_REMAINING,
+    burnable_distance_to_fire,
     burning_neighbour_count,
     burning_two_hop_count,
     distance_to_fire,
@@ -9,6 +10,7 @@ from wildfireGP.features import (
     fuel_moisture,
     mean_neighbour_elevation,
     mean_neighbour_fuel,
+    precompute_burnable_fire_map,
     precompute_fire_map,
     slope,
     total_burned,
@@ -379,6 +381,68 @@ def test_elevation_delta_to_fire_correct_value():
     g.nodes[(2, 2)][ELEVATION] = 0.7
     precompute_fire_map(g)
     assert abs(elevation_delta_to_fire(g, (2, 2)) - 0.4) < 1e-9
+
+
+def test_burnable_distance_to_fire_returns_inf_with_no_fire():
+    g = _graph()
+    precompute_burnable_fire_map(g)
+    assert burnable_distance_to_fire(g, _NODE) == float("inf")
+
+
+def test_burnable_distance_to_fire_zero_when_node_is_burning():
+    g = _graph()
+    g.nodes[_NODE][STATE] = NodeState.BURNING
+    precompute_burnable_fire_map(g)
+    assert burnable_distance_to_fire(g, _NODE) == 0
+
+
+def test_burnable_distance_to_fire_one_for_burnable_neighbour():
+    g = _graph()
+    g.nodes[_NODE][STATE] = NodeState.BURNING
+    precompute_burnable_fire_map(g)
+    assert burnable_distance_to_fire(g, (0, 1)) == 1
+
+
+def test_burnable_distance_to_fire_inf_when_surrounded_by_unburnable():
+    g = _graph()
+    g.nodes[(0, 0)][STATE] = NodeState.BURNING
+    g.nodes[(0, 1)][STATE] = NodeState.BURNED
+    g.nodes[(1, 0)][STATE] = NodeState.BURNED
+    g.nodes[(1, 1)][STATE] = NodeState.BURNED
+    precompute_burnable_fire_map(g)
+    assert burnable_distance_to_fire(g, (2, 2)) == float("inf")
+
+
+def test_burnable_distance_to_fire_water_blocks_path():
+    g = _graph()
+    g.nodes[(0, 0)][STATE] = NodeState.BURNING
+    g.nodes[(0, 1)][TERRAIN] = TerrainType.WATER
+    g.nodes[(1, 0)][TERRAIN] = TerrainType.WATER
+    g.nodes[(1, 1)][TERRAIN] = TerrainType.WATER
+    precompute_burnable_fire_map(g)
+    assert burnable_distance_to_fire(g, (2, 2)) == float("inf")
+
+
+def test_burnable_distance_to_fire_treated_blocks_path():
+    g = _graph()
+    g.nodes[(0, 0)][STATE] = NodeState.BURNING
+    g.nodes[(0, 1)][STATE] = NodeState.TREATED
+    g.nodes[(1, 0)][STATE] = NodeState.TREATED
+    g.nodes[(1, 1)][STATE] = NodeState.TREATED
+    precompute_burnable_fire_map(g)
+    assert burnable_distance_to_fire(g, (2, 2)) == float("inf")
+
+
+def test_burnable_distance_differs_from_chebyshev_when_path_blocked():
+    g = _graph()
+    g.nodes[(0, 0)][STATE] = NodeState.BURNING
+    g.nodes[(0, 1)][STATE] = NodeState.BURNED
+    g.nodes[(1, 0)][STATE] = NodeState.BURNED
+    g.nodes[(1, 1)][STATE] = NodeState.BURNED
+    precompute_fire_map(g)
+    precompute_burnable_fire_map(g)
+    assert distance_to_fire(g, (2, 2)) < float("inf")
+    assert burnable_distance_to_fire(g, (2, 2)) == float("inf")
 
 
 def test_treatments_remaining_reflects_updates():

@@ -94,10 +94,11 @@ def unburnable_neighbour_count(graph: nx.Graph, node: tuple) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Spatial — requires precompute_fire_map to be called first each simulation step
+# Spatial — requires precompute_fire_map / precompute_burnable_fire_map each simulation step
 # ---------------------------------------------------------------------------
 
 _NEAREST_FIRE = "nearest_fire"
+_BURNABLE_FIRE_DISTANCE = "burnable_fire_distance"
 
 
 def precompute_fire_map(graph: nx.Graph) -> None:
@@ -121,6 +122,33 @@ def distance_to_fire(graph: nx.Graph, node: tuple) -> float:
     if fire is None:
         return float("inf")
     return max(abs(node[0] - fire[0]), abs(node[1] - fire[1]))
+
+
+def precompute_burnable_fire_map(graph: nx.Graph) -> None:
+    distance: dict[tuple, int] = {}
+    queue: deque[tuple] = deque()
+    for n in graph.nodes:
+        if graph.nodes[n][STATE] == NodeState.BURNING:
+            distance[n] = 0
+            queue.append(n)
+    while queue:
+        current = queue.popleft()
+        for neighbour in graph.neighbors(current):
+            if neighbour not in distance:
+                if (
+                    graph.nodes[neighbour][STATE] == NodeState.UNBURNED
+                    and graph.nodes[neighbour][TERRAIN] == TerrainType.LAND
+                ):
+                    distance[neighbour] = distance[current] + 1
+                    queue.append(neighbour)
+    graph.graph[_BURNABLE_FIRE_DISTANCE] = distance
+
+
+def burnable_distance_to_fire(graph: nx.Graph, node: tuple) -> float:
+    dist = graph.graph[_BURNABLE_FIRE_DISTANCE].get(node)
+    if dist is None:
+        return float("inf")
+    return dist
 
 
 def elevation_delta_to_fire(graph: nx.Graph, node: tuple) -> float:
