@@ -35,6 +35,7 @@ from wildfireGP.features import (
     unburnable_neighbour_count,
     unburned_neighbour_count,
     wind_direction,
+    wind_fire_alignment,
     wind_speed,
 )
 
@@ -225,6 +226,47 @@ def test_distance_to_fire_nearest_when_multiple_burning():
     g.nodes[(2, 2)][STATE] = NodeState.BURNING
     g.nodes[(0, 1)][STATE] = NodeState.BURNING
     assert distance_to_fire(g, (0, 0)) == 1
+
+
+def test_wind_fire_alignment_zero_with_no_fire():
+    g = _graph_env()
+    assert wind_fire_alignment(g, _NODE) == 0.0
+
+
+def test_wind_fire_alignment_zero_when_node_is_burning():
+    g = _graph_env()
+    g.nodes[_NODE][STATE] = NodeState.BURNING
+    assert wind_fire_alignment(g, _NODE) == 0.0
+
+
+def test_wind_fire_alignment_positive_one_when_directly_downwind():
+    # Wind from north (direction=0, blowing south). Fire directly north of node.
+    # Node at (4,2), fire at (0,2) — fire is north, wind pushes it south toward node.
+    g = create_grid(5, 5, seed=0)
+    set_wind(g, speed=10.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.1)
+    g.nodes[(0, 2)][STATE] = NodeState.BURNING
+    assert abs(wind_fire_alignment(g, (4, 2)) - 1.0) < 1e-9
+
+
+def test_wind_fire_alignment_negative_one_when_directly_upwind():
+    # Wind from north (direction=0, blowing south). Fire directly south of node.
+    # Node at (0,2), fire at (4,2) — fire is south, wind pushes it away from node.
+    g = create_grid(5, 5, seed=0)
+    set_wind(g, speed=10.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.1)
+    g.nodes[(4, 2)][STATE] = NodeState.BURNING
+    assert abs(wind_fire_alignment(g, (0, 2)) - (-1.0)) < 1e-9
+
+
+def test_wind_fire_alignment_zero_when_crosswind():
+    # Wind from north (direction=0, blowing south). Fire directly east of node.
+    # No north/south component to the fire-to-node vector.
+    g = create_grid(5, 5, seed=0)
+    set_wind(g, speed=10.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.1)
+    g.nodes[(2, 4)][STATE] = NodeState.BURNING
+    assert abs(wind_fire_alignment(g, (2, 0))) < 1e-9
 
 
 # ---------------------------------------------------------------------------
