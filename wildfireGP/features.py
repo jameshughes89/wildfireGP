@@ -11,7 +11,6 @@ from collections import deque
 import networkx as nx
 
 from wildfireGP.network import (
-    BURN_TIMER,
     ELEVATION,
     FUEL,
     FUEL_MOISTURE,
@@ -39,31 +38,6 @@ def elevation(graph: nx.Graph, node: tuple) -> float:
 
 def slope(graph: nx.Graph, node: tuple) -> float:
     return graph.nodes[node][SLOPE]
-
-
-# ---------------------------------------------------------------------------
-# Fire state
-# ---------------------------------------------------------------------------
-
-
-def is_unburned(graph: nx.Graph, node: tuple) -> bool:
-    return graph.nodes[node][STATE] == NodeState.UNBURNED
-
-
-def is_burning(graph: nx.Graph, node: tuple) -> bool:
-    return graph.nodes[node][STATE] == NodeState.BURNING
-
-
-def is_burned(graph: nx.Graph, node: tuple) -> bool:
-    return graph.nodes[node][STATE] == NodeState.BURNED
-
-
-def is_treated(graph: nx.Graph, node: tuple) -> bool:
-    return graph.nodes[node][STATE] == NodeState.TREATED
-
-
-def burn_steps_remaining(graph: nx.Graph, node: tuple) -> int:
-    return graph.nodes[node][BURN_TIMER]
 
 
 # ---------------------------------------------------------------------------
@@ -146,10 +120,6 @@ def wind_fire_alignment(graph: nx.Graph, node: tuple) -> float:
 
 def wind_speed(graph: nx.Graph) -> float:
     return graph.graph[WIND_SPEED]
-
-
-def wind_direction(graph: nx.Graph) -> float:
-    return graph.graph[WIND_DIRECTION]
 
 
 def fuel_moisture(graph: nx.Graph) -> float:

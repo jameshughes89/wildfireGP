@@ -1,16 +1,11 @@
 from wildfireGP.features import (
     TREATMENTS_REMAINING,
-    burn_steps_remaining,
     burning_neighbour_count,
     distance_to_fire,
     elevation,
     elevation_delta_to_fire,
     fuel_level,
     fuel_moisture,
-    is_burned,
-    is_burning,
-    is_treated,
-    is_unburned,
     precompute_fire_map,
     slope,
     total_burned,
@@ -20,12 +15,10 @@ from wildfireGP.features import (
     treatments_remaining,
     unburnable_neighbour_count,
     unburned_neighbour_count,
-    wind_direction,
     wind_fire_alignment,
     wind_speed,
 )
 from wildfireGP.network import (
-    BURN_TIMER,
     ELEVATION,
     FUEL,
     SLOPE,
@@ -80,60 +73,6 @@ def test_elevation_returns_node_elevation():
 def test_slope_returns_node_slope():
     g = _graph()
     assert slope(g, _NODE) == g.nodes[_NODE][SLOPE]
-
-
-# ---------------------------------------------------------------------------
-# Fire state
-# ---------------------------------------------------------------------------
-
-
-def test_is_unburned_true_by_default():
-    g = _graph()
-    assert is_unburned(g, _NODE)
-
-
-def test_is_burning_true_when_burning():
-    g = _graph()
-    g.nodes[_NODE][STATE] = NodeState.BURNING
-    assert is_burning(g, _NODE)
-
-
-def test_is_burning_false_when_unburned():
-    g = _graph()
-    assert not is_burning(g, _NODE)
-
-
-def test_is_burned_true_when_burned():
-    g = _graph()
-    g.nodes[_NODE][STATE] = NodeState.BURNED
-    assert is_burned(g, _NODE)
-
-
-def test_is_treated_true_when_treated():
-    g = _graph()
-    g.nodes[_NODE][STATE] = NodeState.TREATED
-    assert is_treated(g, _NODE)
-
-
-def test_burn_steps_remaining_zero_for_unburned():
-    g = _graph()
-    assert burn_steps_remaining(g, _NODE) == 0
-
-
-def test_burn_steps_remaining_returns_burn_timer():
-    g = _graph()
-    g.nodes[_NODE][STATE] = NodeState.BURNING
-    g.nodes[_NODE][BURN_TIMER] = 3
-    assert burn_steps_remaining(g, _NODE) == 3
-
-
-def test_burn_steps_remaining_decreases_as_fire_progresses():
-    g = _graph()
-    g.nodes[_NODE][STATE] = NodeState.BURNING
-    g.nodes[_NODE][BURN_TIMER] = 4
-    assert burn_steps_remaining(g, _NODE) > 0
-    g.nodes[_NODE][BURN_TIMER] = 1
-    assert burn_steps_remaining(g, _NODE) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -361,11 +300,6 @@ def test_treatments_remaining_reflects_updates():
 def test_wind_speed_returns_graph_attribute():
     g = _graph_env()
     assert wind_speed(g) == 15.0
-
-
-def test_wind_direction_returns_graph_attribute():
-    g = _graph_env()
-    assert wind_direction(g) == 90.0
 
 
 def test_fuel_moisture_returns_graph_attribute():

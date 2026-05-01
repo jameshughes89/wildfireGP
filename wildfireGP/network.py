@@ -13,8 +13,8 @@ state : NodeState
     spread simulation.
 burn_timer : int >= 0
     Remaining timesteps the node will continue burning. Set to ceil(fuel * MAX_BURN_STEPS) on ignition; decremented
-    each timestep; node transitions to BURNED when it reaches zero. Initialised to 0 for all nodes. Readable by GP
-    terminals as a measure of remaining fire intensity at a node.
+    each timestep; node transitions to BURNED when it reaches zero. Initialised to 0 for all nodes and maintained as
+    internal spread-model state rather than a GP feature.
 terrain : TerrainType
     Physical terrain category: LAND (burnable), WATER (low-elevation basin), or ROCK (steep slope). WATER and ROCK nodes
     have fuel=0 and are non-burnable. Stored explicitly so the spread model and GP terminals can distinguish terrain
