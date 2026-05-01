@@ -10,6 +10,9 @@ Spatial distance is measured in graph hops (Chebyshev distance: max(|Δrow|, |Δ
 Moore (8-connectivity) neighbourhood, both cardinal and diagonal neighbours are one spread step away, so hop count
 directly represents how many timesteps the fire needs to reach a node. Euclidean distance would be physically accurate
 but would conflate proximity in time (what the GP reasons about) with proximity in space.
+
+wind_fire_alignment is the one exception: it uses a Euclidean magnitude internally, but only to normalise a direction
+vector for the dot product (cosine similarity always requires a Euclidean norm). This is not a distance measurement.
 """
 
 import math
