@@ -14,12 +14,18 @@ from wildfireGP.network import (
     COLS,
     ELEVATION,
     FUEL,
+    FUEL_MOISTURE,
     ROWS,
     STATE,
     TERRAIN,
+    WIND_DIRECTION,
+    WIND_SPEED,
     NodeState,
     TerrainType,
 )
+
+# Wind arrows point in the direction the wind is blowing (toward, not from), in 45° steps starting at north (0°).
+_WIND_ARROWS = ["↓", "↙", "←", "↖", "↑", "↗", "→", "↘"]
 
 _WATER = np.array([0.36, 0.61, 0.84])  # steel blue
 _ROCK = np.array([0.62, 0.62, 0.62])  # medium grey
@@ -50,6 +56,7 @@ def draw(graph: nx.Graph, ax: plt.Axes | None = None) -> plt.Axes:
     ax.imshow(_build_rgb(graph, rows, cols))
     ax.contour(elevation, levels=8, colors="white", alpha=0.5, linewidths=1.0)
     ax.set_axis_off()
+    _draw_env_overlay(graph, ax)
     return ax
 
 
@@ -74,6 +81,29 @@ def animate(graphs: list[nx.Graph], path: str, fps: int = 4) -> None:
     anim = FuncAnimation(fig, update, frames=len(graphs), interval=1000 // fps)
     anim.save(path, writer="pillow", fps=fps)
     plt.close(fig)
+
+
+def _draw_env_overlay(graph: nx.Graph, ax: plt.Axes) -> None:
+    parts = []
+    speed = graph.graph.get(WIND_SPEED)
+    direction = graph.graph.get(WIND_DIRECTION)
+    moisture = graph.graph.get(FUEL_MOISTURE)
+    if speed is not None and direction is not None:
+        arrow = _WIND_ARROWS[round(direction / 45) % 8]
+        parts.append(f"{arrow} {speed:.0f} km/h")
+    if moisture is not None:
+        parts.append(f"moisture: {moisture:.0%}")
+    if parts:
+        ax.text(
+            0.02,
+            0.02,
+            "  ".join(parts),
+            transform=ax.transAxes,
+            fontsize=9,
+            color="white",
+            verticalalignment="bottom",
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="black", alpha=0.5, edgecolor="none"),
+        )
 
 
 def _grid_dims(graph: nx.Graph) -> tuple[int, int]:
