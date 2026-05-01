@@ -24,10 +24,10 @@ from wildfireGP.network import (
     TerrainType,
 )
 
-
 # ---------------------------------------------------------------------------
 # Terrain
 # ---------------------------------------------------------------------------
+
 
 def fuel_level(graph: nx.Graph, node: tuple) -> float:
     return graph.nodes[node][FUEL]
@@ -44,6 +44,7 @@ def slope(graph: nx.Graph, node: tuple) -> float:
 # ---------------------------------------------------------------------------
 # Fire state
 # ---------------------------------------------------------------------------
+
 
 def is_unburned(graph: nx.Graph, node: tuple) -> bool:
     return graph.nodes[node][STATE] == NodeState.UNBURNED
@@ -68,6 +69,7 @@ def burn_steps_remaining(graph: nx.Graph, node: tuple) -> int:
 # ---------------------------------------------------------------------------
 # Neighbourhood
 # ---------------------------------------------------------------------------
+
 
 def burning_neighbour_count(graph: nx.Graph, node: tuple) -> int:
     return sum(1 for n in graph.neighbors(node) if graph.nodes[n][STATE] == NodeState.BURNING)
@@ -117,6 +119,13 @@ def distance_to_fire(graph: nx.Graph, node: tuple) -> float:
     return abs(node[0] - fire[0]) + abs(node[1] - fire[1])
 
 
+def elevation_delta_to_fire(graph: nx.Graph, node: tuple) -> float:
+    fire = graph.graph[_NEAREST_FIRE].get(node)
+    if fire is None or fire == node:
+        return 0.0
+    return graph.nodes[node][ELEVATION] - graph.nodes[fire][ELEVATION]
+
+
 def wind_fire_alignment(graph: nx.Graph, node: tuple) -> float:
     fire = graph.graph[_NEAREST_FIRE].get(node)
     if fire is None or fire == node:
@@ -125,7 +134,7 @@ def wind_fire_alignment(graph: nx.Graph, node: tuple) -> float:
     fi, fj = fire
     north = fi - ri
     east = ci - fj
-    mag = math.sqrt(north ** 2 + east ** 2)
+    mag = math.sqrt(north**2 + east**2)
     wind_toward_rad = math.radians(graph.graph[WIND_DIRECTION]) + math.pi
     return (north * math.cos(wind_toward_rad) + east * math.sin(wind_toward_rad)) / mag
 
@@ -133,6 +142,7 @@ def wind_fire_alignment(graph: nx.Graph, node: tuple) -> float:
 # ---------------------------------------------------------------------------
 # Environment (graph-level)
 # ---------------------------------------------------------------------------
+
 
 def wind_speed(graph: nx.Graph) -> float:
     return graph.graph[WIND_SPEED]
@@ -149,6 +159,13 @@ def fuel_moisture(graph: nx.Graph) -> float:
 # ---------------------------------------------------------------------------
 # Whole-graph state
 # ---------------------------------------------------------------------------
+
+TREATMENTS_REMAINING = "treatments_remaining"
+
+
+def treatments_remaining(graph: nx.Graph) -> int:
+    return graph.graph[TREATMENTS_REMAINING]
+
 
 def total_burning(graph: nx.Graph) -> int:
     return sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING)

@@ -1,26 +1,10 @@
-import networkx as nx
-
-from wildfireGP.network import (
-    BURN_TIMER,
-    ELEVATION,
-    FUEL,
-    FUEL_MOISTURE,
-    SLOPE,
-    STATE,
-    TERRAIN,
-    WIND_DIRECTION,
-    WIND_SPEED,
-    NodeState,
-    TerrainType,
-    create_grid,
-    set_fuel_moisture,
-    set_wind,
-)
 from wildfireGP.features import (
+    TREATMENTS_REMAINING,
     burn_steps_remaining,
     burning_neighbour_count,
     distance_to_fire,
     elevation,
+    elevation_delta_to_fire,
     fuel_level,
     fuel_moisture,
     is_burned,
@@ -33,11 +17,25 @@ from wildfireGP.features import (
     total_burning,
     total_treated,
     total_unburned,
+    treatments_remaining,
     unburnable_neighbour_count,
     unburned_neighbour_count,
     wind_direction,
     wind_fire_alignment,
     wind_speed,
+)
+from wildfireGP.network import (
+    BURN_TIMER,
+    ELEVATION,
+    FUEL,
+    SLOPE,
+    STATE,
+    TERRAIN,
+    NodeState,
+    TerrainType,
+    create_grid,
+    set_fuel_moisture,
+    set_wind,
 )
 
 # ---------------------------------------------------------------------------
@@ -61,6 +59,7 @@ def _graph_env():
 # ---------------------------------------------------------------------------
 # Terrain
 # ---------------------------------------------------------------------------
+
 
 def test_fuel_level_returns_node_fuel():
     g = _graph()
@@ -86,6 +85,7 @@ def test_slope_returns_node_slope():
 # ---------------------------------------------------------------------------
 # Fire state
 # ---------------------------------------------------------------------------
+
 
 def test_is_unburned_true_by_default():
     g = _graph()
@@ -139,6 +139,7 @@ def test_burn_steps_remaining_decreases_as_fire_progresses():
 # ---------------------------------------------------------------------------
 # Neighbourhood
 # ---------------------------------------------------------------------------
+
 
 def test_burning_neighbour_count_zero_with_no_fire():
     g = _graph()
@@ -203,6 +204,7 @@ def test_unburnable_neighbour_count_zero_when_all_unburned_land():
 # ---------------------------------------------------------------------------
 # Spatial
 # ---------------------------------------------------------------------------
+
 
 def test_precompute_fire_map_maps_burning_node_to_itself():
     g = _graph()
@@ -293,9 +295,68 @@ def test_wind_fire_alignment_zero_when_crosswind():
     assert abs(wind_fire_alignment(g, (2, 0))) < 1e-9
 
 
+def test_elevation_delta_to_fire_zero_with_no_fire():
+    g = _graph()
+    precompute_fire_map(g)
+    assert elevation_delta_to_fire(g, _NODE) == 0.0
+
+
+def test_elevation_delta_to_fire_zero_when_node_is_burning():
+    g = _graph()
+    g.nodes[_NODE][STATE] = NodeState.BURNING
+    precompute_fire_map(g)
+    assert elevation_delta_to_fire(g, _NODE) == 0.0
+
+
+def test_elevation_delta_to_fire_positive_when_node_higher_than_fire():
+    g = create_grid(5, 5, seed=0)
+    fire_node = (2, 0)
+    test_node = (2, 4)
+    g.nodes[fire_node][STATE] = NodeState.BURNING
+    g.nodes[fire_node][ELEVATION] = 0.2
+    g.nodes[test_node][ELEVATION] = 0.8
+    precompute_fire_map(g)
+    assert elevation_delta_to_fire(g, test_node) > 0.0
+
+
+def test_elevation_delta_to_fire_negative_when_node_lower_than_fire():
+    g = create_grid(5, 5, seed=0)
+    fire_node = (2, 0)
+    test_node = (2, 4)
+    g.nodes[fire_node][STATE] = NodeState.BURNING
+    g.nodes[fire_node][ELEVATION] = 0.8
+    g.nodes[test_node][ELEVATION] = 0.2
+    precompute_fire_map(g)
+    assert elevation_delta_to_fire(g, test_node) < 0.0
+
+
+def test_elevation_delta_to_fire_correct_value():
+    g = create_grid(3, 3, seed=0)
+    g.nodes[(0, 0)][STATE] = NodeState.BURNING
+    g.nodes[(0, 0)][ELEVATION] = 0.3
+    g.nodes[(2, 2)][ELEVATION] = 0.7
+    precompute_fire_map(g)
+    assert abs(elevation_delta_to_fire(g, (2, 2)) - 0.4) < 1e-9
+
+
+def test_treatments_remaining_returns_graph_attribute():
+    g = _graph()
+    g.graph[TREATMENTS_REMAINING] = 10
+    assert treatments_remaining(g) == 10
+
+
+def test_treatments_remaining_reflects_updates():
+    g = _graph()
+    g.graph[TREATMENTS_REMAINING] = 5
+    assert treatments_remaining(g) == 5
+    g.graph[TREATMENTS_REMAINING] = 3
+    assert treatments_remaining(g) == 3
+
+
 # ---------------------------------------------------------------------------
 # Environment
 # ---------------------------------------------------------------------------
+
 
 def test_wind_speed_returns_graph_attribute():
     g = _graph_env()
@@ -315,6 +376,7 @@ def test_fuel_moisture_returns_graph_attribute():
 # ---------------------------------------------------------------------------
 # Whole-graph state
 # ---------------------------------------------------------------------------
+
 
 def test_total_burning_counts_burning_nodes():
     g = _graph()
