@@ -1,0 +1,89 @@
+import random
+
+import numpy as np
+import pytest
+from deap import creator, tools
+
+from wildfireGP.gp import GPConfig, _register_types, build_toolbox, run
+from wildfireGP.network import create_grid, set_fuel_moisture, set_wind
+
+
+def _graph():
+    g = create_grid(5, 5, seed=0)
+    set_wind(g, speed=10.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.2)
+    return g
+
+
+def _config():
+    return GPConfig(population_size=6, generations=2, tournament_size=2, max_tree_height=4, max_tree_nodes=20)
+
+
+def _rng():
+    return np.random.default_rng(0)
+
+
+@pytest.fixture(autouse=True)
+def seed_python_random():
+    random.seed(42)
+
+
+def test_fitness_weights_are_minimising():
+    _register_types()
+    assert creator.FitnessWildfire.weights == (-1.0, -1.0)
+
+
+def test_build_toolbox_has_required_operators():
+    toolbox = build_toolbox(_graph(), [(2, 2)], 2, 10, _rng(), _config())
+    for attr in ("evaluate", "select", "mate", "mutate", "population", "compile"):
+        assert hasattr(toolbox, attr)
+
+
+def test_run_returns_population_and_logbook():
+    pop, log = run(_config(), _graph(), [(2, 2)], 2, 10, _rng())
+    assert isinstance(pop, list)
+    assert isinstance(log, tools.Logbook)
+
+
+def test_run_population_size_preserved():
+    config = _config()
+    pop, _ = run(config, _graph(), [(2, 2)], 2, 10, _rng())
+    assert len(pop) == config.population_size
+
+
+def test_run_logbook_records_all_generations():
+    config = _config()
+    _, log = run(config, _graph(), [(2, 2)], 2, 10, _rng())
+    assert len(log) == config.generations + 1
+
+
+def test_run_all_individuals_have_valid_fitness():
+    pop, _ = run(_config(), _graph(), [(2, 2)], 2, 10, _rng())
+    assert all(ind.fitness.valid for ind in pop)
+
+
+def test_run_all_individuals_obey_height_limit():
+    config = _config()
+    pop, _ = run(config, _graph(), [(2, 2)], 2, 10, _rng())
+    assert all(ind.height <= config.max_tree_height for ind in pop)
+
+
+def test_run_all_individuals_obey_size_limit():
+    config = _config()
+    pop, _ = run(config, _graph(), [(2, 2)], 2, 10, _rng())
+    assert all(len(ind) <= config.max_tree_nodes for ind in pop)
+
+
+def test_run_fitness_values_are_non_negative():
+    pop, _ = run(_config(), _graph(), [(2, 2)], 2, 10, _rng())
+    for ind in pop:
+        total_burned, peak_burning = ind.fitness.values
+        assert total_burned >= 0
+        assert peak_burning >= 0
+
+
+def test_build_toolbox_reuses_registered_types_on_second_call():
+    build_toolbox(_graph(), [(2, 2)], 2, 10, _rng(), _config())
+    fitness_cls = creator.FitnessWildfire
+    build_toolbox(_graph(), [(2, 2)], 2, 10, _rng(), _config())
+    assert creator.FitnessWildfire is fitness_cls
