@@ -191,6 +191,7 @@ def _ignite_nodes(graph: nx.Graph, nodes: list[tuple]) -> None:
 def _burn_out_nodes(graph: nx.Graph, nodes: list[tuple]) -> None:
     for node in nodes:
         graph.nodes[node][STATE] = NodeState.BURNED
+        graph.nodes[node][FUEL] = 0.0
 
 
 def _ignition_probability(

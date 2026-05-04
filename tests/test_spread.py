@@ -48,6 +48,17 @@ def test_spread_step_burning_node_with_timer_one_transitions_to_burned():
     assert graph.nodes[node][STATE] == NodeState.BURNED
 
 
+def test_spread_step_burned_out_node_fuel_zeroed():
+    graph = _setup()
+    node = (2, 2)
+    graph.nodes[node][STATE] = NodeState.BURNING
+    graph.nodes[node][BURN_TIMER] = 1
+    graph.nodes[node][FUEL] = 0.9
+    spread_step(graph, np.random.default_rng(0))
+    assert graph.nodes[node][STATE] == NodeState.BURNED
+    assert graph.nodes[node][FUEL] == 0.0
+
+
 def test_spread_step_burning_node_decrements_timer():
     graph = _setup()
     node = (2, 2)

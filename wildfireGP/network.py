@@ -24,6 +24,8 @@ fuel : float in [0, 1]
     Relative fuel load. Higher values indicate more burnable material and increase ignition probability and burn
     duration. Currently assigned via spatially correlated synthetic generation. When real data loading is added, this
     will be derived from categorical fuel type classifications (Canadian FBP system or US LANDFIRE Scott-Burgan models).
+    Set to 0.0 on burnout (alongside WATER/ROCK nodes), so fuel=0 is a reliable proxy for "no longer a valid treatment
+    target" without requiring the GP to know about NodeState.
 slope : float in [0, 1]
     Terrain steepness normalised to [0, 1]. Fire spread rate increases with slope (Rothermel, 1972). Derived from a
     synthetic terrain heightmap via numpy.gradient; will use a real DEM when real data loading is added.
