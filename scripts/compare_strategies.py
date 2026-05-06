@@ -82,12 +82,13 @@ def _run_strategy(
     treatments_per_step: int,
     max_steps: int,
     runs: int,
-    base_seed: int,
+    base_seed: int | None,
 ) -> tuple[np.ndarray, np.ndarray]:
     burned = np.empty(runs, dtype=float)
     peak = np.empty(runs, dtype=float)
     for i in range(runs):
-        rng = np.random.default_rng(base_seed + i)
+        seed = None if base_seed is None else base_seed + i
+        rng = np.random.default_rng(seed)
         b, p = evaluate(func, graph, ignition_nodes, treatments_per_step, max_steps, rng)
         burned[i] = b
         peak[i] = p
@@ -116,7 +117,7 @@ def _load_strategies(args: argparse.Namespace) -> list[tuple[str, object]]:
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Compare GP and baseline strategies.")
-    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--rows", type=int, default=20)
     parser.add_argument("--cols", type=int, default=20)
     parser.add_argument("--treatments", type=int, default=3)
