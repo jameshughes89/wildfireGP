@@ -1,3 +1,6 @@
+import numpy as np
+import pytest
+
 from wildfireGP.network import (
     BURN_TIMER,
     CELL_SIZE,
@@ -15,6 +18,7 @@ from wildfireGP.network import (
     TerrainType,
     create_grid,
     reset_states,
+    select_ignition_node,
     set_fuel_moisture,
     set_wind,
 )
@@ -180,3 +184,59 @@ def test_reset_states_all_burn_timers_return_to_zero():
         graph.nodes[n][BURN_TIMER] = 3
     reset_states(graph)
     assert all(graph.nodes[n][BURN_TIMER] == 0 for n in graph.nodes)
+
+
+def test_select_ignition_node_is_burnable():
+    graph = create_grid(20, 20, seed=0)
+    node = select_ignition_node(graph, np.random.default_rng(0))
+    assert graph.nodes[node][TERRAIN] == TerrainType.LAND
+    assert graph.nodes[node][FUEL] > 0.0
+    assert graph.nodes[node][STATE] == NodeState.UNBURNED
+
+
+def test_select_ignition_node_is_in_central_region():
+    rows, cols = 20, 20
+    graph = create_grid(rows, cols, seed=0)
+    centre_fraction = 0.5
+    margin = (1.0 - centre_fraction) / 2.0
+    row_lo, row_hi = int(rows * margin), int(rows * (1.0 - margin))
+    col_lo, col_hi = int(cols * margin), int(cols * (1.0 - margin))
+    for _ in range(20):
+        r, c = select_ignition_node(graph, np.random.default_rng(_), centre_fraction=centre_fraction)
+        assert row_lo <= r < row_hi
+        assert col_lo <= c < col_hi
+
+
+def test_select_ignition_node_is_reproducible_with_same_seed():
+    graph = create_grid(20, 20, seed=0)
+    n1 = select_ignition_node(graph, np.random.default_rng(42))
+    n2 = select_ignition_node(graph, np.random.default_rng(42))
+    assert n1 == n2
+
+
+def test_select_ignition_node_varies_with_different_seeds():
+    graph = create_grid(20, 20, seed=0)
+    nodes = {select_ignition_node(graph, np.random.default_rng(i)) for i in range(30)}
+    assert len(nodes) > 1
+
+
+def test_select_ignition_node_falls_back_when_centre_has_no_burnable_nodes():
+    graph = create_grid(10, 10, seed=0)
+    rows, cols = 10, 10
+    margin = (1.0 - 0.5) / 2.0
+    for r in range(int(rows * margin), int(rows * (1.0 - margin))):
+        for c in range(int(cols * margin), int(cols * (1.0 - margin))):
+            graph.nodes[(r, c)][FUEL] = 0.0
+            graph.nodes[(r, c)][TERRAIN] = TerrainType.WATER
+    node = select_ignition_node(graph, np.random.default_rng(0))
+    assert graph.nodes[node][FUEL] > 0.0
+    assert graph.nodes[node][TERRAIN] == TerrainType.LAND
+
+
+def test_select_ignition_node_raises_when_no_burnable_nodes_exist():
+    graph = create_grid(5, 5, seed=0)
+    for n in graph.nodes:
+        graph.nodes[n][FUEL] = 0.0
+        graph.nodes[n][TERRAIN] = TerrainType.WATER
+    with pytest.raises(ValueError):
+        select_ignition_node(graph, np.random.default_rng(0))
