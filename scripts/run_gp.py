@@ -33,6 +33,7 @@ import dill
 import numpy as np
 from deap import tools
 
+from scripts.cli import add_landscape_args
 from wildfireGP.gp import GPConfig, build_toolbox, run
 from wildfireGP.network import (
     create_grid,
@@ -94,12 +95,8 @@ def main(argv: list[str] | None = None) -> None:
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run wildfire GP and save results.")
+    add_landscape_args(parser)
     parser.add_argument("--results-dir", type=pathlib.Path, default=DEFAULT_RESULTS_DIR)
-    parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument("--rows", type=int, default=20)
-    parser.add_argument("--cols", type=int, default=20)
-    parser.add_argument("--treatments", type=int, default=3)
-    parser.add_argument("--max-steps", type=int, default=50)
     parser.add_argument("--pop", type=int, default=100)
     parser.add_argument("--gens", type=int, default=50)
     parser.add_argument("--hof", type=int, default=5, help="Number of best individuals to save.")
