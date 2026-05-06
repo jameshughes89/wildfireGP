@@ -1,9 +1,9 @@
 """
 Compare GP-evolved strategies against baseline heuristics.
 
-Each strategy is evaluated over --runs independent simulations on the same landscape and ignition
-point. Mean and standard deviation of total_burned and peak_burning are reported in a ranked table
-(ranked by mean total_burned, ascending).
+Each strategy is evaluated over --runs independent simulations on the same landscape and ignition point. Mean and
+standard deviation of total_burned and peak_burning are reported in a ranked table (ranked by mean total_burned,
+ascending).
 
 Usage
 -----
@@ -11,9 +11,8 @@ Usage
                                          [--treatments INT] [--max-steps INT] [--runs INT]
                                          [--hof PATH [PATH ...]]
 
-    --hof accepts one or more paths to .dill files produced by run_gp.py. If omitted only the
-    builtin baselines are compared. If --results-dir is given, all .dill files found directly
-    inside that directory are loaded automatically.
+    --hof accepts one or more paths to .dill files produced by run_gp.py. If omitted only the builtin baselines are
+    compared. If --results-dir is given, all .dill files found directly inside that directory are loaded automatically.
 
 Examples
 --------

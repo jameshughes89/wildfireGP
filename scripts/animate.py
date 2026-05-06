@@ -1,8 +1,8 @@
 """
 Run a single simulation with a chosen strategy and save a GIF.
 
-The simulation loop runs spread_step directly, capturing a deepcopy of the graph after each step.
-Frames are passed to render.animate() which writes the GIF.
+The simulation loop runs spread_step directly, capturing a deepcopy of the graph after each step. Frames are passed to
+render.animate() which writes the GIF.
 
 Usage
 -----

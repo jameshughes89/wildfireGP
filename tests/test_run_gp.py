@@ -16,8 +16,12 @@ from deap import tools
 
 from scripts.run_gp import _save_config, _save_hof, _save_population, _save_stats
 from wildfireGP.gp import GPConfig, _register_types, build_toolbox
-from wildfireGP.network import create_grid, select_ignition_node, set_fuel_moisture, set_wind
-
+from wildfireGP.network import (
+    create_grid,
+    select_ignition_node,
+    set_fuel_moisture,
+    set_wind,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
