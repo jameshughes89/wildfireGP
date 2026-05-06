@@ -31,11 +31,15 @@ import sys
 
 import dill
 import numpy as np
-from deap import gp, tools
+from deap import tools
 
 from wildfireGP.gp import GPConfig, build_toolbox, run
-from wildfireGP.language import PRIMITIVE_SET
-from wildfireGP.network import create_grid, select_ignition_node, set_fuel_moisture, set_wind
+from wildfireGP.network import (
+    create_grid,
+    select_ignition_node,
+    set_fuel_moisture,
+    set_wind,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger(__name__)
@@ -82,7 +86,8 @@ def main(argv: list[str] | None = None) -> None:
     _save_config(out_dir, config, scenario)
     _save_stats(out_dir, logbook)
     _save_population(out_dir, population, logbook)
-    _save_hof(out_dir, population, args.hof, build_toolbox(graph, [ignition], args.treatments, args.max_steps, rng, config))
+    toolbox = build_toolbox(graph, [ignition], args.treatments, args.max_steps, rng, config)
+    _save_hof(out_dir, population, args.hof, toolbox)
 
     log.info("Done. Results in %s", out_dir)
 
