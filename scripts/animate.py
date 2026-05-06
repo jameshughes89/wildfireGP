@@ -130,7 +130,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     source.add_argument("--strategy", type=str, help="Builtin strategy name.")
     source.add_argument("--hof", type=pathlib.Path, help="Path to a .dill HOF file.")
     parser.add_argument("--output", type=str, default="simulation.gif")
-    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--rows", type=int, default=20)
     parser.add_argument("--cols", type=int, default=20)
     parser.add_argument("--treatments", type=int, default=3)

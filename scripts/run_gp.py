@@ -95,7 +95,7 @@ def main(argv: list[str] | None = None) -> None:
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run wildfire GP and save results.")
     parser.add_argument("--results-dir", type=pathlib.Path, default=DEFAULT_RESULTS_DIR)
-    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--rows", type=int, default=20)
     parser.add_argument("--cols", type=int, default=20)
     parser.add_argument("--treatments", type=int, default=3)
