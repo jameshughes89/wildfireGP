@@ -223,15 +223,15 @@ def select_ignition_node(graph: nx.Graph, rng: np.random.Generator, centre_fract
     Return a randomly selected burnable node from the central region of the landscape.
 
     The central region is defined as the inner (centre_fraction) of each grid dimension. For example,
-    centre_fraction=0.5 restricts candidates to nodes in the middle 50% of rows and middle 50% of columns,
-    excluding nodes near the edges where fire would quickly hit a boundary.
+    centre_fraction=0.5 restricts candidates to nodes in the middle 50% of rows and middle 50% of columns, excluding
+    nodes near the edges where fire would quickly hit a boundary.
 
     Falls back to any burnable node on the full graph if no burnable nodes exist within the central region.
 
     :param graph: Landscape graph. Must have ROWS and COLS graph attributes set.
     :param rng: NumPy random generator for reproducible selection.
-    :param centre_fraction: Fraction of each dimension to use as the candidate region, centred on the grid.
-        Must be in (0, 1]. Default 0.5.
+    :param centre_fraction: Fraction of each dimension to use as the candidate region, centred on the grid. Must be in
+        (0, 1]. Default 0.5.
     :return: A node (row, col) that is UNBURNED, LAND terrain, and fuel > 0.
     :raises ValueError: If no burnable nodes exist anywhere on the graph.
     """
