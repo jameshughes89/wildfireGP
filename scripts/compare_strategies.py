@@ -35,6 +35,7 @@ import sys
 import dill
 import numpy as np
 
+from scripts.cli import add_landscape_args
 from wildfireGP.evaluate import evaluate
 from wildfireGP.network import (
     create_grid,
@@ -117,11 +118,7 @@ def _load_strategies(args: argparse.Namespace) -> list[tuple[str, object]]:
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Compare GP and baseline strategies.")
-    parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument("--rows", type=int, default=20)
-    parser.add_argument("--cols", type=int, default=20)
-    parser.add_argument("--treatments", type=int, default=3)
-    parser.add_argument("--max-steps", type=int, default=50)
+    add_landscape_args(parser)
     parser.add_argument("--runs", type=int, default=30)
     parser.add_argument("--results-dir", type=pathlib.Path, default=None)
     parser.add_argument("--hof", type=pathlib.Path, nargs="+", default=None)
