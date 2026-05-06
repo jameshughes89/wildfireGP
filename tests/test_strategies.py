@@ -1,7 +1,5 @@
 import math
 
-import pytest
-
 from wildfireGP.features import precompute_burnable_fire_map, precompute_fire_map
 from wildfireGP.network import (
     BURN_TIMER,
