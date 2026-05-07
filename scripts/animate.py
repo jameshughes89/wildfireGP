@@ -74,7 +74,7 @@ def main(argv: list[str] | None = None) -> None:
     graph.nodes[ignition][STATE] = NodeState.BURNING
     graph.nodes[ignition][BURN_TIMER] = max(1, math.ceil(graph.nodes[ignition][FUEL] * MAX_BURN_STEPS))
 
-    snapshots = _run_simulation(graph, func, args.treatments, args.max_steps, rng)
+    snapshots = _run_simulation(graph, func, args.treatments, args.max_steps, rng, args.intervention_delay)
     log.info("Simulation complete: %d frames", len(snapshots))
 
     output = pathlib.Path(args.output)
@@ -83,16 +83,19 @@ def main(argv: list[str] | None = None) -> None:
     log.info("Done.")
 
 
-def _run_simulation(graph, func, treatments_per_step: int, max_steps: int, rng: np.random.Generator) -> list:
+def _run_simulation(
+    graph, func, treatments_per_step: int, max_steps: int, rng: np.random.Generator, intervention_delay: int = 3
+) -> list:
     snapshots = [copy.deepcopy(graph)]
-    for _ in range(max_steps):
+    for step in range(max_steps):
         burning = [n for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING]
         if not burning:
             break
         precompute_fire_map(graph)
         precompute_burnable_fire_map(graph)
-        graph.graph[TREATMENTS_REMAINING] = treatments_per_step
-        _apply_treatments(graph, func, treatments_per_step)
+        if step >= intervention_delay:
+            graph.graph[TREATMENTS_REMAINING] = treatments_per_step
+            _apply_treatments(graph, func, treatments_per_step)
         spread_step(graph, rng)
         snapshots.append(copy.deepcopy(graph))
     return snapshots
