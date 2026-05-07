@@ -9,6 +9,18 @@ Strategy ladder (weakest to strongest expected performance):
         < score_by_fire_proximity < score_indirect_attack / score_ridgeline / score_head_fire
 
 If GP cannot outperform score_by_fire_proximity it is not producing useful strategies.
+
+The domain-informed strategies (score_indirect_attack, score_ridgeline, score_head_fire) are derived from standard
+operational doctrine for wildland fire suppression. The canonical reference is the NWCG Fireline Handbook, which
+codifies direct and indirect attack tactics, anchor point selection, and head-fire defence used by suppression crews.
+Topographic effects (slope acceleration, ridgeline anchor points) follow from Rothermel (1972), which is cited in
+network.py.
+
+References
+----------
+National Wildfire Coordinating Group. (2004). Fireline Handbook. NWCG Handbook 3, PMS 410-1.
+Rothermel, R.C. (1972). A mathematical model for predicting fire spread in wildland fuels. USDA Forest Service
+    Research Paper INT-115.
 """
 
 import random
