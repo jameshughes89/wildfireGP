@@ -32,6 +32,7 @@ import dill
 import numpy as np
 
 from scripts.cli import add_landscape_args
+from wildfireGP.evaluate import _apply_treatments
 from wildfireGP.features import (
     TREATMENTS_REMAINING,
     precompute_burnable_fire_map,
@@ -95,21 +96,6 @@ def _run_simulation(graph, func, treatments_per_step: int, max_steps: int, rng: 
         spread_step(graph, rng)
         snapshots.append(copy.deepcopy(graph))
     return snapshots
-
-
-def _apply_treatments(graph, func, budget: int) -> None:
-    candidates = [n for n in graph.nodes if graph.nodes[n][STATE] == NodeState.UNBURNED]
-    candidates.sort(key=lambda n: _safe_score(func, graph, n), reverse=True)
-    for node in candidates[:budget]:
-        graph.nodes[node][STATE] = NodeState.TREATED
-        graph.graph[TREATMENTS_REMAINING] -= 1
-
-
-def _safe_score(func, graph, node) -> float:
-    import math as _math
-
-    score = func(graph, node)
-    return score if _math.isfinite(score) else float("-inf")
 
 
 def _load_strategy(args: argparse.Namespace) -> tuple:
