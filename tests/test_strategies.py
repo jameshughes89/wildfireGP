@@ -77,25 +77,26 @@ def test_score_indirect_attack_zero_when_no_fire():
 
 
 def test_score_indirect_attack_zero_below_min_distance():
-    # (5, 4) is 1 hop from fire at (5, 5) — below default min_distance=2
+    one_hop_from_fire = (5, 4)
     graph = _graph_with_fire(ignition=(5, 5))
-    assert score_indirect_attack(graph, (5, 4)) == 0.0
+    assert score_indirect_attack(graph, one_hop_from_fire) == 0.0
 
 
 def test_score_indirect_attack_zero_above_max_distance():
-    # (0, 0) is 5 hops from fire at (5, 5); force max_distance=3 to put it outside
+    five_hops_from_fire = (0, 0)
     graph = _graph_with_fire(ignition=(5, 5))
-    assert score_indirect_attack(graph, (0, 0), max_distance=3) == 0.0
+    assert score_indirect_attack(graph, five_hops_from_fire, max_distance=3) == 0.0
 
 
 def test_score_indirect_attack_closer_scores_higher_within_window():
-    # (5, 3) is 2 hops from fire, (0, 0) is 5 hops — both within default window
+    two_hops_from_fire = (5, 3)
+    five_hops_from_fire = (0, 0)
     graph = _graph_with_fire(ignition=(5, 5))
-    for nb in graph.neighbors((5, 3)):
+    for nb in graph.neighbors(two_hops_from_fire):
         graph.nodes[nb][FUEL] = 0.9
-    for nb in graph.neighbors((0, 0)):
+    for nb in graph.neighbors(five_hops_from_fire):
         graph.nodes[nb][FUEL] = 0.9
-    assert score_indirect_attack(graph, (5, 3)) > score_indirect_attack(graph, (0, 0))
+    assert score_indirect_attack(graph, two_hops_from_fire) > score_indirect_attack(graph, five_hops_from_fire)
 
 
 # ---------------------------------------------------------------------------
@@ -108,23 +109,23 @@ def test_score_ridgeline_zero_when_no_fire():
 
 
 def test_score_ridgeline_zero_below_min_distance():
+    one_hop_from_fire = (5, 4)
     graph = _graph_with_fire(ignition=(5, 5))
-    assert score_ridgeline(graph, (5, 4)) == 0.0
+    assert score_ridgeline(graph, one_hop_from_fire) == 0.0
 
 
 def test_score_ridgeline_zero_above_max_distance():
+    five_hops_from_fire = (0, 0)
     graph = _graph_with_fire(ignition=(5, 5))
-    assert score_ridgeline(graph, (0, 0), max_distance=3) == 0.0
+    assert score_ridgeline(graph, five_hops_from_fire, max_distance=3) == 0.0
 
 
 def test_score_ridgeline_higher_elevation_and_slope_scores_higher():
-    # Disable distance window so the test focuses purely on topographic ranking
     graph = _graph_with_fire()
-    high = max(graph.nodes, key=lambda n: score_ridgeline(graph, n, min_distance=0, max_distance=100))
-    low = min(graph.nodes, key=lambda n: score_ridgeline(graph, n, min_distance=0, max_distance=100))
-    assert score_ridgeline(graph, high, min_distance=0, max_distance=100) > score_ridgeline(
-        graph, low, min_distance=0, max_distance=100
-    )
+    no_distance_limit = dict(min_distance=0, max_distance=100)
+    high = max(graph.nodes, key=lambda n: score_ridgeline(graph, n, **no_distance_limit))
+    low = min(graph.nodes, key=lambda n: score_ridgeline(graph, n, **no_distance_limit))
+    assert score_ridgeline(graph, high, **no_distance_limit) > score_ridgeline(graph, low, **no_distance_limit)
 
 
 # ---------------------------------------------------------------------------
@@ -137,15 +138,17 @@ def test_score_head_fire_zero_when_no_fire():
 
 
 def test_score_head_fire_zero_below_min_distance():
+    one_hop_from_fire = (5, 4)
     graph = _graph_with_fire(ignition=(5, 5))
-    assert score_head_fire(graph, (5, 4)) == 0.0
+    assert score_head_fire(graph, one_hop_from_fire) == 0.0
 
 
 def test_score_head_fire_zero_above_max_distance():
+    five_hops_from_fire = (0, 0)
     graph = _graph_with_fire(ignition=(5, 5))
-    assert score_head_fire(graph, (0, 0), max_distance=3) == 0.0
+    assert score_head_fire(graph, five_hops_from_fire, max_distance=3) == 0.0
 
 
 def test_score_head_fire_finite_within_window():
-    # (5, 3) is 2 hops from fire at (5, 5) — within default window
-    assert math.isfinite(score_head_fire(_graph_with_fire(ignition=(5, 5)), (5, 3)))
+    two_hops_from_fire = (5, 3)
+    assert math.isfinite(score_head_fire(_graph_with_fire(ignition=(5, 5)), two_hops_from_fire))
