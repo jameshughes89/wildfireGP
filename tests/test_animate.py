@@ -84,18 +84,18 @@ def test_load_strategy_dill_label_is_stem(dill_file):
 
 
 def test_run_simulation_returns_at_least_one_snapshot(graph):
-    snapshots = _run_simulation(graph, no_treatment, 2, 30, np.random.default_rng(0))
+    snapshots = _run_simulation(graph, no_treatment, 2, 30, np.random.default_rng(0), intervention_delay=0)
     assert len(snapshots) >= 1
 
 
 def test_run_simulation_first_snapshot_has_burning_node(graph):
-    snapshots = _run_simulation(graph, no_treatment, 2, 30, np.random.default_rng(0))
+    snapshots = _run_simulation(graph, no_treatment, 2, 30, np.random.default_rng(0), intervention_delay=0)
     assert any(snapshots[0].nodes[n][STATE] == NodeState.BURNING for n in snapshots[0].nodes)
 
 
 def test_run_simulation_last_snapshot_has_no_burning_nodes_or_hit_max(graph):
     max_steps = 50
-    snapshots = _run_simulation(graph, no_treatment, 2, max_steps, np.random.default_rng(0))
+    snapshots = _run_simulation(graph, no_treatment, 2, max_steps, np.random.default_rng(0), intervention_delay=0)
     last = snapshots[-1]
     no_fire = not any(last.nodes[n][STATE] == NodeState.BURNING for n in last.nodes)
     assert no_fire or len(snapshots) == max_steps + 1
@@ -103,12 +103,14 @@ def test_run_simulation_last_snapshot_has_no_burning_nodes_or_hit_max(graph):
 
 def test_run_simulation_does_not_exceed_max_steps(graph):
     max_steps = 5
-    snapshots = _run_simulation(graph, no_treatment, 2, max_steps, np.random.default_rng(0))
+    snapshots = _run_simulation(graph, no_treatment, 2, max_steps, np.random.default_rng(0), intervention_delay=0)
     assert len(snapshots) <= max_steps + 1
 
 
 def test_run_simulation_treatment_reduces_unburned_count(graph):
-    snapshots_treated = _run_simulation(graph, score_by_fire_proximity, 5, 10, np.random.default_rng(0))
+    snapshots_treated = _run_simulation(
+        graph, score_by_fire_proximity, 5, 10, np.random.default_rng(0), intervention_delay=0
+    )
     treated_count = sum(
         1 for n in snapshots_treated[-1].nodes if snapshots_treated[-1].nodes[n][STATE] == NodeState.TREATED
     )

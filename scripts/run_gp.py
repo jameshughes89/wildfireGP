@@ -73,13 +73,14 @@ def main(argv: list[str] | None = None) -> None:
         "ignition_node": list(ignition),
         "treatments_per_step": args.treatments,
         "max_steps": args.max_steps,
+        "intervention_delay": args.intervention_delay,
         "wind_speed": 20.0,
         "wind_direction": 0.0,
         "fuel_moisture": 0.2,
     }
 
     log.info("Starting GP: %d individuals, %d generations", config.population_size, config.generations)
-    population, logbook = run(config, graph, [ignition], args.treatments, args.max_steps, rng)
+    population, logbook = run(config, graph, [ignition], args.treatments, args.max_steps, rng, args.intervention_delay)
 
     out_dir = _make_output_dir(args.results_dir)
     log.info("Saving results to %s", out_dir)
@@ -87,7 +88,7 @@ def main(argv: list[str] | None = None) -> None:
     _save_config(out_dir, config, scenario)
     _save_stats(out_dir, logbook)
     _save_population(out_dir, population, logbook)
-    toolbox = build_toolbox(graph, [ignition], args.treatments, args.max_steps, rng, config)
+    toolbox = build_toolbox(graph, [ignition], args.treatments, args.max_steps, rng, config, args.intervention_delay)
     _save_hof(out_dir, population, args.hof, toolbox)
 
     log.info("Done. Results in %s", out_dir)

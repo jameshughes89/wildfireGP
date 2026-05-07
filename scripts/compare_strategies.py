@@ -68,7 +68,9 @@ def main(argv: list[str] | None = None) -> None:
     results = []
     for name, func in strategies:
         log.info("  %s ...", name)
-        burned, peak = _run_strategy(func, graph, [ignition], args.treatments, args.max_steps, args.runs, args.seed)
+        burned, peak = _run_strategy(
+            func, graph, [ignition], args.treatments, args.max_steps, args.runs, args.seed, args.intervention_delay
+        )
         results.append((name, burned.mean(), burned.std(), peak.mean(), peak.std()))
 
     results.sort(key=lambda r: r[1])
@@ -83,13 +85,14 @@ def _run_strategy(
     max_steps: int,
     runs: int,
     base_seed: int | None,
+    intervention_delay: int = 3,
 ) -> tuple[np.ndarray, np.ndarray]:
     burned = np.empty(runs, dtype=float)
     peak = np.empty(runs, dtype=float)
     for i in range(runs):
         seed = None if base_seed is None else base_seed + i
         rng = np.random.default_rng(seed)
-        b, p = evaluate(func, graph, ignition_nodes, treatments_per_step, max_steps, rng)
+        b, p = evaluate(func, graph, ignition_nodes, treatments_per_step, max_steps, rng, intervention_delay)
         burned[i] = b
         peak[i] = p
     return burned, peak

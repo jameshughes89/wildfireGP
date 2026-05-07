@@ -40,6 +40,7 @@ import numpy as np
 from deap import algorithms, base, creator, gp, tools
 from deap.gp import MetaEphemeral
 
+from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY
 from wildfireGP.evaluate import evaluate as _sim_evaluate
 from wildfireGP.language import PRIMITIVE_SET
 
@@ -65,6 +66,7 @@ def build_toolbox(
     max_steps: int,
     rng: np.random.Generator,
     config: GPConfig,
+    intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> base.Toolbox:
     """
     Build and return a DEAP Toolbox wired to the given simulation scenario.
@@ -75,6 +77,7 @@ def build_toolbox(
     :param max_steps: Maximum simulation timesteps.
     :param rng: NumPy random generator for spread stochasticity.
     :param config: GP hyperparameters.
+    :param intervention_delay: Steps before treatments begin. See evaluate() for full documentation.
     :return: Configured DEAP Toolbox.
     """
     _register_types()
@@ -94,6 +97,7 @@ def build_toolbox(
         treatments_per_step=treatments_per_step,
         max_steps=max_steps,
         rng=rng,
+        intervention_delay=intervention_delay,
     )
     toolbox.register("select", tools.selTournament, tournsize=config.tournament_size)
     toolbox.register("mate", gp.cxOnePoint)
@@ -115,6 +119,7 @@ def run(
     treatments_per_step: int,
     max_steps: int,
     rng: np.random.Generator,
+    intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> tuple[list, tools.Logbook]:
     """
     Run the GP evolutionary loop and return the final population and statistics logbook.
@@ -129,9 +134,10 @@ def run(
     :param treatments_per_step: Treatment budget per simulation timestep.
     :param max_steps: Maximum simulation timesteps before forced termination.
     :param rng: NumPy random generator.
+    :param intervention_delay: Steps before treatments begin. See evaluate() for full documentation.
     :return: (population, logbook). Logbook records gen, fitness, and size stats for every generation.
     """
-    toolbox = build_toolbox(graph, ignition_nodes, treatments_per_step, max_steps, rng, config)
+    toolbox = build_toolbox(graph, ignition_nodes, treatments_per_step, max_steps, rng, config, intervention_delay)
     mstats = _build_stats()
     logbook = tools.Logbook()
     logbook.header = ["gen", "fitness", "size"]
@@ -204,9 +210,10 @@ def _eval_individual(
     treatments_per_step: int,
     max_steps: int,
     rng: np.random.Generator,
+    intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> tuple[int, int]:
     func = gp.compile(individual, pset=PRIMITIVE_SET)
-    return _sim_evaluate(func, graph, ignition_nodes, treatments_per_step, max_steps, rng)
+    return _sim_evaluate(func, graph, ignition_nodes, treatments_per_step, max_steps, rng, intervention_delay)
 
 
 def _evaluate_all(toolbox: base.Toolbox, population: list) -> None:
