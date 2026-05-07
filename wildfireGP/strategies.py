@@ -73,36 +73,66 @@ def score_by_burning_neighbors(graph: nx.Graph, node: tuple) -> float:
     return float(burning_neighbour_count(graph, node))
 
 
-def score_indirect_attack(graph: nx.Graph, node: tuple) -> float:
+def score_indirect_attack(graph: nx.Graph, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
     """
     Prioritise fuel-rich ground just ahead of the fire front (indirect attack).
 
     Firefighters build control lines ahead of the active edge rather than fighting flame directly. Scores nodes by the
     fuel load of their neighbourhood weighted by proximity --- clearing a high-fuel zone before the fire arrives is more
     effective than reacting at the burning edge.
+
+    Returns 0.0 outside [min_distance, max_distance]. If the fire is already adjacent (< min_distance) it is too late
+    for indirect prep; if it is beyond max_distance the node is unlikely to be threatened imminently.
+
+    :param min_distance: Minimum hop distance to fire to engage (default 2 = 200m at 100m/cell).
+    :param max_distance: Maximum hop distance to fire to engage (default 10 = 1km at 100m/cell).
+
+    Note: defaults are tuneable heuristics, not values derived from a specific cited source.
     """
-    return mean_neighbour_fuel(graph, node) / (1.0 + distance_to_fire(graph, node))
+    d = distance_to_fire(graph, node)
+    if d < min_distance or d > max_distance:
+        return 0.0
+    return mean_neighbour_fuel(graph, node) / (1.0 + d)
 
 
-def score_ridgeline(graph: nx.Graph, node: tuple) -> float:
+def score_ridgeline(graph: nx.Graph, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
     """
-    Prioritise topographic high points (ridgeline defence).
+    Prioritise topographic high points within engagement range of the fire (ridgeline defence).
 
     Fire spreads fastest uphill. Holding a ridgeline or steep slope denies the fire an acceleration path and provides a
-    natural anchor for control lines.
+    natural anchor for control lines. Only nodes within [min_distance, max_distance] of the fire are considered ---
+    committing crews to a distant ridge is premature, and establishing a ridgeline anchor when the fire is already
+    adjacent is too late.
+
+    :param min_distance: Minimum hop distance to fire to engage (default 2 = 200m at 100m/cell).
+    :param max_distance: Maximum hop distance to fire to engage (default 10 = 1km at 100m/cell).
+
+    Note: defaults are tuneable heuristics, not values derived from a specific cited source.
     """
+    d = distance_to_fire(graph, node)
+    if d < min_distance or d > max_distance:
+        return 0.0
     return elevation(graph, node) + slope(graph, node)
 
 
-def score_head_fire(graph: nx.Graph, node: tuple) -> float:
+def score_head_fire(graph: nx.Graph, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
     """
-    Prioritise nodes downwind and close to the fire (head fire defence).
+    Prioritise nodes downwind and within engagement range of the fire (head fire defence).
 
     The head of a fire --- its downwind front --- advances fastest and is hardest to stop once established. Scores nodes
     by wind alignment with the fire direction weighted by proximity, defending the path the fire is most aggressively
-    pursuing.
+    pursuing. Only nodes within [min_distance, max_distance] are considered --- head fire positioning is proactive, not
+    reactive; if the fire is already adjacent the window for effective positioning has passed.
+
+    :param min_distance: Minimum hop distance to fire to engage (default 2 = 200m at 100m/cell).
+    :param max_distance: Maximum hop distance to fire to engage (default 10 = 1km at 100m/cell).
+
+    Note: defaults are tuneable heuristics, not values derived from a specific cited source.
     """
-    return wind_fire_alignment(graph, node) / (1.0 + distance_to_fire(graph, node))
+    d = distance_to_fire(graph, node)
+    if d < min_distance or d > max_distance:
+        return 0.0
+    return wind_fire_alignment(graph, node) / (1.0 + d)
 
 
 ALL_STRATEGIES = [
