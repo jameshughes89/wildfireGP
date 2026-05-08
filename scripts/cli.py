@@ -7,11 +7,7 @@ scripts stay in sync automatically.
 """
 
 import argparse
-import pathlib
 import subprocess
-import sys
-
-_BIN = pathlib.Path(sys.executable).parent
 
 
 def add_landscape_args(parser: argparse.ArgumentParser) -> None:
@@ -56,27 +52,12 @@ def add_landscape_args(parser: argparse.ArgumentParser) -> None:
 
 
 def run_formatters():
-    commands = [
-        [str(_BIN / "isort"), "."],
-        [str(_BIN / "black"), "."],
-        [str(_BIN / "mdformat"), "."],
-    ]
-    for cmd in commands:
-        label = " ".join(cmd)
-        print(f"running `{label}`")
-        result = subprocess.run(cmd)
-        if result.returncode != 0:
-            raise SystemExit(f"`{pathlib.Path(cmd[0]).name}` failed with exit code {result.returncode}")
+    for tool in ["isort .", "black .", "mdformat ."]:
+        print(f"running `{tool}`")
+        subprocess.run(tool, shell=True)
 
 
 def run_verification():
-    commands = [
-        [str(_BIN / "flake8"), "wildfireGP/", "scripts/", "tests/"],
-        [str(_BIN / "codespell"), "wildfireGP/", "scripts/", "tests/"],
-    ]
-    for cmd in commands:
-        label = " ".join(cmd)
-        print(f"running `{label}`")
-        result = subprocess.run(cmd)
-        if result.returncode != 0:
-            raise SystemExit(f"`{pathlib.Path(cmd[0]).name}` failed with exit code {result.returncode}")
+    for tool in ["flake8 wildfireGP/ scripts/ tests/", "codespell wildfireGP/ scripts/ tests/"]:
+        print(f"running `{tool}`")
+        subprocess.run(tool, shell=True)
