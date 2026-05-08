@@ -31,6 +31,7 @@ rng controls the spread simulation (NumPy). DEAP variation operators (cxOnePoint
 random module. Call random.seed() before run() for full reproducibility of tree generation and variation.
 """
 
+import logging
 import operator
 import random
 import sys
@@ -45,10 +46,14 @@ from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY
 from wildfireGP.evaluate import evaluate as _sim_evaluate
 from wildfireGP.language import PRIMITIVE_SET
 
+log = logging.getLogger(__name__)
+
 
 @dataclass
 class GPConfig:
-    """Hyperparameters for the GP evolutionary loop."""
+    """
+    Hyperparameters for the GP evolutionary loop.
+    """
 
     population_size: int = 100
     generations: int = 50
@@ -153,6 +158,7 @@ def run(
     _evaluate_all(toolbox, pop)
     hof.update(pop)
     logbook.record(gen=0, **mstats.compile(pop))
+    _log_gen(0, config.generations, pop)
 
     for gen in range(1, config.generations + 1):
         elites = list(map(toolbox.clone, tools.selBest(pop, config.elitism)))
@@ -162,8 +168,23 @@ def run(
         _evaluate_all(toolbox, pop)
         hof.update(pop)
         logbook.record(gen=gen, **mstats.compile(pop))
+        _log_gen(gen, config.generations, pop)
 
     return pop, logbook, hof
+
+
+def _log_gen(gen: int, total_gens: int, pop: list) -> None:
+    fit_vals = [ind.fitness.values[0] for ind in pop]
+    log.info(
+        "gen %d/%d  burned_min=%d  burned_avg=%.1f  peak_avg=%.1f  size_avg=%.1f  height_avg=%.1f",
+        gen,
+        total_gens,
+        int(min(fit_vals)),
+        float(np.mean(fit_vals)),
+        float(np.mean([ind.peak_burning for ind in pop])),
+        float(np.mean([len(ind) for ind in pop])),
+        float(np.mean([ind.height for ind in pop])),
+    )
 
 
 def _gen_grow(pset, min_: int, max_: int, type_=None):
@@ -203,6 +224,11 @@ def _gen_grow(pset, min_: int, max_: int, type_=None):
             for arg in reversed(prim.args):
                 stack.append((depth + 1, arg))
     return expr
+
+
+def compile_individual(individual) -> object:
+    """Compile a GP individual to a callable (graph, node) -> float."""
+    return gp.compile(individual, pset=PRIMITIVE_SET)
 
 
 def _register_types() -> None:

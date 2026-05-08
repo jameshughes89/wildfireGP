@@ -162,36 +162,31 @@ def test_save_population_round_trips_size(out_dir, toolbox_and_pop):
 # ---------------------------------------------------------------------------
 
 
-def test_save_hof_creates_dill_files(out_dir, toolbox_and_pop, hof):
-    tb, _ = toolbox_and_pop
-    _save_hof(out_dir, hof, toolbox=tb)
+def test_save_hof_creates_dill_files(out_dir, hof):
+    _save_hof(out_dir, hof)
     assert (out_dir / "hof_0.dill").exists()
 
 
-def test_save_hof_creates_expr_files(out_dir, toolbox_and_pop, hof):
-    tb, _ = toolbox_and_pop
-    _save_hof(out_dir, hof, toolbox=tb)
+def test_save_hof_creates_expr_files(out_dir, hof):
+    _save_hof(out_dir, hof)
     assert (out_dir / "hof_0.expr").exists()
 
 
-def test_save_hof_dill_loads_as_callable(out_dir, toolbox_and_pop, hof):
-    tb, _ = toolbox_and_pop
-    _save_hof(out_dir, hof, toolbox=tb)
+def test_save_hof_dill_loads_as_callable(out_dir, hof):
+    _save_hof(out_dir, hof)
     with open(out_dir / "hof_0.dill", "rb") as f:
         func = dill.load(f)
     assert callable(func)
 
 
-def test_save_hof_expr_is_non_empty_string(out_dir, toolbox_and_pop, hof):
-    tb, _ = toolbox_and_pop
-    _save_hof(out_dir, hof, toolbox=tb)
+def test_save_hof_expr_is_non_empty_string(out_dir, hof):
+    _save_hof(out_dir, hof)
     expr = (out_dir / "hof_0.expr").read_text()
     assert len(expr) > 0
 
 
-def test_save_hof_count_matches_hof_size(out_dir, toolbox_and_pop, hof):
-    tb, _ = toolbox_and_pop
-    _save_hof(out_dir, hof, toolbox=tb)
+def test_save_hof_count_matches_hof_size(out_dir, hof):
+    _save_hof(out_dir, hof)
     saved = list(out_dir.glob("hof_*.dill"))
     assert len(saved) == len(hof)
 

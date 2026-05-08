@@ -117,7 +117,7 @@ def _build() -> gp.PrimitiveSetTyped:
     for func in _GRAPH_FEATURES:
         pset.addPrimitive(func, [nx.Graph], float, name=func.__name__)
 
-    pset.addEphemeralConstant("const", partial(random.uniform, -1.0, 1.0), float)
+    pset.addEphemeralConstant("const", partial(random.uniform, -20.0, 20.0), float)
 
     return pset
 

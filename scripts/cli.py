@@ -29,6 +29,9 @@ def add_landscape_args(parser: argparse.ArgumentParser) -> None:
     --intervention-delay INT  Steps before any treatment is applied. Models detection, dispatch, and travel
                               time. Default 3 corresponds to roughly 90 minutes to 2 hours at 100m/cell,
                               consistent with initial attack response targets for remote terrain.
+    --wind-speed FLOAT        Wind speed in km/h. Default 20.0.
+    --wind-direction FLOAT    Wind direction in degrees clockwise from north (0 = north, 90 = east). Default 0.0.
+    --moisture FLOAT          Fuel moisture content as a fraction in [0, 1]. Default 0.2.
     """
     parser.add_argument("--seed", type=int, default=None, help="Random seed (default: None = non-reproducible).")
     parser.add_argument("--rows", type=int, default=50, help="Landscape grid rows.")
@@ -41,6 +44,11 @@ def add_landscape_args(parser: argparse.ArgumentParser) -> None:
         default=3,
         help="Steps before treatments begin (models response time).",
     )
+    parser.add_argument("--wind-speed", type=float, default=20.0, help="Wind speed in km/h.")
+    parser.add_argument(
+        "--wind-direction", type=float, default=0.0, help="Wind direction in degrees (0=north, 90=east)."
+    )
+    parser.add_argument("--moisture", type=float, default=0.2, help="Fuel moisture fraction [0, 1].")
 
 
 def run_formatters():

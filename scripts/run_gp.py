@@ -34,7 +34,7 @@ import numpy as np
 from deap import tools
 
 from scripts.cli import add_landscape_args
-from wildfireGP.gp import GPConfig, build_toolbox, run
+from wildfireGP.gp import GPConfig, compile_individual, run
 from wildfireGP.network import (
     create_grid,
     select_ignition_node,
@@ -55,8 +55,8 @@ def main(argv: list[str] | None = None) -> None:
 
     log.info("Building landscape (%dx%d, seed=%s)", args.rows, args.cols, args.seed)
     graph = create_grid(args.rows, args.cols, seed=args.seed)
-    set_wind(graph, speed=20.0, direction=0.0)
-    set_fuel_moisture(graph, moisture=0.2)
+    set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
+    set_fuel_moisture(graph, moisture=args.moisture)
 
     ignition = select_ignition_node(graph, rng)
     log.info("Ignition node: %s", ignition)
@@ -74,9 +74,9 @@ def main(argv: list[str] | None = None) -> None:
         "treatments_per_step": args.treatments,
         "max_steps": args.max_steps,
         "intervention_delay": args.intervention_delay,
-        "wind_speed": 20.0,
-        "wind_direction": 0.0,
-        "fuel_moisture": 0.2,
+        "wind_speed": args.wind_speed,
+        "wind_direction": args.wind_direction,
+        "fuel_moisture": args.moisture,
     }
 
     log.info("Starting GP: %d individuals, %d generations", config.population_size, config.generations)
@@ -90,8 +90,7 @@ def main(argv: list[str] | None = None) -> None:
     _save_config(out_dir, config, scenario)
     _save_stats(out_dir, logbook)
     _save_population(out_dir, population, logbook)
-    toolbox = build_toolbox(graph, [ignition], args.treatments, args.max_steps, rng, config, args.intervention_delay)
-    _save_hof(out_dir, hof, toolbox)
+    _save_hof(out_dir, hof)
 
     log.info("Done. Results in %s", out_dir)
 
@@ -140,9 +139,9 @@ def _save_population(out_dir: pathlib.Path, population: list, logbook: tools.Log
         pickle.dump(payload, f)
 
 
-def _save_hof(out_dir: pathlib.Path, hof: tools.HallOfFame, toolbox) -> None:
+def _save_hof(out_dir: pathlib.Path, hof: tools.HallOfFame) -> None:
     for i, ind in enumerate(hof):
-        compiled = toolbox.compile(ind)
+        compiled = compile_individual(ind)
         with open(out_dir / f"hof_{i}.dill", "wb") as f:
             dill.dump(compiled, f)
         (out_dir / f"hof_{i}.expr").write_text(str(ind))

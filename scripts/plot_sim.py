@@ -62,8 +62,8 @@ def main(argv: list[str] | None = None) -> None:
     rng = np.random.default_rng(args.seed)
     log.info("Building landscape (%dx%d, seed=%s)", args.rows, args.cols, args.seed)
     graph = create_grid(args.rows, args.cols, seed=args.seed)
-    set_wind(graph, speed=20.0, direction=0.0)
-    set_fuel_moisture(graph, moisture=0.2)
+    set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
+    set_fuel_moisture(graph, moisture=args.moisture)
     ignition = select_ignition_node(graph, rng)
     log.info("Ignition node: %s", ignition)
 
