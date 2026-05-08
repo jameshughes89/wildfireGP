@@ -60,7 +60,7 @@ def test_run_strategy_peak_values_are_non_negative(graph, ignition):
 
 def test_run_strategy_different_seeds_produce_variation(graph, ignition):
     burned, _ = _run_strategy(no_treatment, graph, [ignition], 0, 20, runs=10, base_seed=0)
-    assert burned.std() >= 0
+    assert burned.std() > 0
 
 
 # ---------------------------------------------------------------------------

@@ -83,9 +83,10 @@ def test_load_strategy_dill_label_is_stem(dill_file):
 # ---------------------------------------------------------------------------
 
 
-def test_run_simulation_returns_at_least_one_snapshot(graph):
-    snapshots = _run_simulation(graph, no_treatment, 2, 30, np.random.default_rng(0), intervention_delay=0)
-    assert len(snapshots) >= 1
+def test_run_simulation_snapshot_count_within_bounds(graph):
+    max_steps = 30
+    snapshots = _run_simulation(graph, no_treatment, 2, max_steps, np.random.default_rng(0), intervention_delay=0)
+    assert 1 <= len(snapshots) <= max_steps + 1
 
 
 def test_run_simulation_first_snapshot_has_burning_node(graph):
@@ -99,12 +100,6 @@ def test_run_simulation_last_snapshot_has_no_burning_nodes_or_hit_max(graph):
     last = snapshots[-1]
     no_fire = not any(last.nodes[n][STATE] == NodeState.BURNING for n in last.nodes)
     assert no_fire or len(snapshots) == max_steps + 1
-
-
-def test_run_simulation_does_not_exceed_max_steps(graph):
-    max_steps = 5
-    snapshots = _run_simulation(graph, no_treatment, 2, max_steps, np.random.default_rng(0), intervention_delay=0)
-    assert len(snapshots) <= max_steps + 1
 
 
 def test_run_simulation_treatment_reduces_unburned_count(graph):

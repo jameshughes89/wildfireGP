@@ -16,6 +16,7 @@ from wildfireGP.strategies import (
     random_score,
     score_by_burning_neighbors,
     score_by_fire_proximity,
+    score_by_fuel,
     score_head_fire,
     score_indirect_attack,
     score_ridgeline,
@@ -131,6 +132,20 @@ def test_score_ridgeline_higher_elevation_and_slope_scores_higher():
 # ---------------------------------------------------------------------------
 # score_head_fire
 # ---------------------------------------------------------------------------
+
+
+def test_score_by_fuel_returns_fuel_load():
+    g = _graph_no_fire()
+    node = (3, 3)
+    assert score_by_fuel(g, node) == g.nodes[node][FUEL]
+
+
+def test_score_by_fuel_higher_fuel_scores_higher():
+    g = _graph_no_fire()
+    high, low = (3, 3), (3, 4)
+    g.nodes[high][FUEL] = 0.9
+    g.nodes[low][FUEL] = 0.1
+    assert score_by_fuel(g, high) > score_by_fuel(g, low)
 
 
 def test_score_head_fire_zero_when_no_fire():

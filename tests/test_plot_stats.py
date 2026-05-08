@@ -68,3 +68,17 @@ def test_plot_stats_single_generation(tmp_path):
     stats_path.write_text(json.dumps(_make_stats(n_gens=1)))
     main(["--stats", str(stats_path), "--output", str(tmp_path / "out.png")])
     assert (tmp_path / "out.png").exists()
+
+
+def test_plot_stats_default_output_path(tmp_path):
+    (tmp_path / "stats.json").write_text(json.dumps(_make_stats()))
+    main(["--results-dir", str(tmp_path)])
+    assert (tmp_path / "stats_plot.png").exists()
+
+
+def test_plot_stats_missing_key_raises(tmp_path):
+    partial = [{"gen": 0, "fitness_avg": 10.0}]
+    stats_path = tmp_path / "stats.json"
+    stats_path.write_text(json.dumps(partial))
+    with pytest.raises(KeyError):
+        main(["--stats", str(stats_path), "--output", str(tmp_path / "out.png")])
