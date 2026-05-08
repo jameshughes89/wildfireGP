@@ -30,7 +30,7 @@ def seed_python_random():
 
 def test_fitness_weights_are_minimising():
     _register_types()
-    assert creator.FitnessWildfire.weights == (-1.0, -1.0)
+    assert creator.FitnessWildfire.weights == (-1.0,)
 
 
 def test_build_toolbox_has_required_operators():
@@ -77,9 +77,9 @@ def test_run_all_individuals_obey_size_limit():
 def test_run_fitness_values_are_non_negative():
     pop, _ = run(_config(), _graph(), [(2, 2)], 2, 10, _rng())
     for ind in pop:
-        total_burned, peak_burning = ind.fitness.values
+        (total_burned,) = ind.fitness.values
         assert total_burned >= 0
-        assert peak_burning >= 0
+        assert ind.peak_burning >= 0
 
 
 def test_build_toolbox_reuses_registered_types_on_second_call():
