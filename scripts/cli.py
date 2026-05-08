@@ -7,8 +7,11 @@ scripts stay in sync automatically.
 """
 
 import argparse
+import pathlib
 import subprocess
 import sys
+
+_BIN = pathlib.Path(sys.executable).parent
 
 
 def add_landscape_args(parser: argparse.ArgumentParser) -> None:
@@ -54,26 +57,26 @@ def add_landscape_args(parser: argparse.ArgumentParser) -> None:
 
 def run_formatters():
     commands = [
-        [sys.executable, "-m", "isort", "."],
-        [sys.executable, "-m", "black", "."],
-        [sys.executable, "-m", "mdformat", "."],
+        [str(_BIN / "isort"), "."],
+        [str(_BIN / "black"), "."],
+        [str(_BIN / "mdformat"), "."],
     ]
     for cmd in commands:
-        label = " ".join(cmd[2:])
+        label = " ".join(cmd)
         print(f"running `{label}`")
         result = subprocess.run(cmd)
         if result.returncode != 0:
-            raise SystemExit(f"`{cmd[2]}` failed with exit code {result.returncode}")
+            raise SystemExit(f"`{pathlib.Path(cmd[0]).name}` failed with exit code {result.returncode}")
 
 
 def run_verification():
     commands = [
-        [sys.executable, "-m", "flake8", "wildfireGP/", "scripts/", "tests/"],
-        [sys.executable, "-m", "codespell", "wildfireGP/", "scripts/", "tests/"],
+        [str(_BIN / "flake8"), "wildfireGP/", "scripts/", "tests/"],
+        [str(_BIN / "codespell"), "wildfireGP/", "scripts/", "tests/"],
     ]
     for cmd in commands:
-        label = " ".join(cmd[2:])
+        label = " ".join(cmd)
         print(f"running `{label}`")
         result = subprocess.run(cmd)
         if result.returncode != 0:
-            raise SystemExit(f"`{cmd[2]}` failed with exit code {result.returncode}")
+            raise SystemExit(f"`{pathlib.Path(cmd[0]).name}` failed with exit code {result.returncode}")
