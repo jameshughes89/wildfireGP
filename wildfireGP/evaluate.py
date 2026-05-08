@@ -1,7 +1,7 @@
 """
 Fitness evaluation for GP individuals and comparison strategies.
 
-evaluate() runs one simulation scenario and returns (total_burned, peak_burning) — both to be minimised. The graph
+evaluate() runs one simulation scenario and returns (total_burned, peak_burning) --- both to be minimised. The graph
 passed in is deepcopied internally so the same landscape template can be reused across many evaluations without
 mutation.
 
@@ -17,7 +17,7 @@ Intervention delay
 ------------------
 Real wildfire response involves detection, dispatch, and travel before any resource reaches the fire. intervention_delay
 models this as a number of simulation steps during which no treatments are applied. At 100m/cell the default of 3 steps
-corresponds to roughly 90 minutes to 2 hours of elapsed real time before initial attack resources arrive — consistent
+corresponds to roughly 90 minutes to 2 hours of elapsed real time before initial attack resources arrive --- consistent
 with North American initial attack response time targets for fires in remote terrain.
 
 Treatment budget
@@ -26,7 +26,7 @@ treatments_per_step represents the aggregate intervention capacity per timestep 
 retardant drops, dozer lines, hand crews). At 100m/cell it does not represent individual crew actions but the combined
 effect of a coordinated response. The default of 3 reflects a modest initial attack force; larger values represent
 heavier resource commitment. Calibration runs on 50x50 grids show that treatments=3 with delay=3 produces a regime
-where strategy choice meaningfully changes outcomes — fire_proximity burns ~10-30% vs ~85% for no_treatment.
+where strategy choice meaningfully changes outcomes --- fire_proximity burns ~10-30% vs ~85% for no_treatment.
 
 Weighted fitness
 ----------------
@@ -77,7 +77,7 @@ def evaluate(
     :param rng: NumPy random generator for stochastic spread.
     :param intervention_delay: Number of steps before any treatments are applied. Models detection,
         dispatch, and travel time before resources reach the fire. Default 3 corresponds to roughly
-        90 minutes to 2 hours at 100m/cell — consistent with initial attack response time targets
+        90 minutes to 2 hours at 100m/cell --- consistent with initial attack response time targets
         for remote terrain in North American fire management.
     :return: (total_burned, peak_burning). Both should be minimised.
     """

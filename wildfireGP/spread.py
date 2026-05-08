@@ -40,7 +40,7 @@ Wind factor (Alexandridis et al., 2008):
 Slope factor (Alexandridis et al., 2008):
     p_slope = exp(a_s * tan(phi))
 
-    phi   : slope proxy — normalized elevation difference divided by cell-unit distance (1.0
+    phi   : slope proxy --- normalized elevation difference divided by cell-unit distance (1.0
             cardinal, sqrt(2) diagonal). Elevation is stored as [0, 1] so tan(phi) is dimensionless
             rather than a true physical tangent; the constant 0.078 is unchanged from Alexandridis
             but now operates on this normalized proxy rather than a physical slope angle.

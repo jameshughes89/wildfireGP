@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import pytest
 
 from scripts.plot_comparison import _plot, main
 
@@ -41,7 +40,7 @@ def test_plot_strategy_names_in_figure():
     fig = _plot(results)
     labels = [t.get_text() for ax in fig.axes for t in ax.get_xticklabels()]
     plt.close(fig)
-    assert any("no_treatment" in l for l in labels)
+    assert any("no_treatment" in label for label in labels)
 
 
 # ---------------------------------------------------------------------------

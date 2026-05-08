@@ -14,7 +14,7 @@ fitness values within a generation are comparable.
 Tree generation
 ---------------
 _gen_grow() is a type-aware replacement for DEAP's genGrow/genFull. The typed pset uses nx.Graph and tuple as
-pass-through input types that carry no primitives — only terminals (ARG0, ARG1). DEAP's generate() decides
+pass-through input types that carry no primitives --- only terminals (ARG0, ARG1). DEAP's generate() decides
 terminal-vs-primitive without knowing the current type, so it will occasionally try to pick a primitive of type
 nx.Graph and fail. _gen_grow() adds a single guard: if the current type has no primitives, always use a terminal.
 This makes tree generation correct for input-threading types without changing any other behaviour.

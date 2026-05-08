@@ -2,10 +2,10 @@
 Plot fitness and diagnostic statistics from a GP run's stats.json.
 
 Produces a 2x2 figure:
-    top-left:     total_burned (min and avg) over generations — the fitness objective
-    top-right:    peak_burning (min and avg) over generations — diagnostic
-    bottom-left:  tree size in nodes (avg and max) over generations — bloat indicator
-    bottom-right: tree height (avg and max) over generations — bloat indicator
+    top-left:     total_burned (min and avg) over generations --- the fitness objective
+    top-right:    peak_burning (min and avg) over generations --- diagnostic
+    bottom-left:  tree size in nodes (avg and max) over generations --- bloat indicator
+    bottom-right: tree height (avg and max) over generations --- bloat indicator
 
 Usage
 -----
@@ -39,7 +39,7 @@ def main(argv: list[str] | None = None) -> None:
 
     rows = json.loads(stats_path.read_text())
     if not rows:
-        raise SystemExit("stats.json is empty — nothing to plot.")
+        raise SystemExit("stats.json is empty --- nothing to plot.")
 
     output = pathlib.Path(args.output) if args.output else default_output
     fig = _plot(rows)

@@ -3,8 +3,13 @@ import numpy as np
 import pytest
 
 from scripts.plot_sim import _plot, collect_series, main
-from wildfireGP.network import create_grid, select_ignition_node, set_fuel_moisture, set_wind
-from wildfireGP.strategies import no_treatment, score_by_fire_proximity
+from wildfireGP.network import (
+    create_grid,
+    select_ignition_node,
+    set_fuel_moisture,
+    set_wind,
+)
+from wildfireGP.strategies import no_treatment
 
 
 @pytest.fixture()

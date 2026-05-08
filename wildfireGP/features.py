@@ -94,7 +94,7 @@ def unburnable_neighbour_count(graph: nx.Graph, node: tuple) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Spatial — requires precompute_fire_map / precompute_burnable_fire_map each simulation step
+# Spatial --- requires precompute_fire_map / precompute_burnable_fire_map each simulation step
 # ---------------------------------------------------------------------------
 
 _NEAREST_FIRE = "nearest_fire"
