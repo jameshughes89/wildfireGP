@@ -157,6 +157,74 @@ def render_heatmap(
     return ax
 
 
+def animate_heatmap(
+    graphs: list[nx.Graph],
+    func: Callable[[nx.Graph, tuple], float],
+    path: str,
+    fps: int = 4,
+    title: str | None = None,
+) -> None:
+    """
+    Save an animated heatmap from a sequence of landscape graph snapshots.
+
+    Each frame renders the per-node priority scores of func using render_heatmap()'s colour scheme. The score
+    colormap is normalised globally across all frames so colours are comparable between timesteps — a node that
+    is high priority in frame 1 uses the same green as a high-priority node in frame 20.
+
+    precompute_fire_map and precompute_burnable_fire_map are called once per snapshot during a pre-scoring pass
+    before animation begins, so strategies that depend on fire-map features work correctly.
+
+    :param graphs: Ordered list of graph snapshots, one per frame.
+    :param func: Strategy callable (graph, node) -> float.
+    :param path: Output file path. Extension determines format (.gif, .mp4).
+    :param fps: Frames per second. Default 4.
+    :param title: Optional base title; each frame appends "— Step N".
+    """
+    for g in graphs:
+        precompute_fire_map(g)
+        precompute_burnable_fire_map(g)
+
+    all_finite: list[float] = []
+    for g in graphs:
+        for node in g.nodes:
+            nd = g.nodes[node]
+            if nd[STATE] == NodeState.UNBURNED and nd[TERRAIN] == TerrainType.LAND:
+                s = func(g, node)
+                if math.isfinite(s):
+                    all_finite.append(s)
+
+    vmin = float(min(all_finite)) if all_finite else 0.0
+    vmax = float(max(all_finite)) if all_finite else 1.0
+    score_spread = vmax - vmin if vmax != vmin else 1.0
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    sm = plt.cm.ScalarMappable(cmap=_SCORE_CMAP, norm=plt.Normalize(vmin=vmin, vmax=vmax))
+    sm.set_array([])
+    plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.04, label="priority score")
+
+    def update(frame: int) -> None:
+        ax.clear()
+        g = graphs[frame]
+        rows, cols = _grid_dims(g)
+        rgb = _build_rgb(g, rows, cols).copy()
+        for i, j in g.nodes:
+            nd = g.nodes[(i, j)]
+            if nd[STATE] == NodeState.UNBURNED and nd[TERRAIN] == TerrainType.LAND:
+                s = func(g, (i, j))
+                v = np.clip((s - vmin) / score_spread, 0.0, 1.0) if math.isfinite(s) else 0.0
+                rgb[i, j] = np.array(_SCORE_CMAP(v)[:3])
+        ax.imshow(rgb)
+        ax.contour(_build_elevation(g, rows, cols), levels=8, colors="white", alpha=0.5, linewidths=1.0)
+        ax.set_axis_off()
+        frame_title = f"Step {frame}" if title is None else f"{title} — Step {frame}"
+        ax.set_title(frame_title)
+        _draw_env_overlay(g, ax)
+
+    anim = FuncAnimation(fig, update, frames=len(graphs), interval=1000 // fps)
+    anim.save(path, writer="pillow", fps=fps)
+    plt.close(fig)
+
+
 def _draw_env_overlay(graph: nx.Graph, ax: plt.Axes) -> None:
     parts = []
     speed = graph.graph.get(WIND_SPEED)
