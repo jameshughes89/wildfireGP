@@ -8,8 +8,9 @@ ascending).
 Usage
 -----
     python -m scripts.compare_strategies [--results-dir PATH] [--seed INT] [--rows INT] [--cols INT]
-                                         [--treatments INT] [--max-steps INT] [--runs INT]
-                                         [--hof PATH [PATH ...]]
+                                         [--treatments INT] [--max-steps INT] [--intervention-delay INT]
+                                         [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
+                                         [--runs INT] [--hof PATH [PATH ...]]
 
     --hof accepts one or more paths to .dill files produced by run_gp.py. If omitted only the builtin baselines are
     compared. If --results-dir is given, all .dill files found directly inside that directory are loaded automatically.

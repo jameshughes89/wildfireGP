@@ -8,7 +8,8 @@ Usage
 -----
     python -m scripts.plot_comparison [--results-dir PATH] [--hof PATH [PATH ...]]
                                       [--seed INT] [--rows INT] [--cols INT]
-                                      [--treatments INT] [--max-steps INT]
+                                      [--treatments INT] [--max-steps INT] [--intervention-delay INT]
+                                      [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
                                       [--runs INT] [--output PATH]
 
     If --results-dir is given, all .dill files in that directory are loaded automatically alongside the builtin

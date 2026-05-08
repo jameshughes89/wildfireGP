@@ -8,7 +8,9 @@ Usage
 -----
     python -m scripts.animate [--output PATH] [--strategy NAME] [--hof PATH]
                               [--seed INT] [--rows INT] [--cols INT]
-                              [--treatments INT] [--max-steps INT] [--fps INT]
+                              [--treatments INT] [--max-steps INT] [--intervention-delay INT]
+                              [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
+                              [--fps INT]
 
     Exactly one of --strategy or --hof must be supplied.
 

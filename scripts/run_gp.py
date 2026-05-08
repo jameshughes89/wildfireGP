@@ -4,7 +4,8 @@ Run the wildfire GP and save results to a timestamped directory under results/.
 Usage
 -----
     python -m scripts.run_gp [--results-dir PATH] [--seed INT] [--rows INT] [--cols INT]
-                             [--treatments INT] [--max-steps INT]
+                             [--treatments INT] [--max-steps INT] [--intervention-delay INT]
+                             [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
                              [--pop INT] [--gens INT] [--hof INT]
 
 Outputs (one directory per run)

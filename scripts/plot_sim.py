@@ -8,7 +8,8 @@ Usage
 -----
     python -m scripts.plot_sim [--strategy NAME [NAME ...]] [--hof PATH [PATH ...]]
                                [--seed INT] [--rows INT] [--cols INT]
-                               [--treatments INT] [--max-steps INT]
+                               [--treatments INT] [--max-steps INT] [--intervention-delay INT]
+                               [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
                                [--runs INT] [--output PATH]
 
     At least one of --strategy or --hof must be given. If neither is supplied, all builtin strategies are plotted.
