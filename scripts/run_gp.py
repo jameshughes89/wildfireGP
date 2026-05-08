@@ -80,7 +80,9 @@ def main(argv: list[str] | None = None) -> None:
     }
 
     log.info("Starting GP: %d individuals, %d generations", config.population_size, config.generations)
-    population, logbook = run(config, graph, [ignition], args.treatments, args.max_steps, rng, args.intervention_delay)
+    population, logbook, hof = run(
+        config, graph, [ignition], args.treatments, args.max_steps, rng, args.intervention_delay, hof_size=args.hof
+    )
 
     out_dir = _make_output_dir(args.results_dir)
     log.info("Saving results to %s", out_dir)
@@ -89,7 +91,7 @@ def main(argv: list[str] | None = None) -> None:
     _save_stats(out_dir, logbook)
     _save_population(out_dir, population, logbook)
     toolbox = build_toolbox(graph, [ignition], args.treatments, args.max_steps, rng, config, args.intervention_delay)
-    _save_hof(out_dir, population, args.hof, toolbox)
+    _save_hof(out_dir, hof, toolbox)
 
     log.info("Done. Results in %s", out_dir)
 
@@ -138,8 +140,7 @@ def _save_population(out_dir: pathlib.Path, population: list, logbook: tools.Log
         pickle.dump(payload, f)
 
 
-def _save_hof(out_dir: pathlib.Path, population: list, n: int, toolbox) -> None:
-    hof = tools.selBest(population, min(n, len(population)))
+def _save_hof(out_dir: pathlib.Path, hof: tools.HallOfFame, toolbox) -> None:
     for i, ind in enumerate(hof):
         compiled = toolbox.compile(ind)
         with open(out_dir / f"hof_{i}.dill", "wb") as f:

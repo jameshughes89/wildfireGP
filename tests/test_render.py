@@ -26,6 +26,7 @@ from wildfireGP.render import (
     _build_rgb,
     animate,
     draw,
+    render_heatmap,
 )
 from wildfireGP.spread import MAX_BURN_STEPS, spread_step
 
@@ -150,3 +151,50 @@ def test_animate_single_frame(tmp_path):
     out = tmp_path / "out.gif"
     animate([graph], path=str(out))
     assert out.exists() and out.stat().st_size > 0
+
+
+# ---------------------------------------------------------------------------
+# render_heatmap
+# ---------------------------------------------------------------------------
+
+
+def _heatmap_graph():
+    g = create_grid(5, 5, seed=0)
+    set_wind(g, speed=10.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.2)
+    return g
+
+
+def test_render_heatmap_returns_axes():
+    g = _heatmap_graph()
+    ax = render_heatmap(g, lambda graph, node: 1.0)
+    plt.close("all")
+    assert isinstance(ax, plt.Axes)
+
+
+def test_render_heatmap_saves_file(tmp_path):
+    g = _heatmap_graph()
+    out = tmp_path / "heatmap.png"
+    render_heatmap(g, lambda graph, node: 1.0, path=str(out))
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_render_heatmap_does_not_leave_open_figures(tmp_path):
+    g = _heatmap_graph()
+    before = len(plt.get_fignums())
+    render_heatmap(g, lambda graph, node: 1.0, path=str(tmp_path / "out.png"))
+    assert len(plt.get_fignums()) == before
+
+
+def test_render_heatmap_handles_all_nonfinite_scores():
+    g = _heatmap_graph()
+    ax = render_heatmap(g, lambda graph, node: float("-inf"))
+    plt.close("all")
+    assert isinstance(ax, plt.Axes)
+
+
+def test_render_heatmap_handles_uniform_scores():
+    g = _heatmap_graph()
+    ax = render_heatmap(g, lambda graph, node: 0.5)
+    plt.close("all")
+    assert isinstance(ax, plt.Axes)

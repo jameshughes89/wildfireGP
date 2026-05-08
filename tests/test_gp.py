@@ -39,47 +39,59 @@ def test_build_toolbox_has_required_operators():
         assert hasattr(toolbox, attr)
 
 
-def test_run_returns_population_and_logbook():
-    pop, log = run(_config(), _graph(), [(2, 2)], 2, 10, _rng())
+def test_run_returns_population_logbook_and_hof():
+    pop, log, hof = run(_config(), _graph(), [(2, 2)], 2, 10, _rng())
     assert isinstance(pop, list)
     assert isinstance(log, tools.Logbook)
+    assert isinstance(hof, tools.HallOfFame)
 
 
 def test_run_population_size_preserved():
     config = _config()
-    pop, _ = run(config, _graph(), [(2, 2)], 2, 10, _rng())
+    pop, _, _ = run(config, _graph(), [(2, 2)], 2, 10, _rng())
     assert len(pop) == config.population_size
 
 
 def test_run_logbook_records_all_generations():
     config = _config()
-    _, log = run(config, _graph(), [(2, 2)], 2, 10, _rng())
+    _, log, _ = run(config, _graph(), [(2, 2)], 2, 10, _rng())
     assert len(log) == config.generations + 1
 
 
 def test_run_all_individuals_have_valid_fitness():
-    pop, _ = run(_config(), _graph(), [(2, 2)], 2, 10, _rng())
+    pop, _, _ = run(_config(), _graph(), [(2, 2)], 2, 10, _rng())
     assert all(ind.fitness.valid for ind in pop)
 
 
 def test_run_all_individuals_obey_height_limit():
     config = _config()
-    pop, _ = run(config, _graph(), [(2, 2)], 2, 10, _rng())
+    pop, _, _ = run(config, _graph(), [(2, 2)], 2, 10, _rng())
     assert all(ind.height <= config.max_tree_height for ind in pop)
 
 
 def test_run_all_individuals_obey_size_limit():
     config = _config()
-    pop, _ = run(config, _graph(), [(2, 2)], 2, 10, _rng())
+    pop, _, _ = run(config, _graph(), [(2, 2)], 2, 10, _rng())
     assert all(len(ind) <= config.max_tree_nodes for ind in pop)
 
 
 def test_run_fitness_values_are_non_negative():
-    pop, _ = run(_config(), _graph(), [(2, 2)], 2, 10, _rng())
+    pop, _, _ = run(_config(), _graph(), [(2, 2)], 2, 10, _rng())
     for ind in pop:
         (total_burned,) = ind.fitness.values
         assert total_burned >= 0
         assert ind.peak_burning >= 0
+
+
+def test_run_hof_size_bounded():
+    hof_size = 3
+    _, _, hof = run(_config(), _graph(), [(2, 2)], 2, 10, _rng(), hof_size=hof_size)
+    assert len(hof) <= hof_size
+
+
+def test_run_hof_individuals_have_valid_fitness():
+    _, _, hof = run(_config(), _graph(), [(2, 2)], 2, 10, _rng())
+    assert all(ind.fitness.valid for ind in hof)
 
 
 def test_build_toolbox_reuses_registered_types_on_second_call():

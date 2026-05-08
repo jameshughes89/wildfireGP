@@ -69,6 +69,14 @@ def toolbox_and_pop(config):
     return tb, pop
 
 
+@pytest.fixture()
+def hof(toolbox_and_pop):
+    _, pop = toolbox_and_pop
+    h = tools.HallOfFame(len(pop))
+    h.update(pop)
+    return h
+
+
 # ---------------------------------------------------------------------------
 # _save_config
 # ---------------------------------------------------------------------------
@@ -154,37 +162,35 @@ def test_save_population_round_trips_size(out_dir, toolbox_and_pop):
 # ---------------------------------------------------------------------------
 
 
-def test_save_hof_creates_dill_files(out_dir, toolbox_and_pop):
-    tb, pop = toolbox_and_pop
-    _save_hof(out_dir, pop, n=2, toolbox=tb)
+def test_save_hof_creates_dill_files(out_dir, toolbox_and_pop, hof):
+    tb, _ = toolbox_and_pop
+    _save_hof(out_dir, hof, toolbox=tb)
     assert (out_dir / "hof_0.dill").exists()
-    assert (out_dir / "hof_1.dill").exists()
 
 
-def test_save_hof_creates_expr_files(out_dir, toolbox_and_pop):
-    tb, pop = toolbox_and_pop
-    _save_hof(out_dir, pop, n=2, toolbox=tb)
+def test_save_hof_creates_expr_files(out_dir, toolbox_and_pop, hof):
+    tb, _ = toolbox_and_pop
+    _save_hof(out_dir, hof, toolbox=tb)
     assert (out_dir / "hof_0.expr").exists()
-    assert (out_dir / "hof_1.expr").exists()
 
 
-def test_save_hof_dill_loads_as_callable(out_dir, toolbox_and_pop):
-    tb, pop = toolbox_and_pop
-    _save_hof(out_dir, pop, n=1, toolbox=tb)
+def test_save_hof_dill_loads_as_callable(out_dir, toolbox_and_pop, hof):
+    tb, _ = toolbox_and_pop
+    _save_hof(out_dir, hof, toolbox=tb)
     with open(out_dir / "hof_0.dill", "rb") as f:
         func = dill.load(f)
     assert callable(func)
 
 
-def test_save_hof_expr_is_non_empty_string(out_dir, toolbox_and_pop):
-    tb, pop = toolbox_and_pop
-    _save_hof(out_dir, pop, n=1, toolbox=tb)
+def test_save_hof_expr_is_non_empty_string(out_dir, toolbox_and_pop, hof):
+    tb, _ = toolbox_and_pop
+    _save_hof(out_dir, hof, toolbox=tb)
     expr = (out_dir / "hof_0.expr").read_text()
     assert len(expr) > 0
 
 
-def test_save_hof_clamps_to_population_size(out_dir, toolbox_and_pop):
-    tb, pop = toolbox_and_pop
-    _save_hof(out_dir, pop, n=100, toolbox=tb)
+def test_save_hof_count_matches_hof_size(out_dir, toolbox_and_pop, hof):
+    tb, _ = toolbox_and_pop
+    _save_hof(out_dir, hof, toolbox=tb)
     saved = list(out_dir.glob("hof_*.dill"))
-    assert len(saved) == len(pop)
+    assert len(saved) == len(hof)

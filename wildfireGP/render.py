@@ -5,11 +5,15 @@ Node colours encode both the underlying terrain and the current fire state, with
 non-UNBURNED nodes. Elevation contour lines are overlaid to give terrain context without a separate view.
 """
 
+import math
+from typing import Callable
+
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 from matplotlib.animation import FuncAnimation
 
+from wildfireGP.features import precompute_burnable_fire_map, precompute_fire_map
 from wildfireGP.network import (
     COLS,
     ELEVATION,
@@ -83,6 +87,76 @@ def animate(graphs: list[nx.Graph], path: str, fps: int = 4) -> None:
     plt.close(fig)
 
 
+_SCORE_CMAP = plt.cm.RdYlGn  # red = low priority, green = high priority
+
+
+def render_heatmap(
+    graph: nx.Graph,
+    func: Callable[[nx.Graph, tuple], float],
+    path: str | None = None,
+    title: str | None = None,
+) -> plt.Axes:
+    """
+    Render per-node priority scores of a strategy as a spatial heatmap.
+
+    UNBURNED LAND nodes are coloured on a red-to-green scale by their score under func. Non-burnable (WATER, ROCK) and
+    non-UNBURNED (BURNING, BURNED, TREATED) nodes are rendered with their standard colours matching draw(). A colorbar
+    shows the score range. Elevation contour lines are overlaid.
+
+    precompute_fire_map and precompute_burnable_fire_map are called internally so strategies that depend on fire-map
+    features work correctly without the caller needing to do setup.
+
+    :param graph: Landscape graph with wind and moisture set.
+    :param func: Strategy callable (graph, node) -> float. Non-finite return values are treated as lowest priority.
+    :param path: If given, save the figure to this path and close it.
+    :param title: Optional axes title.
+    :return: The axes containing the heatmap.
+    """
+    precompute_fire_map(graph)
+    precompute_burnable_fire_map(graph)
+
+    rows, cols = _grid_dims(graph)
+    elevation = _build_elevation(graph, rows, cols)
+    rgb = _build_rgb(graph, rows, cols).copy()
+
+    score_grid = np.full((rows, cols), np.nan)
+    for i, j in graph.nodes:
+        node = graph.nodes[(i, j)]
+        if node[STATE] == NodeState.UNBURNED and node[TERRAIN] == TerrainType.LAND:
+            s = func(graph, (i, j))
+            score_grid[i, j] = s if math.isfinite(s) else np.nan
+
+    finite_scores = score_grid[np.isfinite(score_grid)]
+    if len(finite_scores) > 0:
+        vmin, vmax = float(finite_scores.min()), float(finite_scores.max())
+        spread = vmax - vmin if vmax != vmin else 1.0
+        for i, j in graph.nodes:
+            node = graph.nodes[(i, j)]
+            if node[STATE] == NodeState.UNBURNED and node[TERRAIN] == TerrainType.LAND:
+                v = score_grid[i, j]
+                norm_v = (v - vmin) / spread if np.isfinite(v) else 0.0
+                rgb[i, j] = np.array(_SCORE_CMAP(norm_v)[:3])
+
+    _, ax = plt.subplots(figsize=(8, 8))
+    ax.imshow(rgb)
+    ax.contour(elevation, levels=8, colors="white", alpha=0.5, linewidths=1.0)
+    ax.set_axis_off()
+    if title:
+        ax.set_title(title)
+    _draw_env_overlay(graph, ax)
+
+    if len(finite_scores) > 0:
+        sm = plt.cm.ScalarMappable(cmap=_SCORE_CMAP, norm=plt.Normalize(vmin=vmin, vmax=vmax))
+        sm.set_array([])
+        plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.04, label="priority score")
+
+    if path is not None:
+        plt.savefig(path, dpi=150, bbox_inches="tight")
+        plt.close()
+
+    return ax
+
+
 def _draw_env_overlay(graph: nx.Graph, ax: plt.Axes) -> None:
     parts = []
     speed = graph.graph.get(WIND_SPEED)
@@ -144,7 +218,6 @@ def _build_elevation(graph: nx.Graph, rows: int, cols: int) -> np.ndarray:
 
 if __name__ == "__main__":
     import copy
-    import math
 
     from wildfireGP.network import create_grid, set_fuel_moisture, set_wind
     from wildfireGP.spread import BURN_TIMER, MAX_BURN_STEPS, spread_step
