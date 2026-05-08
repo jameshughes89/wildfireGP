@@ -97,26 +97,6 @@ def test_create_grid_default_terrain_type_is_land():
     assert all(graph.nodes[n][TERRAIN] == TerrainType.LAND for n in graph.nodes)
 
 
-def test_create_grid_water_fraction_sets_terrain_type_water():
-    graph = create_grid(20, 20, water_fraction=0.2, seed=0)
-    assert any(graph.nodes[n][TERRAIN] == TerrainType.WATER for n in graph.nodes)
-
-
-def test_create_grid_rock_fraction_sets_terrain_type_rock():
-    graph = create_grid(20, 20, rock_fraction=0.2, seed=0)
-    assert any(graph.nodes[n][TERRAIN] == TerrainType.ROCK for n in graph.nodes)
-
-
-def test_create_grid_water_fraction_sets_fuel_to_zero():
-    graph = create_grid(20, 20, water_fraction=0.2, seed=0)
-    assert sum(1 for n in graph.nodes if graph.nodes[n][FUEL] == 0.0) > 1
-
-
-def test_create_grid_rock_fraction_sets_fuel_to_zero():
-    graph = create_grid(20, 20, rock_fraction=0.2, seed=0)
-    assert sum(1 for n in graph.nodes if graph.nodes[n][FUEL] == 0.0) > 1
-
-
 def test_create_grid_water_fraction_exact_count():
     rows, cols, fraction = 20, 20, 0.1
     graph = create_grid(rows, cols, water_fraction=fraction, seed=0)

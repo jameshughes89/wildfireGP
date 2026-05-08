@@ -125,11 +125,16 @@ def test_evaluate_intervention_delay_no_treatments_applied_before_delay():
 
 def test_evaluate_intervention_delay_treatments_applied_after_delay():
     g = _setup(moisture=0.05, seed=0)
-    evaluate(_no_op, g, [(3, 3)], treatments_per_step=5, max_steps=10, rng=_rng(), intervention_delay=3)
-    from wildfireGP.network import NodeState
+    treated_counts = []
 
-    treated = sum(1 for n in g.nodes if g.nodes[n][STATE] == NodeState.TREATED)
-    assert treated == 0
+    def record_treated(graph, node):
+        from wildfireGP.network import NodeState
+
+        treated_counts.append(sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.TREATED))
+        return 1.0
+
+    evaluate(record_treated, g, [(3, 3)], treatments_per_step=5, max_steps=10, rng=_rng(), intervention_delay=3)
+    assert any(count > 0 for count in treated_counts)
 
 
 def test_evaluate_nan_score_treated_last():

@@ -59,25 +59,17 @@ def _graph_env():
 # ---------------------------------------------------------------------------
 
 
-def test_fuel_level_returns_node_fuel():
+def test_node_getters_return_stored_values():
     g = _graph()
     assert fuel_level(g, _NODE) == g.nodes[_NODE][FUEL]
+    assert elevation(g, _NODE) == g.nodes[_NODE][ELEVATION]
+    assert slope(g, _NODE) == g.nodes[_NODE][SLOPE]
 
 
 def test_fuel_level_is_zero_when_set_to_zero():
     g = _graph()
     g.nodes[_NODE][FUEL] = 0.0
     assert fuel_level(g, _NODE) == 0.0
-
-
-def test_elevation_returns_node_elevation():
-    g = _graph()
-    assert elevation(g, _NODE) == g.nodes[_NODE][ELEVATION]
-
-
-def test_slope_returns_node_slope():
-    g = _graph()
-    assert slope(g, _NODE) == g.nodes[_NODE][SLOPE]
 
 
 def test_mean_neighbour_elevation_returns_average_of_neighbour_elevation():

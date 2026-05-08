@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 from deap import tools
 
-from scripts.run_gp import _save_config, _save_hof, _save_population, _save_stats
+from scripts.run_gp import _save_config, _save_hof, _save_population, _save_stats, main
 from wildfireGP.gp import GPConfig, _register_types, build_toolbox
 from wildfireGP.network import (
     create_grid,
@@ -194,3 +194,37 @@ def test_save_hof_count_matches_hof_size(out_dir, toolbox_and_pop, hof):
     _save_hof(out_dir, hof, toolbox=tb)
     saved = list(out_dir.glob("hof_*.dill"))
     assert len(saved) == len(hof)
+
+
+# ---------------------------------------------------------------------------
+# main() smoke test
+# ---------------------------------------------------------------------------
+
+
+def test_main_creates_expected_output_files(tmp_path):
+    main(
+        [
+            "--pop",
+            "4",
+            "--gens",
+            "2",
+            "--hof",
+            "2",
+            "--seed",
+            "0",
+            "--rows",
+            "5",
+            "--cols",
+            "5",
+            "--results-dir",
+            str(tmp_path),
+        ]
+    )
+    run_dirs = list(tmp_path.iterdir())
+    assert len(run_dirs) == 1
+    out = run_dirs[0]
+    assert (out / "config.json").exists()
+    assert (out / "stats.json").exists()
+    assert (out / "population.pkl").exists()
+    assert (out / "hof_0.dill").exists()
+    assert (out / "hof_0.expr").exists()
