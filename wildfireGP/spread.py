@@ -40,8 +40,10 @@ Wind factor (Alexandridis et al., 2008):
 Slope factor (Alexandridis et al., 2008):
     p_slope = exp(a_s * tan(phi))
 
-    phi   : slope angle between src and dst, derived from elevation difference and cell size
-    a_s   : 0.078  (slope sensitivity)
+    phi   : slope proxy derived from normalized elevation difference over cell-unit distance (1.0
+            cardinal, sqrt(2) diagonal). Elevation is stored normalized to [0, 1], so tan(phi) is
+            dimensionless; a_s is rescaled accordingly from the Alexandridis physical value.
+    a_s   : 0.078  (slope sensitivity, Alexandridis et al., 2008)
 
 Scale and timestep
 ------------------
@@ -49,8 +51,7 @@ Alexandridis et al. (2008) use 5x5m cells and a Moore (8-connectivity) neighbour
 (long-range ember transport) is present in the original paper, where skipping several cells corresponds to tens of
 meters, occasionally up to ~100m. At 100m resolution the same physical phenomenon falls within a single cell or within
 an adjacent cell, and is implicitly captured by the ignition probability, so a separate spotting sub-model is not
-warranted. For diagonal neighbours the actual cell-centre distance is cell_size * sqrt(2), used when computing the
-slope factor.
+warranted. For diagonal neighbours the cell-unit distance used when computing the slope factor is sqrt(2).
 
 The constants c1, c2, and a_s were calibrated at 5x5m resolution and bundle together physical spread rate, cell size,
 and timestep duration into a single value. At 100m cells, one timestep implicitly represents a proportionally longer
@@ -76,7 +77,6 @@ import numpy as np
 
 from wildfireGP.network import (
     BURN_TIMER,
-    CELL_SIZE,
     ELEVATION,
     FUEL,
     FUEL_MOISTURE,
@@ -110,7 +110,6 @@ def spread_step(graph: nx.Graph, rng: np.random.Generator) -> None:
     wind_speed_ms = graph.graph[WIND_SPEED] * _KMH_TO_MS
     wind_dir_rad = math.radians(graph.graph[WIND_DIRECTION])
     moisture = graph.graph[FUEL_MOISTURE]
-    cell_size = graph.graph[CELL_SIZE]
 
     to_ignite = []
     to_burn_out = []
@@ -119,7 +118,7 @@ def spread_step(graph: nx.Graph, rng: np.random.Generator) -> None:
         if graph.nodes[node][STATE] != NodeState.BURNING:
             continue
 
-        to_ignite.extend(_ignition_targets(graph, node, rng, wind_speed_ms, wind_dir_rad, moisture, cell_size))
+        to_ignite.extend(_ignition_targets(graph, node, rng, wind_speed_ms, wind_dir_rad, moisture))
         if _decrement_burn_timer(graph, node):
             to_burn_out.append(node)
 
@@ -142,8 +141,7 @@ def ignition_probability(graph: nx.Graph, src: tuple, dst: tuple) -> float:
     wind_speed_ms = graph.graph[WIND_SPEED] * _KMH_TO_MS
     wind_dir_rad = math.radians(graph.graph[WIND_DIRECTION])
     moisture = graph.graph[FUEL_MOISTURE]
-    cell_size = graph.graph[CELL_SIZE]
-    return _ignition_probability(graph, src, dst, wind_speed_ms, wind_dir_rad, moisture, cell_size)
+    return _ignition_probability(graph, src, dst, wind_speed_ms, wind_dir_rad, moisture)
 
 
 def _is_burnable(graph: nx.Graph, node: tuple) -> bool:
@@ -162,13 +160,12 @@ def _ignition_targets(
     wind_speed_ms: float,
     wind_dir_rad: float,
     moisture: float,
-    cell_size: float,
 ) -> list[tuple]:
     targets = []
     for neighbour in graph.neighbors(node):
         if not _can_ignite(graph, neighbour):
             continue
-        p = _ignition_probability(graph, node, neighbour, wind_speed_ms, wind_dir_rad, moisture, cell_size)
+        p = _ignition_probability(graph, node, neighbour, wind_speed_ms, wind_dir_rad, moisture)
         if rng.random() < p:
             targets.append(neighbour)
     return targets
@@ -201,7 +198,6 @@ def _ignition_probability(
     wind_speed_ms: float,
     wind_dir_rad: float,
     moisture: float,
-    cell_size: float,
 ) -> float:
     fuel = graph.nodes[dst][FUEL]
     if fuel == 0.0:
@@ -217,8 +213,8 @@ def _ignition_probability(
     p_wind = math.exp(_C1 * wind_speed_ms) * math.exp(_C2 * wind_speed_ms * (math.cos(theta) - 1))
 
     elev_diff = graph.nodes[dst][ELEVATION] - graph.nodes[src][ELEVATION]
-    actual_dist = cell_size * math.sqrt(2) if (si != di and sj != dj) else cell_size
-    slope_tan = elev_diff / actual_dist if actual_dist > 0 else 0.0
+    dist_cells = math.sqrt(2) if (si != di and sj != dj) else 1.0
+    slope_tan = elev_diff / dist_cells
     p_slope = math.exp(_A_S * slope_tan)
 
     p = fuel * (1.0 - moisture) * p_wind * p_slope

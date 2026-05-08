@@ -1,8 +1,19 @@
 import numpy as np
 
-from wildfireGP.evaluate import _safe_score, evaluate
-from wildfireGP.features import distance_to_fire, precompute_fire_map
-from wildfireGP.network import STATE, create_grid, set_fuel_moisture, set_wind
+from wildfireGP.evaluate import _apply_treatments, _safe_score, evaluate
+from wildfireGP.features import (
+    TREATMENTS_REMAINING,
+    distance_to_fire,
+    precompute_fire_map,
+)
+from wildfireGP.network import (
+    STATE,
+    TERRAIN,
+    TerrainType,
+    create_grid,
+    set_fuel_moisture,
+    set_wind,
+)
 
 _RNG = np.random.default_rng(0)
 
@@ -137,6 +148,19 @@ def test_evaluate_nan_score_treated_last():
     )
     assert nan_count > 0
     assert total_burned <= 1
+
+
+def test_apply_treatments_skips_water_and_rock():
+    g = create_grid(10, 10, water_fraction=0.1, rock_fraction=0.1, seed=0)
+    set_wind(g, speed=10.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.1)
+    g.graph[TREATMENTS_REMAINING] = g.number_of_nodes()
+    _apply_treatments(g, lambda graph, node: 1.0, budget=g.number_of_nodes())
+    for n in g.nodes:
+        if g.nodes[n][TERRAIN] in (TerrainType.WATER, TerrainType.ROCK):
+            from wildfireGP.network import NodeState
+
+            assert g.nodes[n][STATE] != NodeState.TREATED
 
 
 def test_safe_score_clamps_positive_inf():

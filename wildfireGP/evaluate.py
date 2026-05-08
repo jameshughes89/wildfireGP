@@ -109,7 +109,7 @@ def evaluate(
 
 
 def _apply_treatments(graph: nx.Graph, func: Callable[[nx.Graph, tuple], float], budget: int) -> None:
-    candidates = [n for n in graph.nodes if graph.nodes[n][STATE] == NodeState.UNBURNED]
+    candidates = [n for n in graph.nodes if graph.nodes[n][STATE] == NodeState.UNBURNED and graph.nodes[n][FUEL] > 0.0]
     candidates.sort(key=lambda n: _safe_score(func, graph, n), reverse=True)
     for node in candidates[:budget]:
         graph.nodes[node][STATE] = NodeState.TREATED
