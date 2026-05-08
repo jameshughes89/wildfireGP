@@ -8,6 +8,7 @@ scripts stay in sync automatically.
 
 import argparse
 import subprocess
+import sys
 
 
 def add_landscape_args(parser: argparse.ArgumentParser) -> None:
@@ -52,12 +53,27 @@ def add_landscape_args(parser: argparse.ArgumentParser) -> None:
 
 
 def run_formatters():
-    for tool in ["isort .", "black .", "mdformat ."]:
-        print(f"running `{tool}`")
-        subprocess.run(tool, shell=True)
+    commands = [
+        [sys.executable, "-m", "isort", "."],
+        [sys.executable, "-m", "black", "."],
+        [sys.executable, "-m", "mdformat", "."],
+    ]
+    for cmd in commands:
+        label = " ".join(cmd[2:])
+        print(f"running `{label}`")
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            raise SystemExit(f"`{cmd[2]}` failed with exit code {result.returncode}")
 
 
 def run_verification():
-    for tool in ["flake8 wildfireGP/ tests/", "codespell wildfireGP/ tests/"]:
-        print(f"running `{tool}`")
-        subprocess.run(tool, shell=True)
+    commands = [
+        [sys.executable, "-m", "flake8", "wildfireGP/", "scripts/", "tests/"],
+        [sys.executable, "-m", "codespell", "wildfireGP/", "scripts/", "tests/"],
+    ]
+    for cmd in commands:
+        label = " ".join(cmd[2:])
+        print(f"running `{label}`")
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            raise SystemExit(f"`{cmd[2]}` failed with exit code {result.returncode}")

@@ -72,9 +72,12 @@ def animate(graphs: list[nx.Graph], path: str, fps: int = 4) -> None:
     simulation and collecting snapshots (e.g. via copy.deepcopy after each spread_step call).
 
     :param graphs: Ordered list of graph snapshots, one per frame.
-    :param path: Output file path. Extension determines format (.gif, .mp4).
+    :param path: Output file path. Must end in .gif.
     :param fps: Frames per second. Default 4.
     """
+    if not path.endswith(".gif"):
+        raise ValueError(f"Only GIF output is supported; got: {path}")
+
     fig, ax = plt.subplots(figsize=(8, 8))
 
     def update(frame: int) -> None:
@@ -176,10 +179,13 @@ def animate_heatmap(
 
     :param graphs: Ordered list of graph snapshots, one per frame.
     :param func: Strategy callable (graph, node) -> float.
-    :param path: Output file path. Extension determines format (.gif, .mp4).
+    :param path: Output file path. Must end in .gif.
     :param fps: Frames per second. Default 4.
     :param title: Optional base title; each frame appends "--- Step N".
     """
+    if not path.endswith(".gif"):
+        raise ValueError(f"Only GIF output is supported; got: {path}")
+
     for g in graphs:
         precompute_fire_map(g)
         precompute_burnable_fire_map(g)

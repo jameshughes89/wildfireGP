@@ -3,6 +3,7 @@ import math
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 
 from wildfireGP.network import (
     BURN_TIMER,
@@ -154,6 +155,11 @@ def test_animate_single_frame(tmp_path):
     assert out.exists() and out.stat().st_size > 0
 
 
+def test_animate_non_gif_raises():
+    with pytest.raises(ValueError, match="GIF"):
+        animate(_snapshots(), path="output.mp4")
+
+
 # ---------------------------------------------------------------------------
 # render_heatmap
 # ---------------------------------------------------------------------------
@@ -240,3 +246,8 @@ def test_animate_heatmap_global_normalisation_uses_all_frames(tmp_path):
     out = tmp_path / "out.gif"
     animate_heatmap(_snapshots(steps=3), incrementing, path=str(out))
     assert out.exists() and out.stat().st_size > 0
+
+
+def test_animate_heatmap_non_gif_raises():
+    with pytest.raises(ValueError, match="GIF"):
+        animate_heatmap(_snapshots(), lambda g, n: 1.0, path="output.mp4")

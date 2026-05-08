@@ -8,16 +8,21 @@ logbook for diagnostics but do not influence selection.
 Re-evaluation every generation
 -------------------------------
 All individuals are re-evaluated every generation. The spread simulation is stochastic, so the same tree can produce
-different fitness values across calls. Re-evaluating every generation prevents coasting on a lucky draw and ensures
-fitness values within a generation are comparable.
+different fitness values across calls. Re-evaluating every generation prevents an individual from coasting on a lucky
+draw from an earlier generation.
+
+A single NumPy RNG is shared across all evaluations in a generation, so each individual is evaluated on a different
+stochastic fire realization as the generator advances through the population. This makes within-generation fitness
+comparisons noisier than if all individuals saw the same realization, but avoids the alternative problem of every
+individual in a generation overfitting to one specific fire trajectory.
 
 Tree generation
 ---------------
 _gen_grow() is a type-aware replacement for DEAP's genGrow/genFull. The typed pset uses nx.Graph and tuple as
 pass-through input types that carry no primitives --- only terminals (ARG0, ARG1). DEAP's generate() decides
-terminal-vs-primitive without knowing the current type, so it will occasionally try to pick a primitive of type
-nx.Graph and fail. _gen_grow() adds a single guard: if the current type has no primitives, always use a terminal.
-This makes tree generation correct for input-threading types without changing any other behaviour.
+terminal-vs-primitive without knowing the current type, so it will occasionally try to pick a primitive of type nx.Graph
+and fail. _gen_grow() adds a single guard: if the current type has no primitives, always use a terminal. This makes tree
+generation correct for input-threading types without changing any other behaviour.
 
 Bloat control
 -------------
