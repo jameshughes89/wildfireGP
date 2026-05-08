@@ -25,6 +25,7 @@ from wildfireGP.render import (
     _build_elevation,
     _build_rgb,
     animate,
+    animate_heatmap,
     draw,
     render_heatmap,
 )
@@ -198,3 +199,44 @@ def test_render_heatmap_handles_uniform_scores():
     ax = render_heatmap(g, lambda graph, node: 0.5)
     plt.close("all")
     assert isinstance(ax, plt.Axes)
+
+
+# ---------------------------------------------------------------------------
+# animate_heatmap
+# ---------------------------------------------------------------------------
+
+
+def test_animate_heatmap_creates_gif(tmp_path):
+    out = tmp_path / "heatmap.gif"
+    animate_heatmap(_snapshots(), lambda graph, node: 1.0, path=str(out))
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_animate_heatmap_does_not_leave_open_figures(tmp_path):
+    before = len(plt.get_fignums())
+    animate_heatmap(_snapshots(), lambda graph, node: 1.0, path=str(tmp_path / "out.gif"))
+    assert len(plt.get_fignums()) == before
+
+
+def test_animate_heatmap_single_frame(tmp_path):
+    graph = _heatmap_graph()
+    out = tmp_path / "out.gif"
+    animate_heatmap([graph], lambda g, n: 1.0, path=str(out))
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_animate_heatmap_handles_all_nonfinite_scores(tmp_path):
+    out = tmp_path / "out.gif"
+    animate_heatmap(_snapshots(), lambda graph, node: float("-inf"), path=str(out))
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_animate_heatmap_global_normalisation_uses_all_frames(tmp_path):
+    scores = iter(range(100))
+
+    def incrementing(graph, node):
+        return float(next(scores, 0))
+
+    out = tmp_path / "out.gif"
+    animate_heatmap(_snapshots(steps=3), incrementing, path=str(out))
+    assert out.exists() and out.stat().st_size > 0
