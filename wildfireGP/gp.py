@@ -121,13 +121,16 @@ def run(
     max_steps: int,
     rng: np.random.Generator,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
-) -> tuple[list, tools.Logbook]:
+    hof_size: int = 5,
+) -> tuple[list, tools.Logbook, tools.HallOfFame]:
     """
-    Run the GP evolutionary loop and return the final population and statistics logbook.
+    Run the GP evolutionary loop and return the final population, statistics logbook, and hall of fame.
+
+    The HOF tracks the best hof_size individuals seen across all generations, not just the final population. This
+    prevents losing a good individual that was selected out due to evaluation noise in later generations.
 
     Retrieve and compile the best individual with:
-        best = tools.selBest(population, 1)[0]
-        func = gp.compile(best, pset=PRIMITIVE_SET)
+        func = gp.compile(hof[0], pset=PRIMITIVE_SET)
 
     :param config: GP hyperparameters.
     :param graph: Landscape template. Wind and moisture must be set before calling.
@@ -136,16 +139,19 @@ def run(
     :param max_steps: Maximum simulation timesteps before forced termination.
     :param rng: NumPy random generator.
     :param intervention_delay: Steps before treatments begin. See evaluate() for full documentation.
-    :return: (population, logbook). Logbook records gen, fitness (total_burned), size, peak_burning, and tree height
-        stats for every generation.
+    :param hof_size: Number of best individuals to track across all generations.
+    :return: (population, logbook, hof). Logbook records gen, fitness (total_burned), size, peak_burning, and tree
+        height stats for every generation. hof contains the best hof_size individuals seen during evolution.
     """
     toolbox = build_toolbox(graph, ignition_nodes, treatments_per_step, max_steps, rng, config, intervention_delay)
     mstats = _build_stats()
     logbook = tools.Logbook()
     logbook.header = ["gen", "fitness", "size", "peak", "height"]
+    hof = tools.HallOfFame(hof_size)
 
     pop = toolbox.population(n=config.population_size)
     _evaluate_all(toolbox, pop)
+    hof.update(pop)
     logbook.record(gen=0, **mstats.compile(pop))
 
     for gen in range(1, config.generations + 1):
@@ -154,9 +160,10 @@ def run(
         offspring = algorithms.varAnd(offspring, toolbox, config.crossover_prob, config.mutation_prob)
         pop[:] = elites + offspring
         _evaluate_all(toolbox, pop)
+        hof.update(pop)
         logbook.record(gen=gen, **mstats.compile(pop))
 
-    return pop, logbook
+    return pop, logbook, hof
 
 
 def _gen_grow(pset, min_: int, max_: int, type_=None):
