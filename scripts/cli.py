@@ -7,7 +7,6 @@ scripts stay in sync automatically.
 """
 
 import argparse
-import subprocess
 
 
 def add_landscape_args(parser: argparse.ArgumentParser) -> None:
@@ -49,15 +48,3 @@ def add_landscape_args(parser: argparse.ArgumentParser) -> None:
         "--wind-direction", type=float, default=0.0, help="Wind direction in degrees (0=north, 90=east)."
     )
     parser.add_argument("--moisture", type=float, default=0.2, help="Fuel moisture fraction [0, 1].")
-
-
-def run_formatters():
-    for tool in ["isort .", "black .", "mdformat ."]:
-        print(f"running `{tool}`")
-        subprocess.run(tool, shell=True)
-
-
-def run_verification():
-    for tool in ["flake8 wildfireGP/ scripts/ tests/", "codespell wildfireGP/ scripts/ tests/"]:
-        print(f"running `{tool}`")
-        subprocess.run(tool, shell=True)

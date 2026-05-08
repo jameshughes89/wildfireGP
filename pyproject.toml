@@ -41,8 +41,8 @@ dependencies = [
 ]
 
 [project.scripts]
-format = "scripts.cli:run_formatters"
-verify = "scripts.cli:run_verification"
+format = "scripts.dev:run_formatters"
+verify = "scripts.dev:run_verification"
 
 [tool.black]
 line-length = 120
