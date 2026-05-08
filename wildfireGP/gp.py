@@ -1,8 +1,9 @@
 """
 DEAP GP engine for wildfire suppression strategy evolution.
 
-Fitness is (total_burned, peak_burning) — both minimised (weights=(-1, -1)). Each individual is a GP tree compiled from
-PRIMITIVE_SET to a callable (graph, node) -> float that scores nodes for treatment allocation.
+Fitness is total_burned only (weights=(-1,)). Each individual is a GP tree compiled from PRIMITIVE_SET to a callable
+(graph, node) -> float that scores nodes for treatment allocation. peak_burning and tree height are recorded in the
+logbook for diagnostics but do not influence selection.
 
 Re-evaluation every generation
 -------------------------------
@@ -135,12 +136,13 @@ def run(
     :param max_steps: Maximum simulation timesteps before forced termination.
     :param rng: NumPy random generator.
     :param intervention_delay: Steps before treatments begin. See evaluate() for full documentation.
-    :return: (population, logbook). Logbook records gen, fitness, and size stats for every generation.
+    :return: (population, logbook). Logbook records gen, fitness (total_burned), size, peak_burning, and tree height
+        stats for every generation.
     """
     toolbox = build_toolbox(graph, ignition_nodes, treatments_per_step, max_steps, rng, config, intervention_delay)
     mstats = _build_stats()
     logbook = tools.Logbook()
-    logbook.header = ["gen", "fitness", "size"]
+    logbook.header = ["gen", "fitness", "size", "peak", "height"]
 
     pop = toolbox.population(n=config.population_size)
     _evaluate_all(toolbox, pop)
@@ -198,7 +200,7 @@ def _gen_grow(pset, min_: int, max_: int, type_=None):
 
 def _register_types() -> None:
     if not hasattr(creator, "FitnessWildfire"):
-        creator.create("FitnessWildfire", base.Fitness, weights=(-1.0, -1.0))
+        creator.create("FitnessWildfire", base.Fitness, weights=(-1.0,))
     if not hasattr(creator, "Individual"):
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessWildfire)
 
@@ -211,9 +213,13 @@ def _eval_individual(
     max_steps: int,
     rng: np.random.Generator,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
-) -> tuple[int, int]:
+) -> tuple[int]:
     func = gp.compile(individual, pset=PRIMITIVE_SET)
-    return _sim_evaluate(func, graph, ignition_nodes, treatments_per_step, max_steps, rng, intervention_delay)
+    total_burned, peak_burning = _sim_evaluate(
+        func, graph, ignition_nodes, treatments_per_step, max_steps, rng, intervention_delay
+    )
+    individual.peak_burning = peak_burning
+    return (total_burned,)
 
 
 def _evaluate_all(toolbox: base.Toolbox, population: list) -> None:
@@ -222,11 +228,13 @@ def _evaluate_all(toolbox: base.Toolbox, population: list) -> None:
 
 
 def _build_stats() -> tools.MultiStatistics:
-    stats_fit = tools.Statistics(lambda ind: ind.fitness.values)
+    stats_fit = tools.Statistics(lambda ind: ind.fitness.values[0])
     stats_size = tools.Statistics(len)
-    mstats = tools.MultiStatistics(fitness=stats_fit, size=stats_size)
-    mstats.register("avg", np.mean, axis=0)
-    mstats.register("std", np.std, axis=0)
-    mstats.register("min", np.min, axis=0)
-    mstats.register("max", np.max, axis=0)
+    stats_peak = tools.Statistics(lambda ind: ind.peak_burning)
+    stats_height = tools.Statistics(lambda ind: ind.height)
+    mstats = tools.MultiStatistics(fitness=stats_fit, size=stats_size, peak=stats_peak, height=stats_height)
+    mstats.register("avg", np.mean)
+    mstats.register("std", np.std)
+    mstats.register("min", np.min)
+    mstats.register("max", np.max)
     return mstats

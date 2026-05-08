@@ -64,7 +64,8 @@ def toolbox_and_pop(config):
     tb = build_toolbox(graph, [ignition], 2, 20, rng, config)
     pop = tb.population(n=config.population_size)
     for ind in pop:
-        ind.fitness.values = (10.0, 5.0)
+        ind.fitness.values = (10.0,)
+        ind.peak_burning = 5
     return tb, pop
 
 
@@ -99,9 +100,9 @@ def test_save_config_scenario_round_trips(out_dir, config, scenario):
 
 def _make_logbook() -> tools.Logbook:
     logbook = tools.Logbook()
-    logbook.header = ["gen", "fitness", "size"]
-    logbook.record(gen=0, fitness={"avg": np.array([8.0, 4.0]), "min": np.array([5.0, 2.0])}, size={"avg": 7.0})
-    logbook.record(gen=1, fitness={"avg": np.array([6.0, 3.0]), "min": np.array([4.0, 1.0])}, size={"avg": 6.5})
+    logbook.header = ["gen", "fitness", "size", "peak", "height"]
+    logbook.record(gen=0, fitness={"avg": 8.0, "min": 5.0}, size={"avg": 7.0}, peak={"avg": 4.0}, height={"avg": 3.0})
+    logbook.record(gen=1, fitness={"avg": 6.0, "min": 4.0}, size={"avg": 6.5}, peak={"avg": 3.0}, height={"avg": 2.5})
     return logbook
 
 
@@ -126,7 +127,7 @@ def test_save_stats_gen_field_present(out_dir):
 def test_save_stats_fitness_avg_serialised(out_dir):
     _save_stats(out_dir, _make_logbook())
     rows = json.loads((out_dir / "stats.json").read_text())
-    assert rows[0]["fitness_avg"] == [8.0, 4.0]
+    assert rows[0]["fitness_avg"] == 8.0
 
 
 # ---------------------------------------------------------------------------
