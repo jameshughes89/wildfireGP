@@ -39,8 +39,10 @@ Graph-level attributes
 ----------------------
 cell_size_m : float
     Side length of each grid cell in metres. Defaults to 100m, matching Canadian FBP operational scale. A 50x50 grid at
-    100m represents a 5km x 5km landscape, which is a meaningful scale for resource allocation decisions. When real data
-    is loaded, this should be set from the raster metadata.
+    100m represents a 5km x 5km landscape, which is a meaningful scale for resource allocation decisions. Stored for use
+    by GP features and real data loaders; the spread model uses cell-unit distances internally. When real data is
+    loaded,
+    this should be set from the raster metadata.
 wind_speed : float
     Wind speed in km/h. Wind is the dominant driver of fire spread direction and rate (Rothermel, 1972). Modelled as a
     uniform field --- per-node variation would require meteorological downscaling data not generally available at the
@@ -149,9 +151,11 @@ def create_grid(
     :param water_fraction: Fraction of nodes to mark as water (fuel=0), selected from the lowest-elevation cells.
         Default 0.0 produces no water.
     :param rock_fraction: Fraction of nodes to mark as rock (fuel=0), selected from the steepest cells. Default 0.0
-        produces no rock.
-    :param cell_size_m: Side length of each grid cell in metres. Stored as a graph attribute for use by the spread model
-        and real data loaders. Default 100m matches Canadian FBP operational scale.
+        produces no rock. When both water_fraction and rock_fraction are nonzero, rock assignment runs after water and
+        can overwrite water cells, so the final counts may not exactly match both requested fractions simultaneously.
+        For synthetic GP training landscapes this overlap is an acceptable approximation.
+    :param cell_size_m: Side length of each grid cell in metres. Stored as a graph attribute for use by GP features and
+        real data loaders. Default 100m matches Canadian FBP operational scale.
     :param seed: Random seed for reproducibility.
     :return: Grid graph with STATE, TERRAIN, FUEL, SLOPE, and ELEVATION node attributes. Wind and moisture are not set.
         Nodes are connected with a Moore (8-connectivity) neighbourhood.
