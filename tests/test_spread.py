@@ -163,6 +163,22 @@ def test_ignition_probability_uphill_higher_than_downhill():
     assert ignition_probability(graph, src, uphill) > ignition_probability(graph, src, downhill)
 
 
+def test_ignition_probability_slope_effect_is_non_trivial():
+    graph = _setup(moisture=0.1, wind_speed=0.0, wind_dir=0.0)
+    src = (2, 2)
+    uphill = (2, 3)
+    flat_nbr = (2, 1)
+    for node in (uphill, flat_nbr):
+        graph.nodes[node][TERRAIN] = TerrainType.LAND
+        graph.nodes[node][FUEL] = 0.8
+    graph.nodes[src][ELEVATION] = 0.0
+    graph.nodes[uphill][ELEVATION] = 1.0
+    graph.nodes[flat_nbr][ELEVATION] = 0.0
+    p_uphill = ignition_probability(graph, src, uphill)
+    p_flat = ignition_probability(graph, src, flat_nbr)
+    assert p_uphill / p_flat > 1.05
+
+
 def test_ignition_probability_result_in_unit_interval():
     graph = _setup(moisture=0.0, wind_speed=50.0, wind_dir=45.0)
     src, dst = (2, 2), (2, 3)

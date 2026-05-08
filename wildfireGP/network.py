@@ -170,13 +170,21 @@ def create_grid(
 
     terrain_type = np.full((rows, cols), TerrainType.LAND, dtype=object)
     if water_fraction > 0.0:
-        mask = terrain_height < water_fraction
-        fuel_norm[mask] = 0.0
-        terrain_type[mask] = TerrainType.WATER
+        n_water = max(1, round(rows * cols * water_fraction))
+        flat_order = np.argsort(terrain_height.ravel())
+        water_mask = np.zeros(rows * cols, dtype=bool)
+        water_mask[flat_order[:n_water]] = True
+        water_mask = water_mask.reshape(rows, cols)
+        fuel_norm[water_mask] = 0.0
+        terrain_type[water_mask] = TerrainType.WATER
     if rock_fraction > 0.0:
-        mask = slope_norm > 1.0 - rock_fraction
-        fuel_norm[mask] = 0.0
-        terrain_type[mask] = TerrainType.ROCK
+        n_rock = max(1, round(rows * cols * rock_fraction))
+        flat_order = np.argsort(slope_norm.ravel())
+        rock_mask = np.zeros(rows * cols, dtype=bool)
+        rock_mask[flat_order[-n_rock:]] = True
+        rock_mask = rock_mask.reshape(rows, cols)
+        fuel_norm[rock_mask] = 0.0
+        terrain_type[rock_mask] = TerrainType.ROCK
 
     graph.graph[CELL_SIZE] = cell_size_m
     graph.graph[ROWS] = rows

@@ -117,6 +117,22 @@ def test_create_grid_rock_fraction_sets_fuel_to_zero():
     assert sum(1 for n in graph.nodes if graph.nodes[n][FUEL] == 0.0) > 1
 
 
+def test_create_grid_water_fraction_exact_count():
+    rows, cols, fraction = 20, 20, 0.1
+    graph = create_grid(rows, cols, water_fraction=fraction, seed=0)
+    expected = round(rows * cols * fraction)
+    actual = sum(1 for n in graph.nodes if graph.nodes[n][TERRAIN] == TerrainType.WATER)
+    assert actual == expected
+
+
+def test_create_grid_rock_fraction_exact_count():
+    rows, cols, fraction = 20, 20, 0.1
+    graph = create_grid(rows, cols, rock_fraction=fraction, seed=0)
+    expected = round(rows * cols * fraction)
+    actual = sum(1 for n in graph.nodes if graph.nodes[n][TERRAIN] == TerrainType.ROCK)
+    assert actual == expected
+
+
 def test_create_grid_default_cell_size_is_100():
     assert create_grid(3, 3).graph[CELL_SIZE] == 100.0
 
