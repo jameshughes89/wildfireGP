@@ -101,7 +101,7 @@ def evaluate(
 
         if step >= intervention_delay:
             graph.graph[TREATMENTS_REMAINING] = treatments_per_step
-            _apply_treatments(graph, func, treatments_per_step)
+            _apply_treatments(graph, func, treatments_per_step, rng)
 
         spread_step(graph, rng)
 
@@ -109,8 +109,19 @@ def evaluate(
     return total_burned, peak_burning
 
 
-def _apply_treatments(graph: nx.Graph, func: Callable[[nx.Graph, tuple], float], budget: int) -> None:
+def _apply_treatments(
+    graph: nx.Graph, func: Callable[[nx.Graph, tuple], float], budget: int, rng: np.random.Generator
+) -> None:
+    """
+    Apply up to budget treatments to the highest-scoring UNBURNED burnable nodes.
+
+    Candidates are shuffled before sorting so that nodes with equal scores are broken randomly rather than
+    by graph insertion order (which would systematically favour low-index nodes — top-left of the grid).
+    Python's sort is stable, so the shuffle is the only source of tie-breaking randomness; the score ranking
+    is fully preserved above any tie.
+    """
     candidates = [n for n in graph.nodes if graph.nodes[n][STATE] == NodeState.UNBURNED and graph.nodes[n][FUEL] > 0.0]
+    rng.shuffle(candidates)
     candidates.sort(key=lambda n: _safe_score(func, graph, n), reverse=True)
     for node in candidates[:budget]:
         graph.nodes[node][STATE] = NodeState.TREATED

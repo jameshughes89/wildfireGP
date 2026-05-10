@@ -135,7 +135,7 @@ def _run_simulation(
         precompute_burnable_fire_map(g)
         if step >= intervention_delay:
             g.graph[TREATMENTS_REMAINING] = treatments_per_step
-            _apply_treatments(g, func, treatments_per_step)
+            _apply_treatments(g, func, treatments_per_step, rng)
         spread_step(g, rng)
         snapshots.append(copy.deepcopy(g))
     return snapshots
