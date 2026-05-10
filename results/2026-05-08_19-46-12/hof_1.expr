@@ -1,1 +1,0 @@
-sub(wind_speed(graph), burnable_distance_to_fire(graph, node))

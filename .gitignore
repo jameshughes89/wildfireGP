@@ -1,6 +1,11 @@
 # All built stuff
 /out/
 
+# GP run outputs
+/results/
+*.gif
+*.png
+
 # Claude Code local settings (project settings are tracked via .claude/CLAUDE.md)
 .claude/settings.local.json
 # Byte-compiled / optimized / DLL files

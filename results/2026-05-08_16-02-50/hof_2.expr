@@ -1,1 +1,0 @@
-sub(if_pos(-11.693637704990465, burnable_distance_to_fire(graph, node), 3.5911899010563957), burnable_distance_to_fire(graph, node))
