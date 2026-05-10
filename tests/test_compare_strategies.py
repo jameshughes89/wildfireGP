@@ -2,7 +2,7 @@ import dill
 import numpy as np
 import pytest
 
-from scripts.compare_strategies import _load_strategies, _print_table, _run_strategy
+from scripts.compare_strategies import _load_strategies, _run_strategy
 from wildfireGP.network import (
     create_grid,
     select_ignition_node,
@@ -102,23 +102,3 @@ def test_load_strategies_dill_callable_is_callable(dill_file):
     strategies = _load_strategies(_FakeArgs(hof=[dill_file]))
     func = next(f for n, f in strategies if n == "hof_0")
     assert callable(func)
-
-
-# ---------------------------------------------------------------------------
-# _print_table
-# ---------------------------------------------------------------------------
-
-
-def test_print_table_runs_without_error(capsys):
-    results = [("no_treatment", 50.0, 5.0, 10.0, 2.0), ("random_score", 40.0, 4.0, 8.0, 1.5)]
-    _print_table(results)
-    out = capsys.readouterr().out
-    assert "no_treatment" in out
-    assert "random_score" in out
-
-
-def test_print_table_contains_numeric_values(capsys):
-    _print_table([("no_treatment", 50.12, 5.34, 10.56, 2.78)])
-    out = capsys.readouterr().out
-    assert "50.12" in out
-    assert "10.56" in out

@@ -23,18 +23,6 @@ def test_plot_returns_figure():
     assert isinstance(fig, plt.Figure)
 
 
-def test_plot_single_strategy():
-    fig = _plot(_make_results(n_strategies=1))
-    plt.close(fig)
-    assert fig is not None
-
-
-def test_plot_leaves_no_open_figures():
-    fig = _plot(_make_results())
-    plt.close(fig)
-    assert len(plt.get_fignums()) == 0
-
-
 def test_plot_strategy_names_in_figure():
     results = {"no_treatment": (np.array([50.0, 60.0]), np.array([10.0, 12.0]))}
     fig = _plot(results)

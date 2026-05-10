@@ -82,11 +82,6 @@ def hof(toolbox_and_pop):
 # ---------------------------------------------------------------------------
 
 
-def test_save_config_creates_file(out_dir, config, scenario):
-    _save_config(out_dir, config, scenario)
-    assert (out_dir / "config.json").exists()
-
-
 def test_save_config_gp_config_round_trips(out_dir, config, scenario):
     _save_config(out_dir, config, scenario)
     data = json.loads((out_dir / "config.json").read_text())
@@ -114,11 +109,6 @@ def _make_logbook() -> tools.Logbook:
     return logbook
 
 
-def test_save_stats_creates_file(out_dir):
-    _save_stats(out_dir, _make_logbook())
-    assert (out_dir / "stats.json").exists()
-
-
 def test_save_stats_correct_generation_count(out_dir):
     _save_stats(out_dir, _make_logbook())
     rows = json.loads((out_dir / "stats.json").read_text())
@@ -143,12 +133,6 @@ def test_save_stats_fitness_avg_serialised(out_dir):
 # ---------------------------------------------------------------------------
 
 
-def test_save_population_creates_file(out_dir, toolbox_and_pop):
-    _, pop = toolbox_and_pop
-    _save_population(out_dir, pop, tools.Logbook())
-    assert (out_dir / "population.pkl").exists()
-
-
 def test_save_population_round_trips_size(out_dir, toolbox_and_pop):
     _, pop = toolbox_and_pop
     _save_population(out_dir, pop, tools.Logbook())
@@ -160,16 +144,6 @@ def test_save_population_round_trips_size(out_dir, toolbox_and_pop):
 # ---------------------------------------------------------------------------
 # _save_hof
 # ---------------------------------------------------------------------------
-
-
-def test_save_hof_creates_dill_files(out_dir, hof):
-    _save_hof(out_dir, hof)
-    assert (out_dir / "hof_0.dill").exists()
-
-
-def test_save_hof_creates_expr_files(out_dir, hof):
-    _save_hof(out_dir, hof)
-    assert (out_dir / "hof_0.expr").exists()
 
 
 def test_save_hof_dill_loads_as_callable(out_dir, hof):

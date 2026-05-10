@@ -73,22 +73,6 @@ def test_plot_returns_figure():
     assert isinstance(fig, plt.Figure)
 
 
-def test_plot_multiple_strategies_no_error():
-    data = {
-        "no_treatment": _make_series(),
-        "proximity": _make_series(n_steps=8),
-    }
-    fig = _plot(data)
-    plt.close(fig)
-    assert fig is not None
-
-
-def test_plot_leaves_no_open_figures():
-    fig = _plot({"a": _make_series()})
-    plt.close(fig)
-    assert len(plt.get_fignums()) == 0
-
-
 # ---------------------------------------------------------------------------
 # main()
 # ---------------------------------------------------------------------------

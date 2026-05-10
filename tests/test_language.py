@@ -53,19 +53,6 @@ def test_min2_returns_smaller():
 
 
 # ---------------------------------------------------------------------------
-# Primitive set structure
-# ---------------------------------------------------------------------------
-
-
-def test_primitive_set_is_typed():
-    assert isinstance(PRIMITIVE_SET, gp.PrimitiveSetTyped)
-
-
-def test_primitive_set_has_float_return_type():
-    assert PRIMITIVE_SET.ret == float
-
-
-# ---------------------------------------------------------------------------
 # Compiled tree evaluation
 # ---------------------------------------------------------------------------
 

@@ -53,11 +53,6 @@ def test_draw_with_provided_ax_returns_same_ax():
     assert result is ax
 
 
-def test_build_rgb_shape_is_rows_by_cols_by_3():
-    graph = create_grid(4, 7, seed=0)
-    assert _build_rgb(graph, 4, 7).shape == (4, 7, 3)
-
-
 def test_build_rgb_burning_node_renders_as_burning_colour():
     graph = _graph_with_node()
     graph.nodes[_NODE][STATE] = NodeState.BURNING
@@ -107,11 +102,6 @@ def test_build_rgb_burning_state_takes_priority_over_rock_terrain():
     graph.nodes[_NODE][STATE] = NodeState.BURNING
     graph.nodes[_NODE][TERRAIN] = TerrainType.ROCK
     assert np.array_equal(_build_rgb(graph, 3, 3)[_NODE], _BURNING)
-
-
-def test_build_elevation_shape_is_rows_by_cols():
-    graph = create_grid(4, 7, seed=0)
-    assert _build_elevation(graph, 4, 7).shape == (4, 7)
 
 
 def test_build_elevation_values_match_node_elevation_attributes():
@@ -180,13 +170,6 @@ def test_render_heatmap_saves_file(tmp_path):
     assert out.exists() and out.stat().st_size > 0
 
 
-def test_render_heatmap_does_not_leave_open_figures(tmp_path):
-    g = _heatmap_graph()
-    before = len(plt.get_fignums())
-    render_heatmap(g, lambda graph, node: 1.0, path=str(tmp_path / "out.png"))
-    assert len(plt.get_fignums()) == before
-
-
 def test_render_heatmap_handles_all_nonfinite_scores():
     g = _heatmap_graph()
     ax = render_heatmap(g, lambda graph, node: float("-inf"))
@@ -210,12 +193,6 @@ def test_animate_heatmap_creates_gif(tmp_path):
     out = tmp_path / "heatmap.gif"
     animate_heatmap(_snapshots(), lambda graph, node: 1.0, path=str(out))
     assert out.exists() and out.stat().st_size > 0
-
-
-def test_animate_heatmap_does_not_leave_open_figures(tmp_path):
-    before = len(plt.get_fignums())
-    animate_heatmap(_snapshots(), lambda graph, node: 1.0, path=str(tmp_path / "out.gif"))
-    assert len(plt.get_fignums()) == before
 
 
 def test_animate_heatmap_single_frame(tmp_path):

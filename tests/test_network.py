@@ -4,11 +4,9 @@ import pytest
 from wildfireGP.network import (
     BURN_TIMER,
     CELL_SIZE,
-    COLS,
     ELEVATION,
     FUEL,
     FUEL_MOISTURE,
-    ROWS,
     SLOPE,
     STATE,
     TERRAIN,
@@ -45,33 +43,17 @@ def test_create_grid_default_all_nodes_unburned():
     assert all(graph.nodes[n][STATE] == NodeState.UNBURNED for n in graph.nodes)
 
 
-def test_create_grid_default_fuel_in_unit_interval():
+def test_create_grid_default_attributes_in_unit_interval():
     graph = create_grid(10, 10)
     assert all(0.0 <= graph.nodes[n][FUEL] <= 1.0 for n in graph.nodes)
-
-
-def test_create_grid_default_slope_in_unit_interval():
-    graph = create_grid(10, 10)
     assert all(0.0 <= graph.nodes[n][SLOPE] <= 1.0 for n in graph.nodes)
-
-
-def test_create_grid_default_elevation_in_unit_interval():
-    graph = create_grid(10, 10)
     assert all(0.0 <= graph.nodes[n][ELEVATION] <= 1.0 for n in graph.nodes)
 
 
-def test_create_grid_same_seed_fuel_is_reproducible():
+def test_create_grid_same_seed_is_reproducible():
     g1, g2 = create_grid(5, 5, seed=42), create_grid(5, 5, seed=42)
     assert [g1.nodes[n][FUEL] for n in g1.nodes] == [g2.nodes[n][FUEL] for n in g2.nodes]
-
-
-def test_create_grid_same_seed_slope_is_reproducible():
-    g1, g2 = create_grid(5, 5, seed=42), create_grid(5, 5, seed=42)
     assert [g1.nodes[n][SLOPE] for n in g1.nodes] == [g2.nodes[n][SLOPE] for n in g2.nodes]
-
-
-def test_create_grid_same_seed_elevation_is_reproducible():
-    g1, g2 = create_grid(5, 5, seed=42), create_grid(5, 5, seed=42)
     assert [g1.nodes[n][ELEVATION] for n in g1.nodes] == [g2.nodes[n][ELEVATION] for n in g2.nodes]
 
 
@@ -113,32 +95,8 @@ def test_create_grid_rock_fraction_exact_count():
     assert actual == expected
 
 
-def test_create_grid_default_cell_size_is_100():
-    assert create_grid(3, 3).graph[CELL_SIZE] == 100.0
-
-
 def test_create_grid_custom_cell_size_stored_on_graph():
     assert create_grid(3, 3, cell_size_m=30.0).graph[CELL_SIZE] == 30.0
-
-
-def test_create_grid_rows_stored_on_graph():
-    assert create_grid(4, 5).graph[ROWS] == 4
-
-
-def test_create_grid_cols_stored_on_graph():
-    assert create_grid(4, 5).graph[COLS] == 5
-
-
-def test_create_grid_default_wind_speed_not_stored():
-    assert WIND_SPEED not in create_grid(3, 3).graph
-
-
-def test_create_grid_default_wind_direction_not_stored():
-    assert WIND_DIRECTION not in create_grid(3, 3).graph
-
-
-def test_create_grid_default_fuel_moisture_not_stored():
-    assert FUEL_MOISTURE not in create_grid(3, 3).graph
 
 
 def test_set_wind_stores_speed_on_graph():

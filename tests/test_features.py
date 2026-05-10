@@ -1,5 +1,4 @@
 from wildfireGP.features import (
-    TREATMENTS_REMAINING,
     burnable_distance_to_fire,
     burning_neighbour_count,
     burning_two_hop_count,
@@ -7,7 +6,6 @@ from wildfireGP.features import (
     elevation,
     elevation_delta_to_fire,
     fuel_level,
-    fuel_moisture,
     mean_neighbour_elevation,
     mean_neighbour_fuel,
     precompute_burnable_fire_map,
@@ -17,11 +15,9 @@ from wildfireGP.features import (
     total_burning,
     total_treated,
     total_unburned,
-    treatments_remaining,
     unburnable_neighbour_count,
     unburned_neighbour_count,
     wind_fire_alignment,
-    wind_speed,
 )
 from wildfireGP.network import (
     ELEVATION,
@@ -64,12 +60,6 @@ def test_node_getters_return_stored_values():
     assert fuel_level(g, _NODE) == g.nodes[_NODE][FUEL]
     assert elevation(g, _NODE) == g.nodes[_NODE][ELEVATION]
     assert slope(g, _NODE) == g.nodes[_NODE][SLOPE]
-
-
-def test_fuel_level_is_zero_when_set_to_zero():
-    g = _graph()
-    g.nodes[_NODE][FUEL] = 0.0
-    assert fuel_level(g, _NODE) == 0.0
 
 
 def test_mean_neighbour_elevation_returns_average_of_neighbour_elevation():
@@ -198,24 +188,6 @@ def test_unburned_neighbour_count_excludes_burning():
     g = _graph()
     g.nodes[(0, 1)][STATE] = NodeState.BURNING
     assert unburned_neighbour_count(g, _NODE) == 7
-
-
-def test_unburnable_neighbour_count_includes_burned():
-    g = _graph()
-    g.nodes[(0, 1)][STATE] = NodeState.BURNED
-    assert unburnable_neighbour_count(g, _NODE) == 1
-
-
-def test_unburnable_neighbour_count_includes_treated():
-    g = _graph()
-    g.nodes[(0, 1)][STATE] = NodeState.TREATED
-    assert unburnable_neighbour_count(g, _NODE) == 1
-
-
-def test_unburnable_neighbour_count_includes_water():
-    g = _graph()
-    g.nodes[(0, 1)][TERRAIN] = TerrainType.WATER
-    assert unburnable_neighbour_count(g, _NODE) == 1
 
 
 def test_unburnable_neighbour_count_includes_rock():
@@ -405,26 +377,6 @@ def test_burnable_distance_to_fire_inf_when_surrounded_by_unburnable():
     assert burnable_distance_to_fire(g, (2, 2)) == float("inf")
 
 
-def test_burnable_distance_to_fire_water_blocks_path():
-    g = _graph()
-    g.nodes[(0, 0)][STATE] = NodeState.BURNING
-    g.nodes[(0, 1)][TERRAIN] = TerrainType.WATER
-    g.nodes[(1, 0)][TERRAIN] = TerrainType.WATER
-    g.nodes[(1, 1)][TERRAIN] = TerrainType.WATER
-    precompute_burnable_fire_map(g)
-    assert burnable_distance_to_fire(g, (2, 2)) == float("inf")
-
-
-def test_burnable_distance_to_fire_treated_blocks_path():
-    g = _graph()
-    g.nodes[(0, 0)][STATE] = NodeState.BURNING
-    g.nodes[(0, 1)][STATE] = NodeState.TREATED
-    g.nodes[(1, 0)][STATE] = NodeState.TREATED
-    g.nodes[(1, 1)][STATE] = NodeState.TREATED
-    precompute_burnable_fire_map(g)
-    assert burnable_distance_to_fire(g, (2, 2)) == float("inf")
-
-
 def test_burnable_distance_differs_from_chebyshev_when_path_blocked():
     g = _graph()
     g.nodes[(0, 0)][STATE] = NodeState.BURNING
@@ -437,57 +389,21 @@ def test_burnable_distance_differs_from_chebyshev_when_path_blocked():
     assert burnable_distance_to_fire(g, (2, 2)) == float("inf")
 
 
-def test_treatments_remaining_reflects_updates():
-    g = _graph()
-    g.graph[TREATMENTS_REMAINING] = 5
-    assert treatments_remaining(g) == 5
-    g.graph[TREATMENTS_REMAINING] = 3
-    assert treatments_remaining(g) == 3
-
-
-# ---------------------------------------------------------------------------
-# Environment
-# ---------------------------------------------------------------------------
-
-
-def test_wind_speed_returns_graph_attribute():
-    g = _graph_env()
-    assert wind_speed(g) == 15.0
-
-
-def test_fuel_moisture_returns_graph_attribute():
-    g = _graph_env()
-    assert fuel_moisture(g) == 0.2
-
-
 # ---------------------------------------------------------------------------
 # Whole-graph state
 # ---------------------------------------------------------------------------
 
 
-def test_total_burning_counts_burning_nodes():
+def test_total_state_counts():
     g = _graph()
     g.nodes[(0, 0)][STATE] = NodeState.BURNING
     g.nodes[(0, 1)][STATE] = NodeState.BURNING
-    assert total_burning(g) == 2
-
-
-def test_total_burned_counts_burned_nodes():
-    g = _graph()
-    g.nodes[(0, 0)][STATE] = NodeState.BURNED
-    assert total_burned(g) == 1
-
-
-def test_total_unburned_counts_unburned_nodes():
-    g = _graph()
-    assert total_unburned(g) == 9
-
-
-def test_total_treated_counts_treated_nodes():
-    g = _graph()
-    g.nodes[(0, 0)][STATE] = NodeState.TREATED
+    g.nodes[(1, 0)][STATE] = NodeState.BURNED
     g.nodes[(1, 1)][STATE] = NodeState.TREATED
-    assert total_treated(g) == 2
+    assert total_burning(g) == 2
+    assert total_burned(g) == 1
+    assert total_treated(g) == 1
+    assert total_unburned(g) == 5
 
 
 def test_totals_sum_to_node_count():

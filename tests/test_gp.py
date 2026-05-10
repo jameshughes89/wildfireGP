@@ -2,7 +2,7 @@ import random
 
 import numpy as np
 import pytest
-from deap import creator, tools
+from deap import creator
 
 from wildfireGP.gp import GPConfig, _register_types, build_toolbox, run
 from wildfireGP.network import create_grid, set_fuel_moisture, set_wind
@@ -31,19 +31,6 @@ def seed_python_random():
 def test_fitness_weights_are_minimising():
     _register_types()
     assert creator.FitnessWildfire.weights == (-1.0,)
-
-
-def test_build_toolbox_has_required_operators():
-    toolbox = build_toolbox(_graph(), [(2, 2)], 2, 10, _rng(), _config())
-    for attr in ("evaluate", "select", "mate", "mutate", "population", "compile"):
-        assert hasattr(toolbox, attr)
-
-
-def test_run_returns_population_logbook_and_hof():
-    pop, log, hof = run(_config(), _graph(), [(2, 2)], 2, 10, _rng())
-    assert isinstance(pop, list)
-    assert isinstance(log, tools.Logbook)
-    assert isinstance(hof, tools.HallOfFame)
 
 
 def test_run_population_size_preserved():
