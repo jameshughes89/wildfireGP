@@ -9,8 +9,8 @@ Produces a 2x2 figure:
 
 Usage
 -----
-    python -m scripts.plot_stats --results-dir PATH [--output PATH]
-    python -m scripts.plot_stats --stats PATH [--output PATH]
+    python -m scripts.plot_statistics --results-dir PATH [--output PATH]
+    python -m scripts.plot_statistics --stats PATH [--output PATH]
 
     Exactly one of --results-dir or --stats must be supplied.
 
@@ -21,8 +21,8 @@ Usage
 
 Examples
 --------
-    python -m scripts.plot_stats --results-dir results/2026-05-08_10-00-00
-    python -m scripts.plot_stats --stats results/2026-05-08_10-00-00/stats.json --output run_plot.png
+    python -m scripts.plot_statistics --results-dir results/2026-05-08_10-00-00
+    python -m scripts.plot_statistics --stats results/2026-05-08_10-00-00/stats.json --output run_plot.png
 """
 
 import argparse

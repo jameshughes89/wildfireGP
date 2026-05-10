@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from scripts.plot_stats import _plot, main
+from scripts.plot_statistics import _plot, main
 
 
 def _make_stats(n_gens: int = 3) -> list[dict]:

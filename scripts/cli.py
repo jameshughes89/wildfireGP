@@ -2,8 +2,8 @@
 Shared CLI utilities for wildfireGP scripts.
 
 add_landscape_args() registers the five simulation-scenario arguments that are common to run_gp.py,
-compare_strategies.py, and animate.py. Centralising them here means defaults and help strings are defined once and all
-scripts stay in sync automatically.
+compare_strategies.py, and animate_simulation.py. Centralising them here means defaults and help strings are defined
+once and all scripts stay in sync automatically.
 """
 
 import argparse

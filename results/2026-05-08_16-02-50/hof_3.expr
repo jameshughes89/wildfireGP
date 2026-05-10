@@ -1,0 +1,1 @@
+sub(if_pos(fuel_moisture(graph), -2.006937748157142, -7.441475694662913), burnable_distance_to_fire(graph, node))

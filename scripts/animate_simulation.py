@@ -6,7 +6,7 @@ render.animate() which writes the GIF.
 
 Usage
 -----
-    python -m scripts.animate [--output PATH] [--strategy NAME] [--hof PATH]
+    python -m scripts.animate_simulation [--output PATH] [--strategy NAME] [--hof PATH]
                               [--seed INT] [--rows INT] [--cols INT]
                               [--treatments INT] [--max-steps INT] [--intervention-delay INT]
                               [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
@@ -19,8 +19,8 @@ Usage
 
 Examples
 --------
-    python -m scripts.animate --strategy score_head_fire --output head_fire.gif
-    python -m scripts.animate --hof results/2026-05-06_14-32-00/hof_0.dill --output gp_best.gif
+    python -m scripts.animate_simulation --strategy score_head_fire --output head_fire.gif
+    python -m scripts.animate_simulation --hof results/2026-05-06_14-32-00/hof_0.dill --output gp_best.gif
 """
 
 import argparse

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-from scripts.plot_sim import _plot, collect_series, main
+from scripts.plot_timeseries import _plot, collect_series, main
 from wildfireGP.network import (
     create_grid,
     select_ignition_node,

@@ -4,7 +4,7 @@ import dill
 import numpy as np
 import pytest
 
-from scripts.animate import _load_strategy, _run_simulation
+from scripts.animate_simulation import _load_strategy, _run_simulation
 from wildfireGP.network import (
     BURN_TIMER,
     FUEL,

@@ -6,7 +6,7 @@ of active burning nodes and cumulative burned nodes are plotted over timesteps.
 
 Usage
 -----
-    python -m scripts.plot_sim [--strategy NAME [NAME ...]] [--hof PATH [PATH ...]]
+    python -m scripts.plot_timeseries [--strategy NAME [NAME ...]] [--hof PATH [PATH ...]]
                                [--seed INT] [--rows INT] [--cols INT]
                                [--treatments INT] [--max-steps INT] [--intervention-delay INT]
                                [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
@@ -16,8 +16,8 @@ Usage
 
 Examples
 --------
-    python -m scripts.plot_sim --strategy no_treatment score_by_fire_proximity
-    python -m scripts.plot_sim --hof results/run/hof_0.dill --strategy no_treatment --runs 30
+    python -m scripts.plot_timeseries --strategy no_treatment score_by_fire_proximity
+    python -m scripts.plot_timeseries --hof results/run/hof_0.dill --strategy no_treatment --runs 30
 """
 
 import argparse

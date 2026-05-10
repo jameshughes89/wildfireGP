@@ -1,0 +1,27 @@
+{
+  "gp_config": {
+    "population_size": 10,
+    "generations": 20,
+    "crossover_prob": 0.8,
+    "mutation_prob": 0.1,
+    "tournament_size": 2,
+    "max_tree_height": 6,
+    "max_tree_nodes": 50,
+    "elitism": 1
+  },
+  "scenario": {
+    "rows": 50,
+    "cols": 50,
+    "seed": null,
+    "ignition_node": [
+      33,
+      17
+    ],
+    "treatments_per_step": 3,
+    "max_steps": 100,
+    "intervention_delay": 3,
+    "wind_speed": 20.0,
+    "wind_direction": 0.0,
+    "fuel_moisture": 0.2
+  }
+}

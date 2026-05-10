@@ -1,0 +1,1 @@
+sub(if_pos(burnable_distance_to_fire(graph, node), 11.240871619329535, neg(-3.9423847391034244)), burnable_distance_to_fire(graph, node))
