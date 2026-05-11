@@ -7,6 +7,7 @@ Usage
                              [--treatments INT] [--max-steps INT] [--intervention-delay INT]
                              [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
                              [--pop INT] [--gens INT] [--hof INT]
+                             [--crossover-prob FLOAT] [--mutation-prob FLOAT]
                              [--tournament-size INT]
                              [--init-min-height INT] [--init-max-height INT]
                              [--mutation-min-height INT] [--mutation-max-height INT]
@@ -79,6 +80,8 @@ def main(argv: list[str] | None = None) -> None:
     config = GPConfig(
         population_size=args.pop,
         generations=args.gens,
+        crossover_prob=args.crossover_prob,
+        mutation_prob=args.mutation_prob,
         tournament_size=args.tournament_size,
         init_min_height=args.init_min_height,
         init_max_height=args.init_max_height,
@@ -128,6 +131,8 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--init-max-height", type=int, default=GPConfig.init_max_height)
     parser.add_argument("--mutation-min-height", type=int, default=GPConfig.mutation_min_height)
     parser.add_argument("--mutation-max-height", type=int, default=GPConfig.mutation_max_height)
+    parser.add_argument("--crossover-prob", type=float, default=GPConfig.crossover_prob)
+    parser.add_argument("--mutation-prob", type=float, default=GPConfig.mutation_prob)
     return parser.parse_args(argv)
 
 
