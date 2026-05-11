@@ -16,7 +16,9 @@ def _graph():
 
 
 def _config():
-    return GPConfig(population_size=6, generations=2, tournament_size=2, max_tree_height=4, max_tree_nodes=20, init_max_height=3)
+    return GPConfig(
+        population_size=6, generations=2, tournament_size=2, max_tree_height=4, max_tree_nodes=20, init_max_height=3
+    )
 
 
 def _rng():

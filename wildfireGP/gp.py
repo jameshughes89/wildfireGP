@@ -69,9 +69,9 @@ class GPConfig:
     max_tree_nodes: int = 64
     elitism: int = 1
     init_min_height: int = 2
-    init_max_height: int = 4
+    init_max_height: int = 6
     mutation_min_height: int = 0
-    mutation_max_height: int = 3
+    mutation_max_height: int = 4
 
 
 def build_toolbox(

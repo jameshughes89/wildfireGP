@@ -14,7 +14,14 @@ import numpy as np
 import pytest
 from deap import tools
 
-from scripts.run_gp import _save_config, _save_final_population_dill, _save_hof, _save_population, _save_stats, main
+from scripts.run_gp import (
+    _save_config,
+    _save_final_population_dill,
+    _save_hof,
+    _save_population,
+    _save_stats,
+    main,
+)
 from wildfireGP.gp import GPConfig, _register_types, build_toolbox
 from wildfireGP.network import (
     create_grid,

@@ -37,7 +37,12 @@ import numpy as np
 
 from scripts.cli import add_landscape_args
 from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, evaluate
-from wildfireGP.network import create_grid, select_ignition_node, set_fuel_moisture, set_wind
+from wildfireGP.network import (
+    create_grid,
+    select_ignition_node,
+    set_fuel_moisture,
+    set_wind,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger(__name__)
@@ -123,7 +128,9 @@ def _print_table(results: list[tuple[str, float, float]]) -> None:
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Batch-evaluate GP candidates from a results directory.")
-    parser.add_argument("--results-dir", type=pathlib.Path, required=True, help="Path to a run_gp.py results directory.")
+    parser.add_argument(
+        "--results-dir", type=pathlib.Path, required=True, help="Path to a run_gp.py results directory."
+    )
     parser.add_argument("--runs", type=int, default=30, help="Simulations per candidate (default 30).")
     add_landscape_args(parser)
     return parser.parse_args(argv)
