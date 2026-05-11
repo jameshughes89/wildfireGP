@@ -102,11 +102,7 @@ def test_run_simulation_last_snapshot_has_no_burning_nodes_or_hit_max(graph):
     assert no_fire or len(snapshots) == max_steps + 1
 
 
-def test_run_simulation_treatment_reduces_unburned_count(graph):
-    snapshots_treated = _run_simulation(
-        graph, score_by_fire_proximity, 5, 10, np.random.default_rng(0), intervention_delay=0
-    )
-    treated_count = sum(
-        1 for n in snapshots_treated[-1].nodes if snapshots_treated[-1].nodes[n][STATE] == NodeState.TREATED
-    )
+def test_run_simulation_treatments_are_applied(graph):
+    snapshots = _run_simulation(graph, score_by_fire_proximity, 5, 10, np.random.default_rng(0), intervention_delay=0)
+    treated_count = sum(1 for n in snapshots[-1].nodes if snapshots[-1].nodes[n][STATE] == NodeState.TREATED)
     assert treated_count > 0

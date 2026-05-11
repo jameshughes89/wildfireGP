@@ -87,7 +87,7 @@ def test_evaluate_zero_treatments_allows_spread():
     assert total_burned > 1
 
 
-def test_evaluate_treating_nearest_nodes_reduces_burned_area():
+def test_evaluate_treating_nearest_nodes_reduces_burned_area_smoke():
     g = _setup(moisture=0.05, seed=1)
     ignition = [(3, 3)]
 
@@ -106,18 +106,14 @@ def test_evaluate_treating_nearest_nodes_reduces_burned_area():
 
 def test_evaluate_intervention_delay_no_treatments_applied_before_delay():
     g = _setup(moisture=0.05, seed=0)
-    treated_steps = []
+    call_count = [0]
 
-    def record_treated(graph, node):
-        from wildfireGP.network import NodeState
-
-        treated_steps.append(sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.TREATED))
+    def counting(graph, node):
+        call_count[0] += 1
         return 1.0
 
-    evaluate(record_treated, g, [(3, 3)], treatments_per_step=5, max_steps=10, rng=_rng(), intervention_delay=3)
-    assert treated_steps[0] == 0
-    assert treated_steps[1] == 0
-    assert treated_steps[2] == 0
+    evaluate(counting, g, [(3, 3)], treatments_per_step=5, max_steps=3, rng=_rng(), intervention_delay=3)
+    assert call_count[0] == 0
 
 
 def test_evaluate_intervention_delay_treatments_applied_after_delay():

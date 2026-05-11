@@ -167,3 +167,10 @@ def test_score_head_fire_zero_above_max_distance():
 def test_score_head_fire_finite_within_window():
     two_hops_from_fire = (5, 3)
     assert math.isfinite(score_head_fire(_graph_with_fire(ignition=(5, 5)), two_hops_from_fire))
+
+
+def test_score_head_fire_downwind_scores_higher_than_crosswind():
+    g = _graph_with_fire(ignition=(5, 5))
+    downwind = (7, 5)
+    crosswind = (5, 3)
+    assert score_head_fire(g, downwind) > score_head_fire(g, crosswind)
