@@ -16,6 +16,7 @@ from wildfireGP.network import (
     TerrainType,
     create_grid,
     reset_states,
+    select_ignition_cluster,
     select_ignition_node,
     set_fuel_moisture,
     set_wind,
@@ -194,3 +195,41 @@ def test_select_ignition_node_raises_when_no_burnable_nodes_exist():
         graph.nodes[n][TERRAIN] = TerrainType.WATER
     with pytest.raises(ValueError):
         select_ignition_node(graph, np.random.default_rng(0))
+
+
+# ---------------------------------------------------------------------------
+# select_ignition_cluster
+# ---------------------------------------------------------------------------
+
+
+def test_select_ignition_cluster_returns_requested_size():
+    graph = create_grid(10, 10, seed=0)
+    cluster = select_ignition_cluster(graph, np.random.default_rng(0), size=3)
+    assert len(cluster) == 3
+
+
+def test_select_ignition_cluster_all_nodes_are_burnable():
+    graph = create_grid(10, 10, seed=0)
+    cluster = select_ignition_cluster(graph, np.random.default_rng(0), size=3)
+    for node in cluster:
+        assert graph.nodes[node][STATE] == NodeState.UNBURNED
+        assert graph.nodes[node][TERRAIN] == TerrainType.LAND
+        assert graph.nodes[node][FUEL] > 0.0
+
+
+def test_select_ignition_cluster_nodes_are_unique():
+    graph = create_grid(10, 10, seed=0)
+    cluster = select_ignition_cluster(graph, np.random.default_rng(0), size=5)
+    assert len(cluster) == len(set(cluster))
+
+
+def test_select_ignition_cluster_size_one_equals_single_node():
+    graph = create_grid(10, 10, seed=0)
+    cluster = select_ignition_cluster(graph, np.random.default_rng(0), size=1)
+    assert len(cluster) == 1
+
+
+def test_select_ignition_cluster_capped_by_available_neighbours():
+    graph = create_grid(3, 3, seed=0)
+    cluster = select_ignition_cluster(graph, np.random.default_rng(0), size=100)
+    assert len(cluster) <= graph.number_of_nodes()

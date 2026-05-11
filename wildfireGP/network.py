@@ -278,6 +278,33 @@ def select_ignition_node(graph: nx.Graph, rng: np.random.Generator, centre_fract
     return candidates[rng.integers(len(candidates))]
 
 
+def select_ignition_cluster(graph: nx.Graph, rng: np.random.Generator, size: int = 3) -> list[tuple]:
+    """
+    Return a cluster of burnable nodes to ignite simultaneously at t=0.
+
+    Selects one centre node via select_ignition_node, then expands to up to size-1 randomly chosen
+    burnable LAND neighbours. Using multiple ignition nodes prevents fire self-extinction on the first
+    spread step: a single-node ignition can fail to ignite any neighbour due to stochastic spread
+    probabilities, producing a spurious burned=1 outcome that is a stochastic artefact rather than a
+    learned strategy. A cluster guarantees the fire is established before intervention begins.
+
+    :param graph: Landscape graph.
+    :param rng: NumPy random generator.
+    :param size: Target cluster size. Actual size may be smaller if fewer burnable neighbours exist.
+    :return: List of (row, col) nodes to ignite, length between 1 and size.
+    """
+    centre = select_ignition_node(graph, rng)
+    burnable_neighbours = [
+        n
+        for n in graph.neighbors(centre)
+        if graph.nodes[n][STATE] == NodeState.UNBURNED
+        and graph.nodes[n][TERRAIN] == TerrainType.LAND
+        and graph.nodes[n][FUEL] > 0.0
+    ]
+    rng.shuffle(burnable_neighbours)
+    return [centre] + burnable_neighbours[: size - 1]
+
+
 def _attach_node_attributes(
     graph: nx.Graph,
     fuel_array: np.ndarray,

@@ -46,7 +46,7 @@ def scenario() -> dict:
         "rows": 10,
         "cols": 10,
         "seed": 0,
-        "ignition_node": [5, 5],
+        "ignition_nodes": [[5, 5], [5, 6], [6, 5]],
         "treatments_per_step": 2,
         "max_steps": 20,
         "wind_speed": 20.0,

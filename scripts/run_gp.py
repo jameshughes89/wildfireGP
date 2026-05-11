@@ -6,6 +6,7 @@ Usage
     python -m scripts.run_gp [--results-dir PATH] [--seed INT] [--rows INT] [--cols INT]
                              [--treatments INT] [--max-steps INT] [--intervention-delay INT]
                              [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
+                             [--ignition-cluster-size INT]
                              [--pop INT] [--gens INT] [--hof INT]
                              [--crossover-prob FLOAT] [--mutation-prob FLOAT]
                              [--tournament-size INT]
@@ -53,7 +54,7 @@ from scripts.cli import add_landscape_args
 from wildfireGP.gp import GPConfig, compile_individual, run
 from wildfireGP.network import (
     create_grid,
-    select_ignition_node,
+    select_ignition_cluster,
     set_fuel_moisture,
     set_wind,
 )
@@ -74,8 +75,8 @@ def main(argv: list[str] | None = None) -> None:
     set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
     set_fuel_moisture(graph, moisture=args.moisture)
 
-    ignition = select_ignition_node(graph, rng)
-    log.info("Ignition node: %s", ignition)
+    ignition_nodes = select_ignition_cluster(graph, rng, size=args.ignition_cluster_size)
+    log.info("Ignition cluster (%d nodes): %s", len(ignition_nodes), ignition_nodes)
 
     config = GPConfig(
         population_size=args.pop,
@@ -93,7 +94,7 @@ def main(argv: list[str] | None = None) -> None:
         "rows": args.rows,
         "cols": args.cols,
         "seed": args.seed,
-        "ignition_node": list(ignition),
+        "ignition_nodes": [list(n) for n in ignition_nodes],
         "treatments_per_step": args.treatments,
         "max_steps": args.max_steps,
         "intervention_delay": args.intervention_delay,
@@ -104,7 +105,7 @@ def main(argv: list[str] | None = None) -> None:
 
     log.info("Starting GP: %d individuals, %d generations", config.population_size, config.generations)
     population, logbook, hof = run(
-        config, graph, [ignition], args.treatments, args.max_steps, rng, args.intervention_delay, hof_size=args.hof
+        config, graph, ignition_nodes, args.treatments, args.max_steps, rng, args.intervention_delay, hof_size=args.hof
     )
 
     out_dir = _make_output_dir(args.results_dir)
@@ -123,6 +124,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run wildfire GP and save results.")
     add_landscape_args(parser)
     parser.add_argument("--results-dir", type=pathlib.Path, default=DEFAULT_RESULTS_DIR)
+    parser.add_argument("--ignition-cluster-size", type=int, default=3, help="Number of nodes to ignite at t=0.")
     parser.add_argument("--pop", type=int, default=100)
     parser.add_argument("--gens", type=int, default=50)
     parser.add_argument("--hof", type=int, default=5, help="Number of best individuals to save.")

@@ -1,5 +1,6 @@
 import json
 
+import matplotlib.pyplot as plt
 import pytest
 
 from scripts.plot_statistics import _plot, main
@@ -31,11 +32,15 @@ def _make_stats(n_gens: int = 3) -> list[dict]:
 
 
 def test_plot_returns_figure(tmp_path):
-    import matplotlib.pyplot as plt
-
     fig = _plot(_make_stats())
     plt.close(fig)
     assert fig is not None
+
+
+def test_plot_has_six_subplots(tmp_path):
+    fig = _plot(_make_stats())
+    assert len(fig.axes) >= 6
+    plt.close(fig)
 
 
 def test_plot_stats_creates_output_file(tmp_path):

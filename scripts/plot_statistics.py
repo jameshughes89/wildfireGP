@@ -1,11 +1,13 @@
 """
 Plot fitness and diagnostic statistics from a GP run's stats.json.
 
-Produces a 2x2 figure:
+Produces a 3x2 figure:
     top-left:     total_burned (min and avg) over generations --- the fitness objective
     top-right:    peak_burning (min and avg) over generations --- diagnostic
-    bottom-left:  tree size in nodes (avg and max) over generations --- bloat indicator
-    bottom-right: tree height (avg and max) over generations --- bloat indicator
+    middle-left:  tree size in nodes (avg and max) over generations --- bloat indicator
+    middle-right: tree height (avg and max) over generations --- bloat indicator
+    bottom-left:  fitness std dev over generations --- population diversity indicator
+    bottom-right: fitness avg vs tree size avg per generation --- complexity vs quality scatter
 
 Usage
 -----
@@ -50,7 +52,7 @@ def main(argv: list[str] | None = None) -> None:
 
 def _plot(rows: list[dict]) -> plt.Figure:
     gens = [r["gen"] for r in rows]
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    fig, axes = plt.subplots(3, 2, figsize=(12, 12))
     fig.suptitle("GP run statistics", fontsize=13)
 
     ax = axes[0, 0]
@@ -80,6 +82,18 @@ def _plot(rows: list[dict]) -> plt.Figure:
     ax.set_title("tree height")
     ax.set_xlabel("generation")
     ax.legend()
+
+    ax = axes[2, 0]
+    ax.plot(gens, [r["fitness_std"] for r in rows])
+    ax.set_title("fitness std dev (diversity)")
+    ax.set_xlabel("generation")
+
+    ax = axes[2, 1]
+    sc = ax.scatter([r["size_avg"] for r in rows], [r["fitness_avg"] for r in rows], c=gens, cmap="viridis", s=20)
+    fig.colorbar(sc, ax=ax, label="generation")
+    ax.set_title("fitness avg vs tree size (per generation)")
+    ax.set_xlabel("tree size avg (nodes)")
+    ax.set_ylabel("fitness avg (total_burned)")
 
     fig.tight_layout()
     return fig
