@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from scripts.cli import add_landscape_args
-from wildfireGP.evaluate import _apply_treatments
+from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, _apply_treatments
 from wildfireGP.features import (
     precompute_burnable_fire_map,
     precompute_fire_map,
@@ -92,7 +92,7 @@ def collect_series(
     max_steps: int,
     runs: int,
     base_seed: int | None,
-    intervention_delay: int = 3,
+    intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> dict[str, np.ndarray]:
     """
     Run `runs` simulations and return per-step count arrays.

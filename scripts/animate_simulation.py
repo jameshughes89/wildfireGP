@@ -34,7 +34,7 @@ import dill
 import numpy as np
 
 from scripts.cli import add_landscape_args
-from wildfireGP.evaluate import _apply_treatments
+from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, _apply_treatments
 from wildfireGP.features import (
     precompute_burnable_fire_map,
     precompute_fire_map,
@@ -85,7 +85,12 @@ def main(argv: list[str] | None = None) -> None:
 
 
 def _run_simulation(
-    graph, func, treatments_per_step: int, max_steps: int, rng: np.random.Generator, intervention_delay: int = 3
+    graph,
+    func,
+    treatments_per_step: int,
+    max_steps: int,
+    rng: np.random.Generator,
+    intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> list:
     snapshots = [copy.deepcopy(graph)]
     for step in range(max_steps):

@@ -8,6 +8,8 @@ once and all scripts stay in sync automatically.
 
 import argparse
 
+from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY
+
 
 def add_landscape_args(parser: argparse.ArgumentParser) -> None:
     """
@@ -40,7 +42,7 @@ def add_landscape_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--intervention-delay",
         type=int,
-        default=3,
+        default=DEFAULT_INTERVENTION_DELAY,
         help="Steps before treatments begin (models response time).",
     )
     parser.add_argument("--wind-speed", type=float, default=20.0, help="Wind speed in km/h.")

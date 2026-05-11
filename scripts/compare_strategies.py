@@ -36,7 +36,7 @@ import dill
 import numpy as np
 
 from scripts.cli import add_landscape_args
-from wildfireGP.evaluate import evaluate
+from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, evaluate
 from wildfireGP.network import (
     create_grid,
     select_ignition_node,
@@ -86,7 +86,7 @@ def _run_strategy(
     max_steps: int,
     runs: int,
     base_seed: int | None,
-    intervention_delay: int = 3,
+    intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> tuple[np.ndarray, np.ndarray]:
     burned = np.empty(runs, dtype=float)
     peak = np.empty(runs, dtype=float)
