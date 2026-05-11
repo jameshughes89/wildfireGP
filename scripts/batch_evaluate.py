@@ -36,7 +36,7 @@ import dill
 import numpy as np
 
 from scripts.cli import add_landscape_args
-from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, evaluate
+from wildfireGP.evaluate import evaluate
 from wildfireGP.network import (
     create_grid,
     select_ignition_node,
