@@ -39,7 +39,6 @@ from wildfireGP.features import (
     total_burning,
     total_treated,
     total_unburned,
-    treatments_remaining,
     unburnable_neighbour_count,
     unburned_neighbour_count,
     wind_fire_alignment,
@@ -90,7 +89,6 @@ _NODE_FEATURES = [
 _GRAPH_FEATURES = [
     wind_speed,
     fuel_moisture,
-    treatments_remaining,
     total_burning,
     total_burned,
     total_unburned,

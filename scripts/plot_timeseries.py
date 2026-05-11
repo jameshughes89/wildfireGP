@@ -34,7 +34,6 @@ import numpy as np
 from scripts.cli import add_landscape_args
 from wildfireGP.evaluate import _apply_treatments
 from wildfireGP.features import (
-    TREATMENTS_REMAINING,
     precompute_burnable_fire_map,
     precompute_fire_map,
 )
@@ -134,7 +133,6 @@ def _run_simulation(
         precompute_fire_map(g)
         precompute_burnable_fire_map(g)
         if step >= intervention_delay:
-            g.graph[TREATMENTS_REMAINING] = treatments_per_step
             _apply_treatments(g, func, treatments_per_step, rng)
         spread_step(g, rng)
         snapshots.append(copy.deepcopy(g))

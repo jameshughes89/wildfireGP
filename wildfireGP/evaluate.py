@@ -9,9 +9,8 @@ Treatment selection
 -------------------
 At each timestep on or after intervention_delay, every UNBURNED node with fuel > 0 (i.e. burnable LAND nodes) is
 scored by func(graph, node). The top treatments_per_step nodes by score are treated before spread_step is called.
-TREATMENTS_REMAINING is set on the graph before scoring so the GP can read the step budget as a feature. NaN scores
-(produced by arithmetic like inf - inf in the tree) are treated as -inf so they sort last and are never treated
-preferentially.
+Non-finite scores (produced by arithmetic like inf - inf in the tree) are clamped to -inf so they sort last and are
+never treated preferentially.
 
 Intervention delay
 ------------------
@@ -42,7 +41,6 @@ import networkx as nx
 import numpy as np
 
 from wildfireGP.features import (
-    TREATMENTS_REMAINING,
     precompute_burnable_fire_map,
     precompute_fire_map,
 )
@@ -100,7 +98,6 @@ def evaluate(
         precompute_burnable_fire_map(graph)
 
         if step >= intervention_delay:
-            graph.graph[TREATMENTS_REMAINING] = treatments_per_step
             _apply_treatments(graph, func, treatments_per_step, rng)
 
         spread_step(graph, rng)
@@ -126,7 +123,6 @@ def _apply_treatments(
     candidates.sort(key=lambda n: _safe_score(func, graph, n), reverse=True)
     for node in candidates[:budget]:
         graph.nodes[node][STATE] = NodeState.TREATED
-        graph.graph[TREATMENTS_REMAINING] -= 1
 
 
 def _safe_score(func: Callable[[nx.Graph, tuple], float], graph: nx.Graph, node: tuple) -> float:

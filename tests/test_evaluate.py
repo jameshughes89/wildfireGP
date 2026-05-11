@@ -2,7 +2,6 @@ import numpy as np
 
 from wildfireGP.evaluate import _apply_treatments, _safe_score, evaluate
 from wildfireGP.features import (
-    TREATMENTS_REMAINING,
     distance_to_fire,
     precompute_fire_map,
 )
@@ -159,7 +158,6 @@ def test_apply_treatments_skips_water_and_rock():
     g = create_grid(10, 10, water_fraction=0.1, rock_fraction=0.1, seed=0)
     set_wind(g, speed=10.0, direction=0.0)
     set_fuel_moisture(g, moisture=0.1)
-    g.graph[TREATMENTS_REMAINING] = g.number_of_nodes()
     _apply_treatments(g, lambda graph, node: 1.0, budget=g.number_of_nodes(), rng=np.random.default_rng(0))
     for n in g.nodes:
         if g.nodes[n][TERRAIN] in (TerrainType.WATER, TerrainType.ROCK):

@@ -188,12 +188,6 @@ def fuel_moisture(graph: nx.Graph) -> float:
 # Whole-graph state
 # ---------------------------------------------------------------------------
 
-TREATMENTS_REMAINING = "treatments_remaining"
-
-
-def treatments_remaining(graph: nx.Graph) -> int:
-    return graph.graph[TREATMENTS_REMAINING]
-
 
 def total_burning(graph: nx.Graph) -> int:
     return sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING)
