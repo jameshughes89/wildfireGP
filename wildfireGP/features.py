@@ -185,21 +185,37 @@ def fuel_moisture(graph: nx.Graph) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Whole-graph state
+# Whole-graph state --- requires precompute_state_counts each simulation step
 # ---------------------------------------------------------------------------
+
+_STEP_BURNING = "_step_burning"
+_STEP_BURNED = "_step_burned"
+_STEP_UNBURNED = "_step_unburned"
+_STEP_TREATED = "_step_treated"
+
+
+def precompute_state_counts(graph: nx.Graph) -> None:
+    """Count nodes in each state in a single pass and cache on graph.graph."""
+    counts = {NodeState.BURNING: 0, NodeState.BURNED: 0, NodeState.UNBURNED: 0, NodeState.TREATED: 0}
+    for n in graph.nodes:
+        counts[graph.nodes[n][STATE]] += 1
+    graph.graph[_STEP_BURNING] = counts[NodeState.BURNING]
+    graph.graph[_STEP_BURNED] = counts[NodeState.BURNED]
+    graph.graph[_STEP_UNBURNED] = counts[NodeState.UNBURNED]
+    graph.graph[_STEP_TREATED] = counts[NodeState.TREATED]
 
 
 def total_burning(graph: nx.Graph) -> int:
-    return sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING)
+    return graph.graph[_STEP_BURNING]
 
 
 def total_burned(graph: nx.Graph) -> int:
-    return sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNED)
+    return graph.graph[_STEP_BURNED]
 
 
 def total_unburned(graph: nx.Graph) -> int:
-    return sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.UNBURNED)
+    return graph.graph[_STEP_UNBURNED]
 
 
 def total_treated(graph: nx.Graph) -> int:
-    return sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.TREATED)
+    return graph.graph[_STEP_TREATED]

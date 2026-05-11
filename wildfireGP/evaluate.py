@@ -43,6 +43,7 @@ import numpy as np
 from wildfireGP.features import (
     precompute_burnable_fire_map,
     precompute_fire_map,
+    precompute_state_counts,
 )
 from wildfireGP.network import BURN_TIMER, FUEL, STATE, NodeState
 from wildfireGP.spread import MAX_BURN_STEPS, spread_step
@@ -96,6 +97,7 @@ def evaluate(
 
         precompute_fire_map(graph)
         precompute_burnable_fire_map(graph)
+        precompute_state_counts(graph)
 
         if step >= intervention_delay:
             _apply_treatments(graph, func, treatments_per_step, rng)

@@ -10,6 +10,7 @@ from wildfireGP.features import (
     mean_neighbour_fuel,
     precompute_burnable_fire_map,
     precompute_fire_map,
+    precompute_state_counts,
     slope,
     total_burned,
     total_burning,
@@ -400,6 +401,7 @@ def test_total_state_counts():
     g.nodes[(0, 1)][STATE] = NodeState.BURNING
     g.nodes[(1, 0)][STATE] = NodeState.BURNED
     g.nodes[(1, 1)][STATE] = NodeState.TREATED
+    precompute_state_counts(g)
     assert total_burning(g) == 2
     assert total_burned(g) == 1
     assert total_treated(g) == 1
@@ -411,5 +413,6 @@ def test_totals_sum_to_node_count():
     g.nodes[(0, 0)][STATE] = NodeState.BURNING
     g.nodes[(0, 1)][STATE] = NodeState.BURNED
     g.nodes[(0, 2)][STATE] = NodeState.TREATED
+    precompute_state_counts(g)
     total = total_burning(g) + total_burned(g) + total_unburned(g) + total_treated(g)
     assert total == len(g.nodes)

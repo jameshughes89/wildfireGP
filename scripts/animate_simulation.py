@@ -38,6 +38,7 @@ from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, _apply_treatments
 from wildfireGP.features import (
     precompute_burnable_fire_map,
     precompute_fire_map,
+    precompute_state_counts,
 )
 from wildfireGP.network import (
     BURN_TIMER,
@@ -99,6 +100,7 @@ def _run_simulation(
             break
         precompute_fire_map(graph)
         precompute_burnable_fire_map(graph)
+        precompute_state_counts(graph)
         if step >= intervention_delay:
             _apply_treatments(graph, func, treatments_per_step, rng)
         spread_step(graph, rng)
