@@ -14,8 +14,6 @@ from wildfireGP.network import (
     set_wind,
 )
 
-_RNG = np.random.default_rng(0)
-
 
 def _setup(rows=7, cols=7, moisture=0.1, wind_speed=10.0, wind_dir=0.0, seed=0):
     g = create_grid(rows, cols, seed=seed)
