@@ -7,6 +7,9 @@ Usage
                              [--treatments INT] [--max-steps INT] [--intervention-delay INT]
                              [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
                              [--pop INT] [--gens INT] [--hof INT]
+                             [--tournament-size INT]
+                             [--init-min-height INT] [--init-max-height INT]
+                             [--mutation-min-height INT] [--mutation-max-height INT]
 
 Outputs (one directory per run)
 --------------------------------
@@ -76,6 +79,11 @@ def main(argv: list[str] | None = None) -> None:
     config = GPConfig(
         population_size=args.pop,
         generations=args.gens,
+        tournament_size=args.tournament_size,
+        init_min_height=args.init_min_height,
+        init_max_height=args.init_max_height,
+        mutation_min_height=args.mutation_min_height,
+        mutation_max_height=args.mutation_max_height,
     )
 
     scenario = {
@@ -115,6 +123,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--pop", type=int, default=100)
     parser.add_argument("--gens", type=int, default=50)
     parser.add_argument("--hof", type=int, default=5, help="Number of best individuals to save.")
+    parser.add_argument("--tournament-size", type=int, default=GPConfig.tournament_size)
+    parser.add_argument("--init-min-height", type=int, default=GPConfig.init_min_height)
+    parser.add_argument("--init-max-height", type=int, default=GPConfig.init_max_height)
+    parser.add_argument("--mutation-min-height", type=int, default=GPConfig.mutation_min_height)
+    parser.add_argument("--mutation-max-height", type=int, default=GPConfig.mutation_max_height)
     return parser.parse_args(argv)
 
 

@@ -66,8 +66,12 @@ class GPConfig:
     mutation_prob: float = 0.1
     tournament_size: int = 2
     max_tree_height: int = 6
-    max_tree_nodes: int = 50
+    max_tree_nodes: int = 64
     elitism: int = 1
+    init_min_height: int = 2
+    init_max_height: int = 4
+    mutation_min_height: int = 0
+    mutation_max_height: int = 3
 
 
 def build_toolbox(
@@ -93,10 +97,10 @@ def build_toolbox(
     """
     _register_types()
 
-    init_max_height = min(4, config.max_tree_height)
+    init_max_height = min(config.init_max_height, config.max_tree_height)
 
     toolbox = base.Toolbox()
-    toolbox.register("expr", _gen_grow, pset=PRIMITIVE_SET, min_=1, max_=init_max_height)
+    toolbox.register("expr", _gen_grow, pset=PRIMITIVE_SET, min_=config.init_min_height, max_=init_max_height)
     toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     toolbox.register("compile", gp.compile, pset=PRIMITIVE_SET)
@@ -112,7 +116,7 @@ def build_toolbox(
     )
     toolbox.register("select", tools.selTournament, tournsize=config.tournament_size)
     toolbox.register("mate", gp.cxOnePoint)
-    toolbox.register("expr_mut", _gen_grow, min_=0, max_=2)
+    toolbox.register("expr_mut", _gen_grow, min_=config.mutation_min_height, max_=config.mutation_max_height)
     toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=PRIMITIVE_SET)
 
     toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=config.max_tree_height))
@@ -232,7 +236,9 @@ def _gen_grow(pset, min_: int, max_: int, type_=None):
 
 
 def compile_individual(individual) -> object:
-    """Compile a GP individual to a callable (graph, node) -> float."""
+    """
+    Compile a GP individual to a callable (graph, node) -> float.
+    """
     return gp.compile(individual, pset=PRIMITIVE_SET)
 
 
