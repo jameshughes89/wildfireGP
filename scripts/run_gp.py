@@ -11,13 +11,24 @@ Usage
 Outputs (one directory per run)
 --------------------------------
     results/<timestamp>/
-        config.json     GPConfig + scenario parameters (human-readable, for reproducibility)
-        stats.json      per-generation fitness and size statistics from the DEAP logbook
-        population.pkl  full DEAP population and logbook (pickle)
-        hof_0.dill      best individual compiled to a callable via dill
-        hof_1.dill      second-best, etc. (up to --hof individuals)
-        hof_0.expr      tree expression string for hof_0 (human-readable)
-        hof_1.expr      ...
+        config.json             GPConfig + scenario parameters (human-readable, for reproducibility)
+        stats.json              per-generation fitness and size statistics from the DEAP logbook
+        population.pkl          full DEAP population and logbook (pickle); requires DEAP types
+                                registered on load — use for GP resume or custom post-processing
+        final_population.dill   final generation as [(expr_string, callable)] pairs (dill);
+                                self-contained, no DEAP dependency — use with batch_evaluate.py
+        hof_0.dill              best individual compiled to a callable via dill; self-contained
+        hof_1.dill              second-best, etc. (up to --hof individuals)
+        hof_0.expr              tree expression string for hof_0 (human-readable)
+        hof_1.expr              ...
+
+population.pkl vs final_population.dill
+----------------------------------------
+population.pkl stores raw DEAP PrimitiveTree objects and requires DEAP creator types to be
+registered before unpickling. final_population.dill stores pre-compiled (expr, callable) pairs
+via dill, which is self-contained and can be loaded anywhere without DEAP. Use population.pkl
+if you need access to the tree structure; use final_population.dill for evaluation and comparison
+via batch_evaluate.py.
 """
 
 import argparse
@@ -91,6 +102,7 @@ def main(argv: list[str] | None = None) -> None:
     _save_config(out_dir, config, scenario)
     _save_stats(out_dir, logbook)
     _save_population(out_dir, population, logbook)
+    _save_final_population_dill(out_dir, population)
     _save_hof(out_dir, hof)
 
     log.info("Done. Results in %s", out_dir)
@@ -138,6 +150,12 @@ def _save_population(out_dir: pathlib.Path, population: list, logbook: tools.Log
     payload = {"population": population, "logbook": logbook}
     with open(out_dir / "population.pkl", "wb") as f:
         pickle.dump(payload, f)
+
+
+def _save_final_population_dill(out_dir: pathlib.Path, population: list) -> None:
+    entries = [(str(ind), compile_individual(ind)) for ind in population]
+    with open(out_dir / "final_population.dill", "wb") as f:
+        dill.dump(entries, f)
 
 
 def _save_hof(out_dir: pathlib.Path, hof: tools.HallOfFame) -> None:

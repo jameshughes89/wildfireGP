@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 from deap import tools
 
-from scripts.run_gp import _save_config, _save_hof, _save_population, _save_stats, main
+from scripts.run_gp import _save_config, _save_final_population_dill, _save_hof, _save_population, _save_stats, main
 from wildfireGP.gp import GPConfig, _register_types, build_toolbox
 from wildfireGP.network import (
     create_grid,
@@ -142,6 +142,29 @@ def test_save_population_round_trips_size(out_dir, toolbox_and_pop):
 
 
 # ---------------------------------------------------------------------------
+# _save_final_population_dill
+# ---------------------------------------------------------------------------
+
+
+def test_save_final_population_dill_round_trips_count(out_dir, toolbox_and_pop):
+    _, pop = toolbox_and_pop
+    _save_final_population_dill(out_dir, pop)
+    with open(out_dir / "final_population.dill", "rb") as f:
+        entries = dill.load(f)
+    assert len(entries) == len(pop)
+
+
+def test_save_final_population_dill_entries_are_expr_callable_pairs(out_dir, toolbox_and_pop):
+    _, pop = toolbox_and_pop
+    _save_final_population_dill(out_dir, pop)
+    with open(out_dir / "final_population.dill", "rb") as f:
+        entries = dill.load(f)
+    for expr, func in entries:
+        assert isinstance(expr, str) and len(expr) > 0
+        assert callable(func)
+
+
+# ---------------------------------------------------------------------------
 # _save_hof
 # ---------------------------------------------------------------------------
 
@@ -195,5 +218,6 @@ def test_main_creates_expected_output_files(tmp_path):
     assert (out / "config.json").exists()
     assert (out / "stats.json").exists()
     assert (out / "population.pkl").exists()
+    assert (out / "final_population.dill").exists()
     assert (out / "hof_0.dill").exists()
     assert (out / "hof_0.expr").exists()
