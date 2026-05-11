@@ -105,6 +105,7 @@ def evaluate(
 
         spread_step(graph, rng)
 
+    peak_burning = max(peak_burning, sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING))
     total_burned = sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNED)
     return total_burned, peak_burning
 
