@@ -18,13 +18,20 @@ the hof_*.dill + hof_*.expr files alone.
 Usage
 -----
     python -m scripts.batch_evaluate --results-dir PATH
-                                     [--runs INT] [--seed INT] [--rows INT] [--cols INT]
+                                     [--runs INT] [--seed INT] [--output PATH]
+                                     [--rows INT] [--cols INT]
                                      [--treatments INT] [--max-steps INT] [--intervention-delay INT]
                                      [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
+
+    --output PATH   Save the ranked results table as a CSV file. Each row contains rank, mean,
+                    std, and the full (untruncated) expression string. Use this to identify
+                    candidates for further analysis scripts via --expr.
 
 Examples
 --------
     python -m scripts.batch_evaluate --results-dir results/2026-05-11_14-25-31 --runs 30 --seed 42
+    python -m scripts.batch_evaluate --results-dir results/2026-05-11_14-25-31 --runs 30 --seed 42 \
+        --output results/2026-05-11_14-25-31/batch.csv
 """
 
 import argparse
