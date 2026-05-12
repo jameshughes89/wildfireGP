@@ -28,7 +28,6 @@ Examples
 import argparse
 import copy
 import logging
-import math
 import pathlib
 import sys
 
@@ -37,15 +36,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from scripts.cli import add_landscape_args, load_candidate_by_expr
-from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, _apply_treatments
-from wildfireGP.features import (
-    precompute_burnable_fire_map,
-    precompute_fire_map,
-    precompute_state_counts,
-)
+from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, init_ignition, simulate
 from wildfireGP.network import (
-    BURN_TIMER,
-    FUEL,
     STATE,
     NodeState,
     create_grid,
@@ -53,7 +45,6 @@ from wildfireGP.network import (
     set_fuel_moisture,
     set_wind,
 )
-from wildfireGP.spread import MAX_BURN_STEPS, spread_step
 from wildfireGP.strategies import ALL_STRATEGIES
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
@@ -111,11 +102,11 @@ def collect_series(
 
     for i in range(runs):
         seed = None if base_seed is None else base_seed + i
-        snapshots = _run_simulation(
+        burning, burned = _run_simulation(
             graph, ignition, func, treatments_per_step, max_steps, np.random.default_rng(seed), intervention_delay
         )
-        all_burning.append([sum(1 for n in s.nodes if s.nodes[n][STATE] == NodeState.BURNING) for s in snapshots])
-        all_burned.append([sum(1 for n in s.nodes if s.nodes[n][STATE] == NodeState.BURNED) for s in snapshots])
+        all_burning.append(burning)
+        all_burned.append(burned)
 
     max_len = max(len(r) for r in all_burning)
 
@@ -127,23 +118,15 @@ def collect_series(
 
 def _run_simulation(
     graph, ignition: tuple, func, treatments_per_step: int, max_steps: int, rng, intervention_delay: int
-) -> list:
+) -> tuple[list[int], list[int]]:
     g = copy.deepcopy(graph)
-    g.nodes[ignition][STATE] = NodeState.BURNING
-    g.nodes[ignition][BURN_TIMER] = max(1, math.ceil(g.nodes[ignition][FUEL] * MAX_BURN_STEPS))
-
-    snapshots = [copy.deepcopy(g)]
-    for step in range(max_steps):
-        if not any(g.nodes[n][STATE] == NodeState.BURNING for n in g.nodes):
-            break
-        precompute_fire_map(g)
-        precompute_burnable_fire_map(g)
-        precompute_state_counts(g)
-        if step >= intervention_delay:
-            _apply_treatments(g, func, treatments_per_step, rng)
-        spread_step(g, rng)
-        snapshots.append(copy.deepcopy(g))
-    return snapshots
+    init_ignition(g, [ignition])
+    burning = [sum(1 for n in g.nodes if g.nodes[n][STATE] == NodeState.BURNING)]
+    burned = [sum(1 for n in g.nodes if g.nodes[n][STATE] == NodeState.BURNED)]
+    for _step, _ in simulate(g, func, treatments_per_step, max_steps, rng, intervention_delay):
+        burning.append(sum(1 for n in g.nodes if g.nodes[n][STATE] == NodeState.BURNING))
+        burned.append(sum(1 for n in g.nodes if g.nodes[n][STATE] == NodeState.BURNED))
+    return burning, burned
 
 
 def _plot(series_data: dict[str, dict]) -> plt.Figure:

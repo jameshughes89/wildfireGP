@@ -1,8 +1,7 @@
 """
 Run a single simulation with a chosen strategy and save a GIF.
 
-The simulation loop runs spread_step directly, capturing a deepcopy of the graph after each step. Frames are passed to
-render.animate() which writes the GIF.
+Frames are captured after each spread step and passed to render.animate() which writes the GIF.
 
 Usage
 -----
@@ -30,7 +29,6 @@ Examples
 import argparse
 import copy
 import logging
-import math
 import pathlib
 import sys
 
@@ -38,24 +36,14 @@ import dill
 import numpy as np
 
 from scripts.cli import add_landscape_args, load_candidate_by_expr
-from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, _apply_treatments
-from wildfireGP.features import (
-    precompute_burnable_fire_map,
-    precompute_fire_map,
-    precompute_state_counts,
-)
+from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, init_ignition, simulate
 from wildfireGP.network import (
-    BURN_TIMER,
-    FUEL,
-    STATE,
-    NodeState,
     create_grid,
     select_ignition_node,
     set_fuel_moisture,
     set_wind,
 )
 from wildfireGP.render import animate
-from wildfireGP.spread import MAX_BURN_STEPS, spread_step
 from wildfireGP.strategies import ALL_STRATEGIES
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
@@ -77,9 +65,7 @@ def main(argv: list[str] | None = None) -> None:
     ignition = select_ignition_node(graph, rng)
     log.info("Ignition node: %s  strategy: %s", ignition, label)
 
-    graph.nodes[ignition][STATE] = NodeState.BURNING
-    graph.nodes[ignition][BURN_TIMER] = max(1, math.ceil(graph.nodes[ignition][FUEL] * MAX_BURN_STEPS))
-
+    init_ignition(graph, [ignition])
     snapshots = _run_simulation(graph, func, args.treatments, args.max_steps, rng, args.intervention_delay)
     log.info("Simulation complete: %d frames", len(snapshots))
 
@@ -98,17 +84,8 @@ def _run_simulation(
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> list:
     snapshots = [copy.deepcopy(graph)]
-    for step in range(max_steps):
-        burning = [n for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING]
-        if not burning:
-            break
-        precompute_fire_map(graph)
-        precompute_burnable_fire_map(graph)
-        precompute_state_counts(graph)
-        if step >= intervention_delay:
-            _apply_treatments(graph, func, treatments_per_step, rng)
-        spread_step(graph, rng)
-        snapshots.append(copy.deepcopy(graph))
+    for _step, g in simulate(graph, func, treatments_per_step, max_steps, rng, intervention_delay):
+        snapshots.append(copy.deepcopy(g))
     return snapshots
 
 
