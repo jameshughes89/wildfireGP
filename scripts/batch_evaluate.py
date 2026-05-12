@@ -1,19 +1,18 @@
 """
 Batch-evaluate GP candidates from a results directory across N independent simulations.
 
-Loads the final population (final_population.dill) and HOF individuals (hof_*.dill + hof_*.expr)
-from a results directory, deduplicates by expression string, evaluates each candidate on N
-simulations of a fresh landscape, and prints a ranked table of mean ± std burned nodes.
+Loads the final population (final_population.dill) and HOF individuals (hof_*.dill + hof_*.expr) from a results
+directory, deduplicates by expression string, evaluates each candidate on N simulations of a fresh landscape, and prints
+a ranked table of mean ± std burned nodes.
 
-The evaluation landscape is independent of the training landscape by default (seed=None). Pass
---seed for a reproducible comparison across multiple batch_evaluate runs.
+The evaluation landscape is independent of the training landscape by default (seed=None). Pass --seed for a reproducible
+comparison across multiple batch_evaluate runs.
 
 Deduplication
 -------------
-Candidates are identified by their expression string. If the same expression appears in both the
-final population and the HOF, it is evaluated once. HOF individuals from runs predating the
-final_population.dill save (i.e. runs before this feature was added) can still be evaluated via
-the hof_*.dill + hof_*.expr files alone.
+Candidates are identified by their expression string. If the same expression appears in both the final population and
+the HOF, it is evaluated once. HOF individuals from runs predating the final_population.dill save (i.e. runs before this
+feature was added) can still be evaluated via the hof_*.dill + hof_*.expr files alone.
 
 Usage
 -----
