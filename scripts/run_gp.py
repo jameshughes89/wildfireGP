@@ -3,19 +3,23 @@ Run the wildfire GP and save results to a timestamped directory under results/.
 
 Usage
 -----
-    python -m scripts.run_gp [--results-dir PATH] [--seed INT] [--rows INT] [--cols INT]
+    python -m scripts.run_gp [--results-dir PATH] [--run-name NAME]
+                             [--seed INT] [--rows INT] [--cols INT]
                              [--treatments INT] [--max-steps INT] [--intervention-delay INT]
                              [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
                              [--ignition-cluster-size INT]
                              [--pop INT] [--gens INT] [--hof INT]
                              [--crossover-prob FLOAT] [--mutation-prob FLOAT]
-                             [--tournament-size INT]
+                             [--tournament-size INT] [--max-tree-height INT] [--max-tree-nodes INT]
                              [--init-min-height INT] [--init-max-height INT]
                              [--mutation-min-height INT] [--mutation-max-height INT]
 
+--run-name overrides the auto-generated timestamp subdirectory name, which is useful for naming
+factorial experiment runs (e.g. "A_small_tourn2", "B_large_tourn3").
+
 Outputs (one directory per run)
 --------------------------------
-    results/<timestamp>/
+    results/<timestamp>/          (or results/<run-name>/ when --run-name is given)
         config.json             GPConfig + scenario parameters (human-readable, for reproducibility)
         stats.json              per-generation fitness and size statistics from the DEAP logbook
         population.pkl          full DEAP population and logbook (pickle); requires DEAP types
@@ -84,6 +88,8 @@ def main(argv: list[str] | None = None) -> None:
         crossover_prob=args.crossover_prob,
         mutation_prob=args.mutation_prob,
         tournament_size=args.tournament_size,
+        max_tree_height=args.max_tree_height,
+        max_tree_nodes=args.max_tree_nodes,
         init_min_height=args.init_min_height,
         init_max_height=args.init_max_height,
         mutation_min_height=args.mutation_min_height,
@@ -108,7 +114,7 @@ def main(argv: list[str] | None = None) -> None:
         config, graph, ignition_nodes, args.treatments, args.max_steps, rng, args.intervention_delay, hof_size=args.hof
     )
 
-    out_dir = _make_output_dir(args.results_dir)
+    out_dir = _make_output_dir(args.results_dir, args.run_name)
     log.info("Saving results to %s", out_dir)
 
     _save_config(out_dir, config, scenario)
@@ -133,14 +139,17 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--init-max-height", type=int, default=GPConfig.init_max_height)
     parser.add_argument("--mutation-min-height", type=int, default=GPConfig.mutation_min_height)
     parser.add_argument("--mutation-max-height", type=int, default=GPConfig.mutation_max_height)
+    parser.add_argument("--max-tree-height", type=int, default=GPConfig.max_tree_height)
+    parser.add_argument("--max-tree-nodes", type=int, default=GPConfig.max_tree_nodes)
     parser.add_argument("--crossover-prob", type=float, default=GPConfig.crossover_prob)
     parser.add_argument("--mutation-prob", type=float, default=GPConfig.mutation_prob)
+    parser.add_argument("--run-name", type=str, default=None, help="Override the timestamp subdirectory name.")
     return parser.parse_args(argv)
 
 
-def _make_output_dir(base: pathlib.Path) -> pathlib.Path:
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    out_dir = base / timestamp
+def _make_output_dir(base: pathlib.Path, run_name: str | None = None) -> pathlib.Path:
+    name = run_name if run_name else datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    out_dir = base / name
     out_dir.mkdir(parents=True, exist_ok=True)
     return out_dir
 

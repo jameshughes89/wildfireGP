@@ -15,6 +15,7 @@ import pytest
 from deap import tools
 
 from scripts.run_gp import (
+    _make_output_dir,
     _save_config,
     _save_final_population_dill,
     _save_hof,
@@ -196,6 +197,25 @@ def test_save_hof_count_matches_hof_size(out_dir, hof):
 
 
 # ---------------------------------------------------------------------------
+# _make_output_dir
+# ---------------------------------------------------------------------------
+
+
+def test_make_output_dir_uses_run_name(tmp_path):
+    out = _make_output_dir(tmp_path, "my_run")
+    assert out == tmp_path / "my_run"
+    assert out.is_dir()
+
+
+def test_make_output_dir_without_run_name_uses_timestamp(tmp_path):
+    out = _make_output_dir(tmp_path)
+    import re
+
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}", out.name)
+    assert out.is_dir()
+
+
+# ---------------------------------------------------------------------------
 # main() smoke test
 # ---------------------------------------------------------------------------
 
@@ -228,3 +248,57 @@ def test_main_creates_expected_output_files(tmp_path):
     assert (out / "final_population.dill").exists()
     assert (out / "hof_0.dill").exists()
     assert (out / "hof_0.expr").exists()
+
+
+def test_main_run_name_creates_named_dir(tmp_path):
+    main(
+        [
+            "--pop",
+            "4",
+            "--gens",
+            "2",
+            "--hof",
+            "1",
+            "--seed",
+            "0",
+            "--rows",
+            "5",
+            "--cols",
+            "5",
+            "--results-dir",
+            str(tmp_path),
+            "--run-name",
+            "experiment_A",
+        ]
+    )
+    assert (tmp_path / "experiment_A").is_dir()
+
+
+def test_main_max_tree_height_and_nodes_in_config(tmp_path):
+    main(
+        [
+            "--pop",
+            "4",
+            "--gens",
+            "2",
+            "--hof",
+            "1",
+            "--seed",
+            "0",
+            "--rows",
+            "5",
+            "--cols",
+            "5",
+            "--results-dir",
+            str(tmp_path),
+            "--run-name",
+            "size_test",
+            "--max-tree-height",
+            "10",
+            "--max-tree-nodes",
+            "128",
+        ]
+    )
+    data = json.loads((tmp_path / "size_test" / "config.json").read_text())
+    assert data["gp_config"]["max_tree_height"] == 10
+    assert data["gp_config"]["max_tree_nodes"] == 128
