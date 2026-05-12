@@ -99,3 +99,47 @@ def test_main_runs_and_prints_table(tmp_path, capsys):
     assert "rank" in out
     assert "mean" in out
     assert "constant" in out
+
+
+def test_main_saves_csv_when_output_flag_given(tmp_path):
+    _write_population(tmp_path / "final_population.dill", [("constant", _const_func)])
+    csv_path = tmp_path / "results.csv"
+    main(
+        [
+            "--results-dir",
+            str(tmp_path),
+            "--runs",
+            "3",
+            "--seed",
+            "0",
+            "--rows",
+            "5",
+            "--cols",
+            "5",
+            "--output",
+            str(csv_path),
+        ]
+    )
+    assert csv_path.exists()
+    lines = csv_path.read_text().splitlines()
+    assert lines[0] == "rank,mean,std,expr"
+    assert "constant" in lines[1]
+
+
+def test_main_no_csv_without_output_flag(tmp_path):
+    _write_population(tmp_path / "final_population.dill", [("constant", _const_func)])
+    main(
+        [
+            "--results-dir",
+            str(tmp_path),
+            "--runs",
+            "3",
+            "--seed",
+            "0",
+            "--rows",
+            "5",
+            "--cols",
+            "5",
+        ]
+    )
+    assert not any(tmp_path.glob("*.csv"))

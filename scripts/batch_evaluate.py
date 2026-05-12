@@ -28,6 +28,7 @@ Examples
 """
 
 import argparse
+import csv
 import logging
 import pathlib
 import sys
@@ -81,6 +82,9 @@ def main(argv: list[str] | None = None) -> None:
 
     results.sort(key=lambda x: x[1])
     _print_table(results)
+    if args.output:
+        _save_csv(pathlib.Path(args.output), results)
+        log.info("Saved CSV to %s", args.output)
 
 
 def _load_candidates(results_dir: pathlib.Path) -> list[tuple[str, object]]:
@@ -119,6 +123,14 @@ def _load_candidates(results_dir: pathlib.Path) -> list[tuple[str, object]]:
     return list(candidates.items())
 
 
+def _save_csv(path: pathlib.Path, results: list[tuple[str, float, float]]) -> None:
+    with open(path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["rank", "mean", "std", "expr"])
+        for rank, (expr, mean, std) in enumerate(results, 1):
+            writer.writerow([rank, f"{mean:.1f}", f"{std:.1f}", expr])
+
+
 def _print_table(results: list[tuple[str, float, float]]) -> None:
     print(f"\n{'rank':>4}  {'mean':>8}  {'std':>8}  expr")
     print("-" * 120)
@@ -132,6 +144,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--results-dir", type=pathlib.Path, required=True, help="Path to a run_gp.py results directory."
     )
     parser.add_argument("--runs", type=int, default=30, help="Simulations per candidate (default 30).")
+    parser.add_argument("--output", type=str, default=None, help="Save ranked results as a CSV file.")
     add_landscape_args(parser)
     return parser.parse_args(argv)
 
