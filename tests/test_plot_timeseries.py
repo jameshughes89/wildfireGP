@@ -1,3 +1,4 @@
+import dill
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
@@ -113,4 +114,30 @@ def test_main_unknown_strategy_raises():
 def test_main_no_strategies_uses_all_builtins(tmp_path):
     out = tmp_path / "ts.png"
     main(["--rows", "5", "--cols", "5", "--runs", "2", "--max-steps", "5", "--output", str(out)])
+    assert out.exists()
+
+
+def test_main_expr_loads_candidate(tmp_path):
+    expr = "test_expr"
+    with open(tmp_path / "final_population.dill", "wb") as f:
+        dill.dump([(expr, no_treatment)], f)
+    out = tmp_path / "ts.png"
+    main(
+        [
+            "--expr",
+            expr,
+            "--results-dir",
+            str(tmp_path),
+            "--rows",
+            "5",
+            "--cols",
+            "5",
+            "--runs",
+            "2",
+            "--max-steps",
+            "5",
+            "--output",
+            str(out),
+        ]
+    )
     assert out.exists()

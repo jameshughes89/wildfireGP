@@ -72,3 +72,33 @@ def test_main_with_results_dir_loads_dill(tmp_path):
         ]
     )
     assert out.exists()
+
+
+def test_main_expr_loads_candidate(tmp_path):
+    import dill
+
+    from wildfireGP.strategies import no_treatment
+
+    expr = "test_expr"
+    with open(tmp_path / "final_population.dill", "wb") as f:
+        dill.dump([(expr, no_treatment)], f)
+    out = tmp_path / "comp.png"
+    main(
+        [
+            "--results-dir",
+            str(tmp_path),
+            "--expr",
+            expr,
+            "--rows",
+            "5",
+            "--cols",
+            "5",
+            "--runs",
+            "2",
+            "--max-steps",
+            "5",
+            "--output",
+            str(out),
+        ]
+    )
+    assert out.exists()

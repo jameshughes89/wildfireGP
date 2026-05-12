@@ -7,6 +7,7 @@ of active burning nodes and cumulative burned nodes are plotted over timesteps.
 Usage
 -----
     python -m scripts.plot_timeseries [--strategy NAME [NAME ...]] [--hof PATH [PATH ...]]
+                               [--results-dir PATH] [--expr STRING]
                                [--seed INT] [--rows INT] [--cols INT]
                                [--treatments INT] [--max-steps INT] [--intervention-delay INT]
                                [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
@@ -14,10 +15,14 @@ Usage
 
     At least one of --strategy or --hof must be given. If neither is supplied, all builtin strategies are plotted.
 
+    --expr STRING    Expression string of a specific GP candidate to load from --results-dir (required alongside
+                     --expr). Copy the expr value from batch_evaluate.py CSV output. Mutually exclusive with --hof.
+
 Examples
 --------
     python -m scripts.plot_timeseries --strategy no_treatment score_by_fire_proximity
     python -m scripts.plot_timeseries --hof results/run/hof_0.dill --strategy no_treatment --runs 30
+    python -m scripts.plot_timeseries --results-dir results/run --expr "min(fuel_level, ...)" --strategy no_treatment
 """
 
 import argparse
@@ -31,7 +36,7 @@ import dill
 import matplotlib.pyplot as plt
 import numpy as np
 
-from scripts.cli import add_landscape_args
+from scripts.cli import add_landscape_args, load_candidate_by_expr
 from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, _apply_treatments
 from wildfireGP.features import (
     precompute_burnable_fire_map,
@@ -175,11 +180,17 @@ def _load_strategies(args: argparse.Namespace) -> list[tuple[str, object]]:
             raise SystemExit(f"Unknown strategy '{name}'. Available: {available}")
         strategies.append((name, _STRATEGY_MAP[name]))
 
-    for path in args.hof or []:
-        path = pathlib.Path(path)
-        with open(path, "rb") as f:
-            func = dill.load(f)
-        strategies.append((path.stem, func))
+    if getattr(args, "expr", None):
+        if not getattr(args, "results_dir", None):
+            raise SystemExit("--results-dir is required when using --expr.")
+        func = load_candidate_by_expr(args.results_dir, args.expr)
+        strategies.append((args.expr[:60], func))
+    else:
+        for path in args.hof or []:
+            path = pathlib.Path(path)
+            with open(path, "rb") as f:
+                func = dill.load(f)
+            strategies.append((path.stem, func))
 
     if not strategies:
         strategies = [(f.__name__, f) for f in ALL_STRATEGIES]
@@ -190,7 +201,10 @@ def _load_strategies(args: argparse.Namespace) -> list[tuple[str, object]]:
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Plot simulation state time-series for strategies.")
     parser.add_argument("--strategy", type=str, nargs="+", help="Builtin strategy names.")
-    parser.add_argument("--hof", type=pathlib.Path, nargs="+", help="Paths to .dill HOF files.")
+    gp_source = parser.add_mutually_exclusive_group()
+    gp_source.add_argument("--hof", type=pathlib.Path, nargs="+", help="Paths to .dill HOF files.")
+    gp_source.add_argument("--expr", type=str, default=None, help="Load a candidate by expression string.")
+    parser.add_argument("--results-dir", type=pathlib.Path, default=None)
     add_landscape_args(parser)
     parser.add_argument("--runs", type=int, default=20, help="Stochastic runs per strategy.")
     parser.add_argument("--output", type=str, default=None)

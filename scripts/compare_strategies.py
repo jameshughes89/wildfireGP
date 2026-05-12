@@ -10,10 +10,14 @@ Usage
     python -m scripts.compare_strategies [--results-dir PATH] [--seed INT] [--rows INT] [--cols INT]
                                          [--treatments INT] [--max-steps INT] [--intervention-delay INT]
                                          [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
-                                         [--runs INT] [--hof PATH [PATH ...]]
+                                         [--runs INT] [--hof PATH [PATH ...]] [--expr STRING]
 
     --hof accepts one or more paths to .dill files produced by run_gp.py. If omitted only the builtin baselines are
-    compared. If --results-dir is given, all .dill files found directly inside that directory are loaded automatically.
+    compared. If --results-dir is given without --expr, all hof_*.dill files found directly inside that directory are
+    loaded automatically.
+
+    --expr STRING  Expression string of a specific GP candidate to load from --results-dir (required alongside --expr).
+                   Copy the expr value from the batch_evaluate.py CSV output. --expr is mutually exclusive with --hof.
 
 Examples
 --------
@@ -25,6 +29,9 @@ Examples
 
     # load specific dill files
     python -m scripts.compare_strategies --hof results/2026-05-06_14-32-00/hof_0.dill
+
+    # load a candidate by expression string from batch_evaluate CSV
+    python -m scripts.compare_strategies --results-dir results/2026-05-06_14-32-00 --expr "min(fuel_level, ...)"
 """
 
 import argparse
@@ -35,7 +42,7 @@ import sys
 import dill
 import numpy as np
 
-from scripts.cli import add_landscape_args
+from scripts.cli import add_landscape_args, load_candidate_by_expr
 from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, evaluate
 from wildfireGP.network import (
     create_grid,
@@ -102,9 +109,16 @@ def _run_strategy(
 def _load_strategies(args: argparse.Namespace) -> list[tuple[str, object]]:
     strategies = [(f.__name__, f) for f in ALL_STRATEGIES]
 
+    if getattr(args, "expr", None):
+        if not args.results_dir:
+            raise SystemExit("--results-dir is required when using --expr.")
+        func = load_candidate_by_expr(args.results_dir, args.expr)
+        strategies.append((args.expr[:60], func))
+        return strategies
+
     dill_paths: list[pathlib.Path] = list(args.hof) if args.hof else []
     if args.results_dir:
-        dill_paths += sorted(args.results_dir.glob("*.dill"))
+        dill_paths += sorted(args.results_dir.glob("hof_*.dill"))
 
     seen: set[pathlib.Path] = set()
     for path in dill_paths:
@@ -124,7 +138,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     add_landscape_args(parser)
     parser.add_argument("--runs", type=int, default=30)
     parser.add_argument("--results-dir", type=pathlib.Path, default=None)
-    parser.add_argument("--hof", type=pathlib.Path, nargs="+", default=None)
+    gp_source = parser.add_mutually_exclusive_group()
+    gp_source.add_argument("--hof", type=pathlib.Path, nargs="+", default=None)
+    gp_source.add_argument("--expr", type=str, default=None, help="Load a candidate by expression string.")
     return parser.parse_args(argv)
 
 

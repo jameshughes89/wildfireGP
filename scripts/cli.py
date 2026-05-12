@@ -1,14 +1,46 @@
 """
 Shared CLI utilities for wildfireGP scripts.
 
-add_landscape_args() registers the five simulation-scenario arguments that are common to run_gp.py,
-compare_strategies.py, and animate_simulation.py. Centralising them here means defaults and help strings are defined
-once and all scripts stay in sync automatically.
+add_landscape_args() registers the simulation-scenario arguments common to run_gp.py, compare_strategies.py, and
+animate_simulation.py. Centralising them here means defaults and help strings are defined once and all scripts stay in
+sync automatically.
+
+load_candidate_by_expr() loads a compiled GP callable from a results directory by its expression string. Use this to
+load a specific candidate identified from batch_evaluate.py output (--output CSV) rather than loading HOF .dill files
+by index.
 """
 
 import argparse
+import pathlib
+
+import dill
 
 from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY
+
+
+def load_candidate_by_expr(results_dir: pathlib.Path, expr: str) -> object:
+    """
+    Load a compiled GP candidate from results_dir by its expression string.
+
+    Searches final_population.dill first, then falls back to hof_*.expr files. Raises SystemExit if the expression
+    is not found in either source.
+    """
+    pop_path = results_dir / "final_population.dill"
+    if pop_path.exists():
+        with open(pop_path, "rb") as f:
+            population = dill.load(f)
+        for pop_expr, func in population:
+            if pop_expr == expr:
+                return func
+
+    for hof_expr_path in sorted(results_dir.glob("hof_*.expr")):
+        if hof_expr_path.read_text().strip() == expr:
+            hof_dill_path = hof_expr_path.with_suffix(".dill")
+            if hof_dill_path.exists():
+                with open(hof_dill_path, "rb") as f:
+                    return dill.load(f)
+
+    raise SystemExit(f"Expression not found in {results_dir}:\n  {expr[:120]}")
 
 
 def add_landscape_args(parser: argparse.ArgumentParser) -> None:

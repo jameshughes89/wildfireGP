@@ -11,6 +11,12 @@ from wildfireGP.network import (
 )
 from wildfireGP.strategies import ALL_STRATEGIES, no_treatment
 
+
+def _write_population(path, entries):
+    with open(path, "wb") as f:
+        dill.dump(entries, f)
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -69,9 +75,10 @@ def test_run_strategy_different_seeds_produce_variation(graph, ignition):
 
 
 class _FakeArgs:
-    def __init__(self, hof=None, results_dir=None):
+    def __init__(self, hof=None, results_dir=None, expr=None):
         self.hof = hof
         self.results_dir = results_dir
+        self.expr = expr
 
 
 def test_load_strategies_baselines_always_present():
@@ -90,6 +97,25 @@ def test_load_strategies_results_dir_loads_dill_files(tmp_path, dill_file):
     strategies = _load_strategies(_FakeArgs(results_dir=tmp_path))
     names = [n for n, _ in strategies]
     assert "hof_0" in names
+
+
+def test_load_strategies_results_dir_does_not_load_final_population_dill(tmp_path):
+    _write_population(tmp_path / "final_population.dill", [("expr_a", no_treatment)])
+    strategies = _load_strategies(_FakeArgs(results_dir=tmp_path))
+    names = [n for n, _ in strategies]
+    assert "final_population" not in names
+
+
+def test_load_strategies_expr_loads_candidate(tmp_path):
+    _write_population(tmp_path / "final_population.dill", [("my_expr", no_treatment)])
+    strategies = _load_strategies(_FakeArgs(results_dir=tmp_path, expr="my_expr"))
+    names = [n for n, _ in strategies]
+    assert any("my_expr" in n for n in names)
+
+
+def test_load_strategies_expr_without_results_dir_raises():
+    with pytest.raises(SystemExit):
+        _load_strategies(_FakeArgs(expr="my_expr"))
 
 
 def test_load_strategies_deduplicates_dill_paths(dill_file):

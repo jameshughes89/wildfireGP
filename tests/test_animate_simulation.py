@@ -43,9 +43,11 @@ def dill_file(tmp_path):
 
 
 class _FakeArgs:
-    def __init__(self, strategy=None, hof=None):
+    def __init__(self, strategy=None, hof=None, expr=None, results_dir=None):
         self.strategy = strategy
         self.hof = hof
+        self.expr = expr
+        self.results_dir = results_dir
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +78,29 @@ def test_load_strategy_dill_returns_callable(dill_file):
 def test_load_strategy_dill_label_is_stem(dill_file):
     _, label = _load_strategy(_FakeArgs(hof=dill_file))
     assert label == "hof_0"
+
+
+def test_load_strategy_expr_returns_callable(tmp_path):
+    expr = "my_expr"
+    pop = [(expr, no_treatment)]
+    with open(tmp_path / "final_population.dill", "wb") as f:
+        dill.dump(pop, f)
+    func, _ = _load_strategy(_FakeArgs(expr=expr, results_dir=tmp_path))
+    assert callable(func)
+
+
+def test_load_strategy_expr_label_is_truncated_expr(tmp_path):
+    expr = "my_expr"
+    pop = [(expr, no_treatment)]
+    with open(tmp_path / "final_population.dill", "wb") as f:
+        dill.dump(pop, f)
+    _, label = _load_strategy(_FakeArgs(expr=expr, results_dir=tmp_path))
+    assert expr in label
+
+
+def test_load_strategy_expr_without_results_dir_raises():
+    with pytest.raises(SystemExit):
+        _load_strategy(_FakeArgs(expr="my_expr"))
 
 
 # ---------------------------------------------------------------------------

@@ -12,14 +12,18 @@ Usage
                                       [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
                                       [--runs INT] [--output PATH]
 
-    If --results-dir is given, all .dill files in that directory are loaded automatically alongside the builtin
-    baselines. If neither --hof nor --results-dir is given, only baselines are compared.
+    If --results-dir is given without --expr, all hof_*.dill files in that directory are loaded automatically alongside
+    the builtin baselines. If neither --hof nor --results-dir is given, only baselines are compared.
+
+    --expr STRING  Expression string of a specific GP candidate to load from --results-dir. Copy the expr value from
+                   the batch_evaluate.py CSV output. --expr is mutually exclusive with --hof.
 
 Examples
 --------
     python -m scripts.plot_comparison
     python -m scripts.plot_comparison --results-dir results/2026-05-08_10-00-00
     python -m scripts.plot_comparison --hof results/run/hof_0.dill --runs 50
+    python -m scripts.plot_comparison --results-dir results/2026-05-08_10-00-00 --expr "min(fuel_level, ...)"
 """
 
 import argparse
@@ -104,7 +108,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     add_landscape_args(parser)
     parser.add_argument("--runs", type=int, default=30, help="Stochastic runs per strategy.")
     parser.add_argument("--results-dir", type=pathlib.Path, default=None)
-    parser.add_argument("--hof", type=pathlib.Path, nargs="+", default=None)
+    gp_source = parser.add_mutually_exclusive_group()
+    gp_source.add_argument("--hof", type=pathlib.Path, nargs="+", default=None)
+    gp_source.add_argument("--expr", type=str, default=None, help="Load a candidate by expression string.")
     parser.add_argument("--output", type=str, default=None)
     return parser.parse_args(argv)
 
