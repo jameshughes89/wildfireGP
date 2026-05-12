@@ -35,6 +35,7 @@ sum(graph.nodes[n][VALUE] for burned nodes) to weight high-value nodes more heav
 
 import copy
 import math
+from collections.abc import Iterator
 from typing import Callable
 
 import networkx as nx
@@ -50,6 +51,39 @@ from wildfireGP.spread import MAX_BURN_STEPS, spread_step
 
 DEFAULT_TREATMENTS_PER_STEP = 3
 DEFAULT_INTERVENTION_DELAY = 3
+
+
+def init_ignition(graph: nx.Graph, ignition_nodes: list[tuple]) -> None:
+    """Set ignition nodes to BURNING state with fuel-proportional burn timers."""
+    for node in ignition_nodes:
+        graph.nodes[node][STATE] = NodeState.BURNING
+        graph.nodes[node][BURN_TIMER] = max(1, math.ceil(graph.nodes[node][FUEL] * MAX_BURN_STEPS))
+
+
+def simulate(
+    graph: nx.Graph,
+    func: Callable[[nx.Graph, tuple], float],
+    treatments_per_step: int,
+    max_steps: int,
+    rng: np.random.Generator,
+    intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
+) -> Iterator[tuple[int, nx.Graph]]:
+    """
+    Run one fire simulation, yielding (step, graph) after each spread step.
+
+    Assumes init_ignition() has already been called. Modifies graph in place. The yielded graph
+    is the same object mutated each step — callers that need a snapshot must deepcopy it themselves.
+    """
+    for step in range(max_steps):
+        if not any(graph.nodes[n][STATE] == NodeState.BURNING for n in graph.nodes):
+            break
+        precompute_fire_map(graph)
+        precompute_burnable_fire_map(graph)
+        precompute_state_counts(graph)
+        if step >= intervention_delay:
+            _apply_treatments(graph, func, treatments_per_step, rng)
+        spread_step(graph, rng)
+        yield step, graph
 
 
 def evaluate(
@@ -81,30 +115,10 @@ def evaluate(
     :return: (total_burned, peak_burning). Both should be minimised.
     """
     graph = copy.deepcopy(graph)
-
-    for node in ignition_nodes:
-        graph.nodes[node][STATE] = NodeState.BURNING
-        graph.nodes[node][BURN_TIMER] = max(1, math.ceil(graph.nodes[node][FUEL] * MAX_BURN_STEPS))
-
+    init_ignition(graph, ignition_nodes)
     peak_burning = 0
-
-    for step in range(max_steps):
-        burning = [n for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING]
-        if not burning:
-            break
-
-        peak_burning = max(peak_burning, len(burning))
-
-        precompute_fire_map(graph)
-        precompute_burnable_fire_map(graph)
-        precompute_state_counts(graph)
-
-        if step >= intervention_delay:
-            _apply_treatments(graph, func, treatments_per_step, rng)
-
-        spread_step(graph, rng)
-
-    peak_burning = max(peak_burning, sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING))
+    for _step, _ in simulate(graph, func, treatments_per_step, max_steps, rng, intervention_delay):
+        peak_burning = max(peak_burning, sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING))
     total_burned = sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNED)
     return total_burned, peak_burning
 

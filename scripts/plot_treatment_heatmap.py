@@ -36,7 +36,6 @@ Examples
 import argparse
 import copy
 import logging
-import math
 import pathlib
 import sys
 
@@ -45,15 +44,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from scripts.cli import add_landscape_args, load_candidate_by_expr
-from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, _apply_treatments
-from wildfireGP.features import (
-    precompute_burnable_fire_map,
-    precompute_fire_map,
-    precompute_state_counts,
-)
+from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, init_ignition, simulate
 from wildfireGP.network import (
-    BURN_TIMER,
-    FUEL,
     STATE,
     NodeState,
     create_grid,
@@ -61,7 +53,6 @@ from wildfireGP.network import (
     set_fuel_moisture,
     set_wind,
 )
-from wildfireGP.spread import MAX_BURN_STEPS, spread_step
 from wildfireGP.strategies import ALL_STRATEGIES
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
@@ -138,24 +129,10 @@ def _run_and_collect(
     intervention_delay: int,
 ) -> tuple[set, set]:
     g = copy.deepcopy(graph)
-    g.nodes[ignition][STATE] = NodeState.BURNING
-    g.nodes[ignition][BURN_TIMER] = max(1, math.ceil(g.nodes[ignition][FUEL] * MAX_BURN_STEPS))
-
-    treated_nodes: set[tuple] = set()
-
-    for step in range(max_steps):
-        if not any(g.nodes[n][STATE] == NodeState.BURNING for n in g.nodes):
-            break
-        precompute_fire_map(g)
-        precompute_burnable_fire_map(g)
-        precompute_state_counts(g)
-        if step >= intervention_delay:
-            before = {n for n in g.nodes if g.nodes[n][STATE] == NodeState.TREATED}
-            _apply_treatments(g, func, treatments_per_step, rng)
-            after = {n for n in g.nodes if g.nodes[n][STATE] == NodeState.TREATED}
-            treated_nodes |= after - before
-        spread_step(g, rng)
-
+    init_ignition(g, [ignition])
+    for _step, _ in simulate(g, func, treatments_per_step, max_steps, rng, intervention_delay):
+        pass
+    treated_nodes = {n for n in g.nodes if g.nodes[n][STATE] == NodeState.TREATED}
     burned_nodes = {n for n in g.nodes if g.nodes[n][STATE] in (NodeState.BURNED, NodeState.BURNING)}
     return treated_nodes, burned_nodes
 
