@@ -93,8 +93,8 @@ def unburnable_neighbour_count(graph: nx.Graph, node: tuple) -> int:
     return count
 
 
-def treated_neighbour_count(graph: nx.Graph, node: tuple) -> int:
-    return sum(1 for n in graph.neighbors(node) if graph.nodes[n][STATE] == NodeState.TREATED)
+def has_treated_neighbour(graph: nx.Graph, node: tuple) -> float:
+    return 1.0 if any(graph.nodes[n][STATE] == NodeState.TREATED for n in graph.neighbors(node)) else 0.0
 
 
 # ---------------------------------------------------------------------------

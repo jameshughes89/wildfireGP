@@ -6,6 +6,7 @@ from wildfireGP.features import (
     elevation,
     elevation_delta_to_fire,
     fuel_level,
+    has_treated_neighbour,
     mean_neighbour_elevation,
     mean_neighbour_fuel,
     precompute_burnable_fire_map,
@@ -18,7 +19,6 @@ from wildfireGP.features import (
     total_burning,
     total_treated,
     total_unburned,
-    treated_neighbour_count,
     unburnable_neighbour_count,
     unburned_neighbour_count,
     wind_fire_alignment,
@@ -213,30 +213,34 @@ def test_unburnable_neighbour_count_zero_when_all_unburned_land():
     assert unburnable_neighbour_count(g, _NODE) == 0
 
 
-def test_treated_neighbour_count_zero_when_no_treatments():
+def test_has_treated_neighbour_zero_when_no_treatments():
     g = _graph()
-    assert treated_neighbour_count(g, _NODE) == 0
+    assert has_treated_neighbour(g, _NODE) == 0.0
 
 
-def test_treated_neighbour_count_counts_treated_neighbours():
+def test_has_treated_neighbour_one_when_any_neighbour_treated():
+    g = _graph()
+    g.nodes[(0, 1)][STATE] = NodeState.TREATED
+    assert has_treated_neighbour(g, _NODE) == 1.0
+
+
+def test_has_treated_neighbour_one_regardless_of_count():
     g = _graph()
     g.nodes[(0, 1)][STATE] = NodeState.TREATED
     g.nodes[(1, 0)][STATE] = NodeState.TREATED
-    assert treated_neighbour_count(g, _NODE) == 2
+    assert has_treated_neighbour(g, _NODE) == 1.0
 
 
-def test_treated_neighbour_count_excludes_burned():
+def test_has_treated_neighbour_excludes_burned():
     g = _graph()
     g.nodes[(0, 1)][STATE] = NodeState.BURNED
-    g.nodes[(1, 0)][STATE] = NodeState.TREATED
-    assert treated_neighbour_count(g, _NODE) == 1
+    assert has_treated_neighbour(g, _NODE) == 0.0
 
 
-def test_treated_neighbour_count_excludes_burning():
+def test_has_treated_neighbour_excludes_burning():
     g = _graph()
     g.nodes[(0, 1)][STATE] = NodeState.BURNING
-    g.nodes[(1, 0)][STATE] = NodeState.TREATED
-    assert treated_neighbour_count(g, _NODE) == 1
+    assert has_treated_neighbour(g, _NODE) == 0.0
 
 
 # ---------------------------------------------------------------------------
