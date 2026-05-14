@@ -40,17 +40,15 @@ from wildfireGP.features import (
     distance_to_fire,
     elevation,
     fuel_level,
+    has_treated_neighbour,
     mean_neighbour_fuel,
     slope,
-    treated_neighbour_count,
     wind_fire_alignment,
 )
 
-# Anchoring nudge weight for strategies whose core score is compressed into a small range due to
-# distance weighting (roughly [-0.33, 0.33]). Without scaling, unburnable_neighbour_count / 8
-# would dominate the core signal entirely. ANCHOR_WEIGHT keeps it a genuine nudge.
-# Strategies with naturally larger score ranges use unburnable_neighbour_count / 8 directly as
-# a tiebreaker — no scaling needed since the anchoring term is already small relative to the core.
+# Binary anchor nudge weight: ANCHOR_WEIGHT * has_treated_neighbour is added to every strategy score.
+# Max contribution is 0.1 — enough to break ties toward nodes adjacent to an existing treatment line
+# without overriding the primary signal.
 ANCHOR_WEIGHT = 0.1
 
 
@@ -65,34 +63,34 @@ def score_by_fuel(graph: nx.Graph, node: tuple) -> float:
     """
     Prioritise nodes with the highest fuel load --- remove the most burnable material first.
 
-    treated_neighbour_count / 8 acts as a tiebreaker: fuel scores are in [0, 1] so the
-    anchoring term (max 0.125) only influences ties or near-ties, naturally extending the treatment
-    line rather than pulling toward burned scars or natural barriers.
+    ANCHOR_WEIGHT * has_treated_neighbour acts as a tiebreaker: fuel scores are in [0, 1] so the
+    anchoring term (max 0.1) only influences ties or near-ties, nudging selection toward nodes
+    adjacent to an existing treatment line.
     """
-    return fuel_level(graph, node) + treated_neighbour_count(graph, node) / 8
+    return fuel_level(graph, node) + ANCHOR_WEIGHT * has_treated_neighbour(graph, node)
 
 
 def score_by_fire_proximity(graph: nx.Graph, node: tuple) -> float:
     """
     Prioritise nodes closest to the active fire front (direct attack).
 
-    treated_neighbour_count / 8 acts as a tiebreaker: proximity scores span a large negative
-    range (roughly [-grid_size, 0]) so the anchoring term (max 0.125) is only visible when two
-    candidates are at the same or adjacent distances from the fire, nudging selection toward
-    existing treatment lines without overriding proximity ordering.
+    ANCHOR_WEIGHT * has_treated_neighbour acts as a tiebreaker: proximity scores span a large
+    negative range (roughly [-grid_size, 0]) so the anchoring term (max 0.1) is only visible when
+    two candidates are at the same distance from the fire, nudging selection toward nodes adjacent
+    to an existing treatment line.
     """
-    return -distance_to_fire(graph, node) + treated_neighbour_count(graph, node) / 8
+    return -distance_to_fire(graph, node) + ANCHOR_WEIGHT * has_treated_neighbour(graph, node)
 
 
 def score_by_burning_neighbors(graph: nx.Graph, node: tuple) -> float:
     """
     Prioritise nodes already surrounded by burning neighbours --- ring-buffer / direct defence.
 
-    treated_neighbour_count / 8 acts as a tiebreaker: burning-neighbour scores are in [0, 8]
-    so the anchoring term (max 0.125) only meaningfully separates candidates with equal burning
-    neighbour counts, nudging selection toward existing treatment lines.
+    ANCHOR_WEIGHT * has_treated_neighbour acts as a tiebreaker: burning-neighbour scores are in
+    [0, 8] so the anchoring term (max 0.1) only separates candidates with equal burning neighbour
+    counts, nudging selection toward nodes adjacent to an existing treatment line.
     """
-    return float(burning_neighbour_count(graph, node)) + treated_neighbour_count(graph, node) / 8
+    return float(burning_neighbour_count(graph, node)) + ANCHOR_WEIGHT * has_treated_neighbour(graph, node)
 
 
 def score_indirect_attack(graph: nx.Graph, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
@@ -106,9 +104,9 @@ def score_indirect_attack(graph: nx.Graph, node: tuple, min_distance: int = 2, m
     Returns 0.0 outside [min_distance, max_distance]. If the fire is already adjacent (< min_distance) it is too late
     for indirect prep; if it is beyond max_distance the node is unlikely to be threatened imminently.
 
-    ANCHOR_WEIGHT * treated_neighbour_count / 8 provides a light anchoring nudge. The core score is compressed into
-    roughly [0, 0.33] by the distance denominator, so plain treated_neighbour_count / 8 (max 0.125) would dominate;
-    ANCHOR_WEIGHT = 0.1 scales it to max 0.0125, keeping it a genuine nudge.
+    ANCHOR_WEIGHT * has_treated_neighbour provides a light anchoring nudge. The core score is compressed into roughly
+    [0, 0.33] by the distance denominator, so ANCHOR_WEIGHT = 0.1 keeps the binary anchor (max 0.1) a genuine nudge
+    rather than dominating the signal.
 
     :param min_distance: Minimum hop distance to fire to engage (default 2 = 200m at 100m/cell).
     :param max_distance: Maximum hop distance to fire to engage (default 10 = 1km at 100m/cell).
@@ -118,7 +116,7 @@ def score_indirect_attack(graph: nx.Graph, node: tuple, min_distance: int = 2, m
     d = distance_to_fire(graph, node)
     if d < min_distance or d > max_distance:
         return 0.0
-    return mean_neighbour_fuel(graph, node) / (1.0 + d) + ANCHOR_WEIGHT * treated_neighbour_count(graph, node) / 8
+    return mean_neighbour_fuel(graph, node) / (1.0 + d) + ANCHOR_WEIGHT * has_treated_neighbour(graph, node)
 
 
 def score_ridgeline(graph: nx.Graph, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
@@ -130,9 +128,9 @@ def score_ridgeline(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dis
     committing crews to a distant ridge is premature, and establishing a ridgeline anchor when the fire is already
     adjacent is too late.
 
-    treated_neighbour_count / 8 acts as a tiebreaker: elevation + slope scores are in [0, 2]
-    so the anchoring term (max 0.125) only separates near-equal candidates, preferring ridgeline
-    nodes that already sit beside existing treatment lines.
+    ANCHOR_WEIGHT * has_treated_neighbour acts as a tiebreaker: elevation + slope scores are in
+    [0, 2] so the anchoring term (max 0.1) only separates near-equal candidates, nudging selection
+    toward nodes adjacent to an existing treatment line.
 
     :param min_distance: Minimum hop distance to fire to engage (default 2 = 200m at 100m/cell).
     :param max_distance: Maximum hop distance to fire to engage (default 10 = 1km at 100m/cell).
@@ -142,7 +140,7 @@ def score_ridgeline(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dis
     d = distance_to_fire(graph, node)
     if d < min_distance or d > max_distance:
         return 0.0
-    return elevation(graph, node) + slope(graph, node) + treated_neighbour_count(graph, node) / 8
+    return elevation(graph, node) + slope(graph, node) + ANCHOR_WEIGHT * has_treated_neighbour(graph, node)
 
 
 def score_fire_run(graph: nx.Graph, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
@@ -155,9 +153,9 @@ def score_fire_run(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dist
 
     Nodes upwind of the fire receive negative scores and are never selected as long as downwind candidates exist.
 
-    ANCHOR_WEIGHT * treated_neighbour_count / 8 provides a light anchoring nudge. The core score is compressed into
-    roughly [-0.33, 0.33] by the distance denominator, so plain treated_neighbour_count / 8 (max 0.125) would
-    dominate; ANCHOR_WEIGHT = 0.1 scales it to max 0.0125, keeping it a genuine nudge.
+    ANCHOR_WEIGHT * has_treated_neighbour provides a light anchoring nudge. The core score is compressed into roughly
+    [-0.33, 0.33] by the distance denominator, so ANCHOR_WEIGHT = 0.1 keeps the binary anchor (max 0.1) a genuine
+    nudge rather than dominating the signal.
 
     :param min_distance: Minimum hop distance to fire to engage (default 2 = 200m at 100m/cell).
     :param max_distance: Maximum hop distance to fire to engage (default 10 = 1km at 100m/cell).
@@ -167,10 +165,9 @@ def score_fire_run(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dist
     d = distance_to_fire(graph, node)
     if d < min_distance or d > max_distance:
         return 0.0
-    return (
-        fuel_level(graph, node) * wind_fire_alignment(graph, node) / (1.0 + d)
-        + ANCHOR_WEIGHT * treated_neighbour_count(graph, node) / 8
-    )
+    return fuel_level(graph, node) * wind_fire_alignment(graph, node) / (
+        1.0 + d
+    ) + ANCHOR_WEIGHT * has_treated_neighbour(graph, node)
 
 
 def score_head_fire(graph: nx.Graph, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
@@ -182,9 +179,9 @@ def score_head_fire(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dis
     pursuing. Only nodes within [min_distance, max_distance] are considered --- head fire positioning is proactive, not
     reactive; if the fire is already adjacent the window for effective positioning has passed.
 
-    ANCHOR_WEIGHT * treated_neighbour_count / 8 provides a light anchoring nudge. The core score is compressed into
-    roughly [-0.33, 0.33] by the distance denominator, so plain treated_neighbour_count / 8 (max 0.125) would
-    dominate; ANCHOR_WEIGHT = 0.1 scales it to max 0.0125, keeping it a genuine nudge.
+    ANCHOR_WEIGHT * has_treated_neighbour provides a light anchoring nudge. The core score is compressed into roughly
+    [-0.33, 0.33] by the distance denominator, so ANCHOR_WEIGHT = 0.1 keeps the binary anchor (max 0.1) a genuine
+    nudge rather than dominating the signal.
 
     :param min_distance: Minimum hop distance to fire to engage (default 2 = 200m at 100m/cell).
     :param max_distance: Maximum hop distance to fire to engage (default 10 = 1km at 100m/cell).
@@ -194,7 +191,7 @@ def score_head_fire(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dis
     d = distance_to_fire(graph, node)
     if d < min_distance or d > max_distance:
         return 0.0
-    return wind_fire_alignment(graph, node) / (1.0 + d) + ANCHOR_WEIGHT * treated_neighbour_count(graph, node) / 8
+    return wind_fire_alignment(graph, node) / (1.0 + d) + ANCHOR_WEIGHT * has_treated_neighbour(graph, node)
 
 
 ALL_STRATEGIES = [

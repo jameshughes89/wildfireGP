@@ -138,7 +138,7 @@ def test_score_by_fuel_higher_fuel_scores_higher():
     assert score_by_fuel(g, high) > score_by_fuel(g, low)
 
 
-def test_score_by_fuel_anchor_nudges_equal_fuel_toward_treated_neighbour():
+def test_score_by_fuel_anchor_nudges_equal_fuel_toward_node_with_treated_neighbour():
     g = _graph_no_fire()
     node_with_anchor, node_without = (1, 1), (8, 8)
     g.nodes[node_with_anchor][FUEL] = g.nodes[node_without][FUEL] = 0.5
