@@ -18,6 +18,7 @@ from wildfireGP.features import (
     total_burning,
     total_treated,
     total_unburned,
+    treated_neighbour_count,
     unburnable_neighbour_count,
     unburned_neighbour_count,
     wind_fire_alignment,
@@ -210,6 +211,32 @@ def test_unburnable_neighbour_count_combines_all_types():
 def test_unburnable_neighbour_count_zero_when_all_unburned_land():
     g = _graph()
     assert unburnable_neighbour_count(g, _NODE) == 0
+
+
+def test_treated_neighbour_count_zero_when_no_treatments():
+    g = _graph()
+    assert treated_neighbour_count(g, _NODE) == 0
+
+
+def test_treated_neighbour_count_counts_treated_neighbours():
+    g = _graph()
+    g.nodes[(0, 1)][STATE] = NodeState.TREATED
+    g.nodes[(1, 0)][STATE] = NodeState.TREATED
+    assert treated_neighbour_count(g, _NODE) == 2
+
+
+def test_treated_neighbour_count_excludes_burned():
+    g = _graph()
+    g.nodes[(0, 1)][STATE] = NodeState.BURNED
+    g.nodes[(1, 0)][STATE] = NodeState.TREATED
+    assert treated_neighbour_count(g, _NODE) == 1
+
+
+def test_treated_neighbour_count_excludes_burning():
+    g = _graph()
+    g.nodes[(0, 1)][STATE] = NodeState.BURNING
+    g.nodes[(1, 0)][STATE] = NodeState.TREATED
+    assert treated_neighbour_count(g, _NODE) == 1
 
 
 # ---------------------------------------------------------------------------

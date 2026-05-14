@@ -42,7 +42,7 @@ from wildfireGP.features import (
     fuel_level,
     mean_neighbour_fuel,
     slope,
-    unburnable_neighbour_count,
+    treated_neighbour_count,
     wind_fire_alignment,
 )
 
@@ -65,34 +65,34 @@ def score_by_fuel(graph: nx.Graph, node: tuple) -> float:
     """
     Prioritise nodes with the highest fuel load --- remove the most burnable material first.
 
-    unburnable_neighbour_count / 8 acts as a tiebreaker: fuel scores are in [0, 1] so the
-    anchoring term (max 0.125) only influences ties or near-ties, naturally clustering treatments
-    near burned scars, water, or rock without overriding the fuel signal.
+    treated_neighbour_count / 8 acts as a tiebreaker: fuel scores are in [0, 1] so the
+    anchoring term (max 0.125) only influences ties or near-ties, naturally extending the treatment
+    line rather than pulling toward burned scars or natural barriers.
     """
-    return fuel_level(graph, node) + unburnable_neighbour_count(graph, node) / 8
+    return fuel_level(graph, node) + treated_neighbour_count(graph, node) / 8
 
 
 def score_by_fire_proximity(graph: nx.Graph, node: tuple) -> float:
     """
     Prioritise nodes closest to the active fire front (direct attack).
 
-    unburnable_neighbour_count / 8 acts as a tiebreaker: proximity scores span a large negative
+    treated_neighbour_count / 8 acts as a tiebreaker: proximity scores span a large negative
     range (roughly [-grid_size, 0]) so the anchoring term (max 0.125) is only visible when two
     candidates are at the same or adjacent distances from the fire, nudging selection toward
-    natural anchor points without overriding proximity ordering.
+    existing treatment lines without overriding proximity ordering.
     """
-    return -distance_to_fire(graph, node) + unburnable_neighbour_count(graph, node) / 8
+    return -distance_to_fire(graph, node) + treated_neighbour_count(graph, node) / 8
 
 
 def score_by_burning_neighbors(graph: nx.Graph, node: tuple) -> float:
     """
     Prioritise nodes already surrounded by burning neighbours --- ring-buffer / direct defence.
 
-    unburnable_neighbour_count / 8 acts as a tiebreaker: burning-neighbour scores are in [0, 8]
+    treated_neighbour_count / 8 acts as a tiebreaker: burning-neighbour scores are in [0, 8]
     so the anchoring term (max 0.125) only meaningfully separates candidates with equal burning
-    neighbour counts, nudging selection toward natural anchor points.
+    neighbour counts, nudging selection toward existing treatment lines.
     """
-    return float(burning_neighbour_count(graph, node)) + unburnable_neighbour_count(graph, node) / 8
+    return float(burning_neighbour_count(graph, node)) + treated_neighbour_count(graph, node) / 8
 
 
 def score_indirect_attack(graph: nx.Graph, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
@@ -106,8 +106,8 @@ def score_indirect_attack(graph: nx.Graph, node: tuple, min_distance: int = 2, m
     Returns 0.0 outside [min_distance, max_distance]. If the fire is already adjacent (< min_distance) it is too late
     for indirect prep; if it is beyond max_distance the node is unlikely to be threatened imminently.
 
-    ANCHOR_WEIGHT * unburnable_neighbour_count / 8 provides a light anchoring nudge. The core score is compressed into
-    roughly [0, 0.33] by the distance denominator, so plain unburnable_neighbour_count / 8 (max 0.125) would dominate;
+    ANCHOR_WEIGHT * treated_neighbour_count / 8 provides a light anchoring nudge. The core score is compressed into
+    roughly [0, 0.33] by the distance denominator, so plain treated_neighbour_count / 8 (max 0.125) would dominate;
     ANCHOR_WEIGHT = 0.1 scales it to max 0.0125, keeping it a genuine nudge.
 
     :param min_distance: Minimum hop distance to fire to engage (default 2 = 200m at 100m/cell).
@@ -118,7 +118,7 @@ def score_indirect_attack(graph: nx.Graph, node: tuple, min_distance: int = 2, m
     d = distance_to_fire(graph, node)
     if d < min_distance or d > max_distance:
         return 0.0
-    return mean_neighbour_fuel(graph, node) / (1.0 + d) + ANCHOR_WEIGHT * unburnable_neighbour_count(graph, node) / 8
+    return mean_neighbour_fuel(graph, node) / (1.0 + d) + ANCHOR_WEIGHT * treated_neighbour_count(graph, node) / 8
 
 
 def score_ridgeline(graph: nx.Graph, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
@@ -130,9 +130,9 @@ def score_ridgeline(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dis
     committing crews to a distant ridge is premature, and establishing a ridgeline anchor when the fire is already
     adjacent is too late.
 
-    unburnable_neighbour_count / 8 acts as a tiebreaker: elevation + slope scores are in [0, 2]
+    treated_neighbour_count / 8 acts as a tiebreaker: elevation + slope scores are in [0, 2]
     so the anchoring term (max 0.125) only separates near-equal candidates, preferring ridgeline
-    nodes that already sit beside natural barriers.
+    nodes that already sit beside existing treatment lines.
 
     :param min_distance: Minimum hop distance to fire to engage (default 2 = 200m at 100m/cell).
     :param max_distance: Maximum hop distance to fire to engage (default 10 = 1km at 100m/cell).
@@ -142,7 +142,7 @@ def score_ridgeline(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dis
     d = distance_to_fire(graph, node)
     if d < min_distance or d > max_distance:
         return 0.0
-    return elevation(graph, node) + slope(graph, node) + unburnable_neighbour_count(graph, node) / 8
+    return elevation(graph, node) + slope(graph, node) + treated_neighbour_count(graph, node) / 8
 
 
 def score_fire_run(graph: nx.Graph, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
@@ -155,8 +155,8 @@ def score_fire_run(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dist
 
     Nodes upwind of the fire receive negative scores and are never selected as long as downwind candidates exist.
 
-    ANCHOR_WEIGHT * unburnable_neighbour_count / 8 provides a light anchoring nudge. The core score is compressed into
-    roughly [-0.33, 0.33] by the distance denominator, so plain unburnable_neighbour_count / 8 (max 0.125) would
+    ANCHOR_WEIGHT * treated_neighbour_count / 8 provides a light anchoring nudge. The core score is compressed into
+    roughly [-0.33, 0.33] by the distance denominator, so plain treated_neighbour_count / 8 (max 0.125) would
     dominate; ANCHOR_WEIGHT = 0.1 scales it to max 0.0125, keeping it a genuine nudge.
 
     :param min_distance: Minimum hop distance to fire to engage (default 2 = 200m at 100m/cell).
@@ -169,7 +169,7 @@ def score_fire_run(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dist
         return 0.0
     return (
         fuel_level(graph, node) * wind_fire_alignment(graph, node) / (1.0 + d)
-        + ANCHOR_WEIGHT * unburnable_neighbour_count(graph, node) / 8
+        + ANCHOR_WEIGHT * treated_neighbour_count(graph, node) / 8
     )
 
 
@@ -182,8 +182,8 @@ def score_head_fire(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dis
     pursuing. Only nodes within [min_distance, max_distance] are considered --- head fire positioning is proactive, not
     reactive; if the fire is already adjacent the window for effective positioning has passed.
 
-    ANCHOR_WEIGHT * unburnable_neighbour_count / 8 provides a light anchoring nudge. The core score is compressed into
-    roughly [-0.33, 0.33] by the distance denominator, so plain unburnable_neighbour_count / 8 (max 0.125) would
+    ANCHOR_WEIGHT * treated_neighbour_count / 8 provides a light anchoring nudge. The core score is compressed into
+    roughly [-0.33, 0.33] by the distance denominator, so plain treated_neighbour_count / 8 (max 0.125) would
     dominate; ANCHOR_WEIGHT = 0.1 scales it to max 0.0125, keeping it a genuine nudge.
 
     :param min_distance: Minimum hop distance to fire to engage (default 2 = 200m at 100m/cell).
@@ -194,7 +194,7 @@ def score_head_fire(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dis
     d = distance_to_fire(graph, node)
     if d < min_distance or d > max_distance:
         return 0.0
-    return wind_fire_alignment(graph, node) / (1.0 + d) + ANCHOR_WEIGHT * unburnable_neighbour_count(graph, node) / 8
+    return wind_fire_alignment(graph, node) / (1.0 + d) + ANCHOR_WEIGHT * treated_neighbour_count(graph, node) / 8
 
 
 ALL_STRATEGIES = [

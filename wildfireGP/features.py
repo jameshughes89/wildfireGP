@@ -93,6 +93,10 @@ def unburnable_neighbour_count(graph: nx.Graph, node: tuple) -> int:
     return count
 
 
+def treated_neighbour_count(graph: nx.Graph, node: tuple) -> int:
+    return sum(1 for n in graph.neighbors(node) if graph.nodes[n][STATE] == NodeState.TREATED)
+
+
 # ---------------------------------------------------------------------------
 # Spatial --- requires precompute_fire_map / precompute_burnable_fire_map each simulation step
 # ---------------------------------------------------------------------------
