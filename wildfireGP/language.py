@@ -34,6 +34,7 @@ from wildfireGP.features import (
     fuel_moisture,
     mean_neighbour_elevation,
     mean_neighbour_fuel,
+    reachable_unburned_area,
     slope,
     total_burned,
     total_burning,
@@ -82,6 +83,7 @@ _NODE_FEATURES = [
     unburnable_neighbour_count,
     distance_to_fire,
     burnable_distance_to_fire,
+    reachable_unburned_area,
     wind_fire_alignment,
     elevation_delta_to_fire,
 ]
