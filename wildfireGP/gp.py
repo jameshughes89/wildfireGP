@@ -60,8 +60,8 @@ class GPConfig:
     Hyperparameters for the GP evolutionary loop.
     """
 
-    population_size: int = 100
-    generations: int = 50
+    population_size: int = 250
+    generations: int = 100
     crossover_prob: float = 0.8
     mutation_prob: float = 0.1
     tournament_size: int = 2
