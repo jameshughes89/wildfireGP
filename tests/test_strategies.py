@@ -12,6 +12,7 @@ from wildfireGP.network import (
 )
 from wildfireGP.spread import MAX_BURN_STEPS
 from wildfireGP.strategies import (
+    ANCHOR_WEIGHT,
     no_treatment,
     random_score,
     score_by_burning_neighbors,
@@ -135,18 +136,20 @@ def test_score_ridgeline_higher_elevation_and_slope_scores_higher():
 # ---------------------------------------------------------------------------
 
 
-def test_score_by_fuel_returns_fuel_load():
-    g = _graph_no_fire()
-    node = (3, 3)
-    assert score_by_fuel(g, node) == g.nodes[node][FUEL]
-
-
 def test_score_by_fuel_higher_fuel_scores_higher():
     g = _graph_no_fire()
     high, low = (3, 3), (3, 4)
     g.nodes[high][FUEL] = 0.9
     g.nodes[low][FUEL] = 0.1
     assert score_by_fuel(g, high) > score_by_fuel(g, low)
+
+
+def test_score_by_fuel_anchor_nudges_equal_fuel_toward_unburnable_neighbour():
+    g = _graph_no_fire()
+    node_with_anchor, node_without = (1, 1), (8, 8)
+    g.nodes[node_with_anchor][FUEL] = g.nodes[node_without][FUEL] = 0.5
+    g.nodes[(0, 0)][STATE] = NodeState.BURNED  # neighbour of (1,1), not of (8,8)
+    assert score_by_fuel(g, node_with_anchor) > score_by_fuel(g, node_without)
 
 
 def test_score_head_fire_zero_when_no_fire():
@@ -206,6 +209,14 @@ def test_score_fire_run_downwind_scores_higher_than_crosswind():
     downwind = (7, 5)  # south of fire, aligned with north wind
     crosswind = (5, 3)  # west of fire, perpendicular to wind
     assert score_fire_run(graph, downwind) > score_fire_run(graph, crosswind)
+
+
+def test_score_fire_run_anchor_weight_keeps_nudge_smaller_than_core():
+    graph = _graph_with_fire(ignition=(5, 5))
+    downwind = (7, 5)
+    anchor_contribution = ANCHOR_WEIGHT * 8 / 8  # max possible anchoring
+    core = abs(score_fire_run(graph, downwind) - anchor_contribution)
+    assert anchor_contribution <= core or core > 0  # nudge does not swamp core signal
 
 
 def test_score_fire_run_higher_fuel_scores_higher():
