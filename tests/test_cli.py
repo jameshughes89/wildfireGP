@@ -4,7 +4,7 @@ import dill
 import pytest
 
 from scripts.cli import load_candidate_by_expr
-from wildfireGP.strategies import no_treatment, score_by_fire_proximity
+from wildfireGP.strategies import random_score, score_by_fire_proximity
 
 
 def _write_population(path, entries):
@@ -19,26 +19,26 @@ def _write_hof(directory, expr, func, index=0):
 
 
 def test_load_candidate_by_expr_finds_in_population(tmp_path):
-    _write_population(tmp_path / "final_population.dill", [("my_expr", no_treatment)])
+    _write_population(tmp_path / "final_population.dill", [("my_expr", random_score)])
     func = load_candidate_by_expr(tmp_path, "my_expr")
     assert callable(func)
 
 
 def test_load_candidate_by_expr_falls_back_to_hof(tmp_path):
-    _write_hof(tmp_path, "hof_expr", no_treatment, index=0)
+    _write_hof(tmp_path, "hof_expr", random_score, index=0)
     func = load_candidate_by_expr(tmp_path, "hof_expr")
     assert callable(func)
 
 
 def test_load_candidate_by_expr_population_takes_precedence(tmp_path):
-    _write_population(tmp_path / "final_population.dill", [("shared", no_treatment)])
+    _write_population(tmp_path / "final_population.dill", [("shared", random_score)])
     _write_hof(tmp_path, "shared", score_by_fire_proximity, index=0)
     func = load_candidate_by_expr(tmp_path, "shared")
-    assert func is no_treatment
+    assert func is random_score
 
 
 def test_load_candidate_by_expr_raises_when_not_found(tmp_path):
-    _write_population(tmp_path / "final_population.dill", [("other_expr", no_treatment)])
+    _write_population(tmp_path / "final_population.dill", [("other_expr", random_score)])
     with pytest.raises(SystemExit):
         load_candidate_by_expr(tmp_path, "nonexistent")
 

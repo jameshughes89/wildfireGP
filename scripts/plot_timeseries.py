@@ -20,9 +20,9 @@ Usage
 
 Examples
 --------
-    python -m scripts.plot_timeseries --strategy no_treatment score_by_fire_proximity
-    python -m scripts.plot_timeseries --hof results/run/hof_0.dill --strategy no_treatment --runs 30
-    python -m scripts.plot_timeseries --results-dir results/run --expr "min(fuel_level, ...)" --strategy no_treatment
+    python -m scripts.plot_timeseries --strategy random_score score_by_fire_proximity
+    python -m scripts.plot_timeseries --hof results/run/hof_0.dill --strategy random_score --runs 30
+    python -m scripts.plot_timeseries --results-dir results/run --expr "min(fuel_level, ...)" --strategy random_score
 """
 
 import argparse

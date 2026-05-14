@@ -16,7 +16,7 @@ from wildfireGP.network import (
     set_wind,
 )
 from wildfireGP.spread import MAX_BURN_STEPS
-from wildfireGP.strategies import no_treatment, score_by_fire_proximity
+from wildfireGP.strategies import random_score, score_by_fire_proximity
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -38,7 +38,7 @@ def graph():
 def dill_file(tmp_path):
     path = tmp_path / "hof_0.dill"
     with open(path, "wb") as f:
-        dill.dump(no_treatment, f)
+        dill.dump(random_score, f)
     return path
 
 
@@ -56,7 +56,7 @@ class _FakeArgs:
 
 
 def test_load_strategy_builtin_returns_callable():
-    func, _ = _load_strategy(_FakeArgs(strategy="no_treatment"))
+    func, _ = _load_strategy(_FakeArgs(strategy="random_score"))
     assert callable(func)
 
 
@@ -82,7 +82,7 @@ def test_load_strategy_dill_label_is_stem(dill_file):
 
 def test_load_strategy_expr_returns_callable(tmp_path):
     expr = "my_expr"
-    pop = [(expr, no_treatment)]
+    pop = [(expr, random_score)]
     with open(tmp_path / "final_population.dill", "wb") as f:
         dill.dump(pop, f)
     func, _ = _load_strategy(_FakeArgs(expr=expr, results_dir=tmp_path))
@@ -91,7 +91,7 @@ def test_load_strategy_expr_returns_callable(tmp_path):
 
 def test_load_strategy_expr_label_is_truncated_expr(tmp_path):
     expr = "my_expr"
-    pop = [(expr, no_treatment)]
+    pop = [(expr, random_score)]
     with open(tmp_path / "final_population.dill", "wb") as f:
         dill.dump(pop, f)
     _, label = _load_strategy(_FakeArgs(expr=expr, results_dir=tmp_path))
@@ -110,18 +110,18 @@ def test_load_strategy_expr_without_results_dir_raises():
 
 def test_run_simulation_snapshot_count_within_bounds(graph):
     max_steps = 30
-    snapshots = _run_simulation(graph, no_treatment, 2, max_steps, np.random.default_rng(0), intervention_delay=0)
+    snapshots = _run_simulation(graph, random_score, 2, max_steps, np.random.default_rng(0), intervention_delay=0)
     assert 1 <= len(snapshots) <= max_steps + 1
 
 
 def test_run_simulation_first_snapshot_has_burning_node(graph):
-    snapshots = _run_simulation(graph, no_treatment, 2, 30, np.random.default_rng(0), intervention_delay=0)
+    snapshots = _run_simulation(graph, random_score, 2, 30, np.random.default_rng(0), intervention_delay=0)
     assert any(snapshots[0].nodes[n][STATE] == NodeState.BURNING for n in snapshots[0].nodes)
 
 
 def test_run_simulation_last_snapshot_has_no_burning_nodes_or_hit_max(graph):
     max_steps = 50
-    snapshots = _run_simulation(graph, no_treatment, 2, max_steps, np.random.default_rng(0), intervention_delay=0)
+    snapshots = _run_simulation(graph, random_score, 2, max_steps, np.random.default_rng(0), intervention_delay=0)
     last = snapshots[-1]
     no_fire = not any(last.nodes[n][STATE] == NodeState.BURNING for n in last.nodes)
     assert no_fire or len(snapshots) == max_steps + 1

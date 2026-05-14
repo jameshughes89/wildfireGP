@@ -2,14 +2,14 @@ import dill
 import numpy as np
 import pytest
 
-from scripts.compare_strategies import _load_strategies, _run_strategy
+from scripts.compare_strategies import _load_strategies, _run_strategy, main
 from wildfireGP.network import (
     create_grid,
     select_ignition_node,
     set_fuel_moisture,
     set_wind,
 )
-from wildfireGP.strategies import ALL_STRATEGIES, no_treatment
+from wildfireGP.strategies import ALL_STRATEGIES, random_score
 
 
 def _write_population(path, entries):
@@ -39,7 +39,7 @@ def ignition(graph):
 def dill_file(tmp_path):
     path = tmp_path / "hof_0.dill"
     with open(path, "wb") as f:
-        dill.dump(no_treatment, f)
+        dill.dump(random_score, f)
     return path
 
 
@@ -49,23 +49,23 @@ def dill_file(tmp_path):
 
 
 def test_run_strategy_returns_arrays_of_correct_length(graph, ignition):
-    burned, peak = _run_strategy(no_treatment, graph, [ignition], 2, 20, runs=5, base_seed=0)
+    burned, peak = _run_strategy(random_score, graph, [ignition], 2, 20, runs=5, base_seed=0)
     assert len(burned) == 5
     assert len(peak) == 5
 
 
 def test_run_strategy_burned_values_are_non_negative(graph, ignition):
-    burned, _ = _run_strategy(no_treatment, graph, [ignition], 2, 20, runs=5, base_seed=0)
+    burned, _ = _run_strategy(random_score, graph, [ignition], 2, 20, runs=5, base_seed=0)
     assert all(b >= 0 for b in burned)
 
 
 def test_run_strategy_peak_values_are_non_negative(graph, ignition):
-    _, peak = _run_strategy(no_treatment, graph, [ignition], 2, 20, runs=5, base_seed=0)
+    _, peak = _run_strategy(random_score, graph, [ignition], 2, 20, runs=5, base_seed=0)
     assert all(p >= 0 for p in peak)
 
 
 def test_run_strategy_different_seeds_produce_variation(graph, ignition):
-    burned, _ = _run_strategy(no_treatment, graph, [ignition], 0, 20, runs=10, base_seed=0)
+    burned, _ = _run_strategy(random_score, graph, [ignition], 0, 20, runs=10, base_seed=0)
     assert burned.std() > 0
 
 
@@ -87,6 +87,12 @@ def test_load_strategies_baselines_always_present():
     assert all(f.__name__ in names for f in ALL_STRATEGIES)
 
 
+def test_main_includes_no_treatment_baseline(graph, ignition, capsys):
+    main(["--rows", "10", "--cols", "10", "--seed", "0", "--runs", "3", "--max-steps", "10"])
+    output = capsys.readouterr().out
+    assert "no_treatment" in output
+
+
 def test_load_strategies_dill_file_loaded(dill_file):
     strategies = _load_strategies(_FakeArgs(hof=[dill_file]))
     names = [n for n, _ in strategies]
@@ -100,14 +106,14 @@ def test_load_strategies_results_dir_loads_dill_files(tmp_path, dill_file):
 
 
 def test_load_strategies_results_dir_does_not_load_final_population_dill(tmp_path):
-    _write_population(tmp_path / "final_population.dill", [("expr_a", no_treatment)])
+    _write_population(tmp_path / "final_population.dill", [("expr_a", random_score)])
     strategies = _load_strategies(_FakeArgs(results_dir=tmp_path))
     names = [n for n, _ in strategies]
     assert "final_population" not in names
 
 
 def test_load_strategies_expr_loads_candidate(tmp_path):
-    _write_population(tmp_path / "final_population.dill", [("my_expr", no_treatment)])
+    _write_population(tmp_path / "final_population.dill", [("my_expr", random_score)])
     strategies = _load_strategies(_FakeArgs(results_dir=tmp_path, expr="my_expr"))
     names = [n for n, _ in strategies]
     assert any("my_expr" in n for n in names)

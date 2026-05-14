@@ -13,7 +13,6 @@ from wildfireGP.network import (
 from wildfireGP.spread import MAX_BURN_STEPS
 from wildfireGP.strategies import (
     ANCHOR_WEIGHT,
-    no_treatment,
     random_score,
     score_by_burning_neighbors,
     score_by_fire_proximity,
@@ -43,11 +42,6 @@ def _graph_with_fire(ignition=(5, 5)):
     precompute_fire_map(g)
     precompute_burnable_fire_map(g)
     return g
-
-
-def test_no_treatment_always_zero():
-    graph = _graph_with_fire()
-    assert all(no_treatment(graph, n) == 0.0 for n in graph.nodes)
 
 
 def test_random_score_varies_across_nodes():
