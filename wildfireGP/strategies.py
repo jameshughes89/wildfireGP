@@ -7,6 +7,7 @@ priority. These serve as comparison baselines for GP-evolved strategies.
 Strategy ladder (weakest to strongest expected performance):
     no_treatment < random_score < score_by_fuel / score_by_burning_neighbors
         < score_by_fire_proximity < score_indirect_attack / score_ridgeline / score_head_fire
+        < score_fire_run
 
 If GP cannot outperform score_by_fire_proximity it is not producing useful strategies.
 
@@ -115,6 +116,27 @@ def score_ridgeline(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dis
     return elevation(graph, node) + slope(graph, node)
 
 
+def score_fire_run(graph: nx.Graph, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
+    """
+    Prioritise fuel-rich nodes downwind of the fire within engagement range (fire run defence).
+
+    Where the fire will run fastest is determined by two factors together: high fuel load and downwind position. This
+    strategy combines both into a single score, weighted by proximity. It is the first baseline to reason about where
+    the fire will accelerate rather than just where it currently is or what terrain it occupies.
+
+    Nodes upwind of the fire receive negative scores and are never selected as long as downwind candidates exist.
+
+    :param min_distance: Minimum hop distance to fire to engage (default 2 = 200m at 100m/cell).
+    :param max_distance: Maximum hop distance to fire to engage (default 10 = 1km at 100m/cell).
+
+    Note: defaults are tuneable heuristics, not values derived from a specific cited source.
+    """
+    d = distance_to_fire(graph, node)
+    if d < min_distance or d > max_distance:
+        return 0.0
+    return fuel_level(graph, node) * wind_fire_alignment(graph, node) / (1.0 + d)
+
+
 def score_head_fire(graph: nx.Graph, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
     """
     Prioritise nodes downwind and within engagement range of the fire (head fire defence).
@@ -144,4 +166,5 @@ ALL_STRATEGIES = [
     score_indirect_attack,
     score_ridgeline,
     score_head_fire,
+    score_fire_run,
 ]
