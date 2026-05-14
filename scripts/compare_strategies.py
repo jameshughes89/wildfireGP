@@ -71,9 +71,15 @@ def main(argv: list[str] | None = None) -> None:
     log.info("Ignition node: %s", ignition)
 
     strategies = _load_strategies(args)
-    log.info("Evaluating %d strategies over %d runs each", len(strategies), args.runs)
+    log.info("Evaluating %d strategies + no_treatment baseline over %d runs each", len(strategies), args.runs)
 
     results = []
+    log.info("  no_treatment ...")
+    burned, peak = _run_strategy(
+        lambda g, n: 0.0, graph, [ignition], 0, args.max_steps, args.runs, args.seed, args.intervention_delay
+    )
+    results.append(("no_treatment", burned.mean(), burned.std(), peak.mean(), peak.std()))
+
     for name, func in strategies:
         log.info("  %s ...", name)
         burned, peak = _run_strategy(

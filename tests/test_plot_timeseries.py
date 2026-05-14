@@ -10,7 +10,7 @@ from wildfireGP.network import (
     set_fuel_moisture,
     set_wind,
 )
-from wildfireGP.strategies import no_treatment
+from wildfireGP.strategies import random_score
 
 
 @pytest.fixture()
@@ -38,28 +38,28 @@ def _make_series(n_steps: int = 5) -> dict:
 
 def test_collect_series_burning_shape(small_graph, ignition):
     runs = 3
-    data = collect_series(no_treatment, small_graph, ignition, 0, 10, runs, base_seed=0)
+    data = collect_series(random_score, small_graph, ignition, 0, 10, runs, base_seed=0)
     assert data["burning"].shape[0] == runs
 
 
 def test_collect_series_burned_shape(small_graph, ignition):
     runs = 3
-    data = collect_series(no_treatment, small_graph, ignition, 0, 10, runs, base_seed=0)
+    data = collect_series(random_score, small_graph, ignition, 0, 10, runs, base_seed=0)
     assert data["burned"].shape[0] == runs
 
 
 def test_collect_series_rows_equal_length(small_graph, ignition):
-    data = collect_series(no_treatment, small_graph, ignition, 0, 10, runs=3, base_seed=0)
+    data = collect_series(random_score, small_graph, ignition, 0, 10, runs=3, base_seed=0)
     assert data["burning"].shape == data["burned"].shape
 
 
 def test_collect_series_burned_non_negative(small_graph, ignition):
-    data = collect_series(no_treatment, small_graph, ignition, 0, 10, runs=2, base_seed=0)
+    data = collect_series(random_score, small_graph, ignition, 0, 10, runs=2, base_seed=0)
     assert (data["burned"] >= 0).all()
 
 
 def test_collect_series_burning_non_negative(small_graph, ignition):
-    data = collect_series(no_treatment, small_graph, ignition, 0, 10, runs=2, base_seed=0)
+    data = collect_series(random_score, small_graph, ignition, 0, 10, runs=2, base_seed=0)
     assert (data["burning"] >= 0).all()
 
 
@@ -69,7 +69,7 @@ def test_collect_series_burning_non_negative(small_graph, ignition):
 
 
 def test_plot_returns_figure():
-    fig = _plot({"no_treatment": _make_series()})
+    fig = _plot({"random_score": _make_series()})
     plt.close(fig)
     assert isinstance(fig, plt.Figure)
 
@@ -84,7 +84,7 @@ def test_main_creates_output_file(tmp_path):
     main(
         [
             "--strategy",
-            "no_treatment",
+            "random_score",
             "--rows",
             "5",
             "--cols",
@@ -102,7 +102,7 @@ def test_main_creates_output_file(tmp_path):
 
 def test_main_default_output_name(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    main(["--strategy", "no_treatment", "--rows", "5", "--cols", "5", "--runs", "2", "--max-steps", "5"])
+    main(["--strategy", "random_score", "--rows", "5", "--cols", "5", "--runs", "2", "--max-steps", "5"])
     assert (tmp_path / "sim_timeseries.png").exists()
 
 
@@ -120,7 +120,7 @@ def test_main_no_strategies_uses_all_builtins(tmp_path):
 def test_main_expr_loads_candidate(tmp_path):
     expr = "test_expr"
     with open(tmp_path / "final_population.dill", "wb") as f:
-        dill.dump([(expr, no_treatment)], f)
+        dill.dump([(expr, random_score)], f)
     out = tmp_path / "ts.png"
     main(
         [

@@ -5,11 +5,18 @@ Each strategy is a callable (graph, node) -> float compatible with evaluate(). H
 priority. These serve as comparison baselines for GP-evolved strategies.
 
 Strategy ladder (weakest to strongest expected performance):
-    no_treatment < random_score < score_by_fuel / score_by_burning_neighbors
+    random_score < score_by_fuel / score_by_burning_neighbors
         < score_by_fire_proximity < score_indirect_attack / score_ridgeline / score_head_fire
         < score_fire_run
 
 If GP cannot outperform score_by_fire_proximity it is not producing useful strategies.
+
+True no-treatment baseline
+--------------------------
+There is no no_treatment strategy function. A strategy that scores all nodes equally is
+indistinguishable from random_score after the shuffle in _apply_treatments — treatments
+are still placed, just randomly. The true lower bound is a run with treatments_per_step=0,
+which compare_strategies.py includes automatically as the "no_treatment" row.
 
 The domain-informed strategies (score_indirect_attack, score_ridgeline, score_head_fire) are derived from standard
 operational doctrine for wildland fire suppression. The canonical reference is the NWCG Fireline Handbook, which
@@ -45,13 +52,6 @@ from wildfireGP.features import (
 # Strategies with naturally larger score ranges use unburnable_neighbour_count / 8 directly as
 # a tiebreaker — no scaling needed since the anchoring term is already small relative to the core.
 ANCHOR_WEIGHT = 0.1
-
-
-def no_treatment(graph: nx.Graph, node: tuple) -> float:
-    """
-    Score every node equally --- nothing is ever preferentially treated. Lower bound baseline.
-    """
-    return 0.0
 
 
 def random_score(graph: nx.Graph, node: tuple) -> float:
@@ -198,7 +198,6 @@ def score_head_fire(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dis
 
 
 ALL_STRATEGIES = [
-    no_treatment,
     random_score,
     score_by_fuel,
     score_by_fire_proximity,

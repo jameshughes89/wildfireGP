@@ -24,11 +24,11 @@ def test_plot_returns_figure():
 
 
 def test_plot_strategy_names_in_figure():
-    results = {"no_treatment": (np.array([50.0, 60.0]), np.array([10.0, 12.0]))}
+    results = {"random_score": (np.array([50.0, 60.0]), np.array([10.0, 12.0]))}
     fig = _plot(results)
     labels = [t.get_text() for ax in fig.axes for t in ax.get_xticklabels()]
     plt.close(fig)
-    assert any("no_treatment" in label for label in labels)
+    assert any("random_score" in label for label in labels)
 
 
 # ---------------------------------------------------------------------------
@@ -51,9 +51,9 @@ def test_main_default_output_name(tmp_path, monkeypatch):
 def test_main_with_results_dir_loads_dill(tmp_path):
     import dill
 
-    from wildfireGP.strategies import no_treatment
+    from wildfireGP.strategies import random_score
 
-    (tmp_path / "hof_0.dill").write_bytes(dill.dumps(no_treatment))
+    (tmp_path / "hof_0.dill").write_bytes(dill.dumps(random_score))
     out = tmp_path / "comp.png"
     main(
         [
@@ -77,11 +77,11 @@ def test_main_with_results_dir_loads_dill(tmp_path):
 def test_main_expr_loads_candidate(tmp_path):
     import dill
 
-    from wildfireGP.strategies import no_treatment
+    from wildfireGP.strategies import random_score
 
     expr = "test_expr"
     with open(tmp_path / "final_population.dill", "wb") as f:
-        dill.dump([(expr, no_treatment)], f)
+        dill.dump([(expr, random_score)], f)
     out = tmp_path / "comp.png"
     main(
         [
