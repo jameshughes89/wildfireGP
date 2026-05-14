@@ -17,6 +17,7 @@ from wildfireGP.strategies import (
     score_by_burning_neighbors,
     score_by_fire_proximity,
     score_by_fuel,
+    score_fire_run,
     score_head_fire,
     score_indirect_attack,
     score_ridgeline,
@@ -174,3 +175,44 @@ def test_score_head_fire_downwind_scores_higher_than_crosswind():
     downwind = (7, 5)
     crosswind = (5, 3)
     assert score_head_fire(g, downwind) > score_head_fire(g, crosswind)
+
+
+# ---------------------------------------------------------------------------
+# score_fire_run
+# ---------------------------------------------------------------------------
+
+
+def test_score_fire_run_zero_when_no_fire():
+    assert score_fire_run(_graph_no_fire(), (5, 5)) == 0.0
+
+
+def test_score_fire_run_zero_below_min_distance():
+    graph = _graph_with_fire(ignition=(5, 5))
+    assert score_fire_run(graph, (5, 4)) == 0.0
+
+
+def test_score_fire_run_zero_above_max_distance():
+    graph = _graph_with_fire(ignition=(5, 5))
+    assert score_fire_run(graph, (0, 0), max_distance=3) == 0.0
+
+
+def test_score_fire_run_finite_within_window():
+    graph = _graph_with_fire(ignition=(5, 5))
+    assert math.isfinite(score_fire_run(graph, (7, 5)))
+
+
+def test_score_fire_run_downwind_scores_higher_than_crosswind():
+    graph = _graph_with_fire(ignition=(5, 5))
+    downwind = (7, 5)  # south of fire, aligned with north wind
+    crosswind = (5, 3)  # west of fire, perpendicular to wind
+    assert score_fire_run(graph, downwind) > score_fire_run(graph, crosswind)
+
+
+def test_score_fire_run_higher_fuel_scores_higher():
+    # (7,4) and (7,6) are both Chebyshev distance 2 from (5,5) and have identical wind alignment
+    # (symmetric about the fire column), so fuel is the only differentiating factor.
+    graph = _graph_with_fire(ignition=(5, 5))
+    high_fuel, low_fuel = (7, 4), (7, 6)
+    graph.nodes[high_fuel][FUEL] = 0.9
+    graph.nodes[low_fuel][FUEL] = 0.1
+    assert score_fire_run(graph, high_fuel) > score_fire_run(graph, low_fuel)
