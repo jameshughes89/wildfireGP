@@ -99,6 +99,7 @@ def unburnable_neighbour_count(graph: nx.Graph, node: tuple) -> int:
 
 _NEAREST_FIRE = "nearest_fire"
 _BURNABLE_FIRE_DISTANCE = "burnable_fire_distance"
+_REACHABLE_UNBURNED_AREA = "reachable_unburned_area"
 
 
 def precompute_fire_map(graph: nx.Graph) -> None:
@@ -149,6 +150,43 @@ def burnable_distance_to_fire(graph: nx.Graph, node: tuple) -> float:
     if dist is None:
         return float("inf")
     return dist
+
+
+def precompute_reachable_unburned_area(graph: nx.Graph) -> None:
+    """Compute the connected-component size of the unburned-land subgraph for each node.
+
+    All nodes in the same connected component of UNBURNED LAND cells share the same
+    reachable area value, so only one BFS per component is needed. Nodes outside the
+    unburned-land subgraph (burning, burned, treated, water, rock) are assigned 0.
+    """
+    area: dict[tuple, int] = {}
+    for start in graph.nodes:
+        if start in area:
+            continue
+        if graph.nodes[start][STATE] != NodeState.UNBURNED or graph.nodes[start][TERRAIN] != TerrainType.LAND:
+            continue
+        component: list[tuple] = []
+        queue: deque[tuple] = deque([start])
+        area[start] = -1  # sentinel: visited but size not yet known
+        while queue:
+            current = queue.popleft()
+            component.append(current)
+            for neighbour in graph.neighbors(current):
+                if neighbour not in area:
+                    if (
+                        graph.nodes[neighbour][STATE] == NodeState.UNBURNED
+                        and graph.nodes[neighbour][TERRAIN] == TerrainType.LAND
+                    ):
+                        area[neighbour] = -1
+                        queue.append(neighbour)
+        size = len(component)
+        for n in component:
+            area[n] = size
+    graph.graph[_REACHABLE_UNBURNED_AREA] = area
+
+
+def reachable_unburned_area(graph: nx.Graph, node: tuple) -> float:
+    return float(graph.graph[_REACHABLE_UNBURNED_AREA].get(node, 0))
 
 
 def elevation_delta_to_fire(graph: nx.Graph, node: tuple) -> float:

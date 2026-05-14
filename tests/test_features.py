@@ -10,7 +10,9 @@ from wildfireGP.features import (
     mean_neighbour_fuel,
     precompute_burnable_fire_map,
     precompute_fire_map,
+    precompute_reachable_unburned_area,
     precompute_state_counts,
+    reachable_unburned_area,
     slope,
     total_burned,
     total_burning,
@@ -388,6 +390,83 @@ def test_burnable_distance_differs_from_chebyshev_when_path_blocked():
     precompute_burnable_fire_map(g)
     assert distance_to_fire(g, (2, 2)) < float("inf")
     assert burnable_distance_to_fire(g, (2, 2)) == float("inf")
+
+
+# ---------------------------------------------------------------------------
+# Reachable unburned area
+# ---------------------------------------------------------------------------
+
+
+def test_reachable_unburned_area_all_unburned_returns_grid_size():
+    g = _graph()
+    precompute_reachable_unburned_area(g)
+    assert reachable_unburned_area(g, _NODE) == 9.0
+
+
+def test_reachable_unburned_area_single_isolated_node():
+    g = _graph()
+    for n in g.nodes:
+        if n != _NODE:
+            g.nodes[n][STATE] = NodeState.BURNED
+    precompute_reachable_unburned_area(g)
+    assert reachable_unburned_area(g, _NODE) == 1.0
+
+
+def test_reachable_unburned_area_two_components():
+    # Burn the middle column, leaving two separate unburned regions:
+    # col 0 (3 nodes) and col 2 (3 nodes)
+    g = _graph()
+    for row in range(3):
+        g.nodes[(row, 1)][STATE] = NodeState.BURNED
+    precompute_reachable_unburned_area(g)
+    assert reachable_unburned_area(g, (0, 0)) == 3.0
+    assert reachable_unburned_area(g, (0, 2)) == 3.0
+
+
+def test_reachable_unburned_area_fire_pocket():
+    # Pocket: (1,1) is unburned, surrounded by burning/burned neighbours — area = 1
+    g = _graph()
+    for n in g.neighbors(_NODE):
+        g.nodes[n][STATE] = NodeState.BURNED
+    precompute_reachable_unburned_area(g)
+    assert reachable_unburned_area(g, _NODE) == 1.0
+
+
+def test_reachable_unburned_area_returns_zero_for_burned_node():
+    g = _graph()
+    g.nodes[_NODE][STATE] = NodeState.BURNED
+    precompute_reachable_unburned_area(g)
+    assert reachable_unburned_area(g, _NODE) == 0.0
+
+
+def test_reachable_unburned_area_returns_zero_for_burning_node():
+    g = _graph()
+    g.nodes[_NODE][STATE] = NodeState.BURNING
+    precompute_reachable_unburned_area(g)
+    assert reachable_unburned_area(g, _NODE) == 0.0
+
+
+def test_reachable_unburned_area_water_node_returns_zero():
+    g = _graph()
+    g.nodes[_NODE][TERRAIN] = TerrainType.WATER
+    precompute_reachable_unburned_area(g)
+    assert reachable_unburned_area(g, _NODE) == 0.0
+
+
+def test_reachable_unburned_area_pocket_smaller_than_open_front():
+    # Burn middle column and the bottom two nodes of col 0, isolating (0,0) as a pocket of size 1.
+    # Right column (0,2)-(1,2)-(2,2) remains connected (area 3).
+    g = _graph()
+    for row in range(3):
+        g.nodes[(row, 1)][STATE] = NodeState.BURNED
+    g.nodes[(1, 0)][STATE] = NodeState.BURNED
+    g.nodes[(2, 0)][STATE] = NodeState.BURNED
+    precompute_reachable_unburned_area(g)
+    pocket = reachable_unburned_area(g, (0, 0))
+    open_front = reachable_unburned_area(g, (0, 2))
+    assert pocket == 1.0
+    assert open_front == 3.0
+    assert pocket < open_front
 
 
 # ---------------------------------------------------------------------------
