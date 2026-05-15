@@ -1,12 +1,12 @@
 """
-Batch-evaluate GP candidates from a results directory across N independent simulations.
+Batch-evaluate GP candidates from a results directory across N landscapes and M runs per landscape.
 
 Loads the final population (final_population.dill) and HOF individuals (hof_*.dill + hof_*.expr) from a results
-directory, deduplicates by expression string, evaluates each candidate on N simulations of a fresh landscape, and prints
-a ranked table of mean ± std burned nodes.
+directory, deduplicates by expression string, evaluates each candidate across --landscapes independent landscapes with
+--runs simulations per landscape, and prints a ranked table of mean ± std burned nodes.
 
-The evaluation landscape is independent of the training landscape by default (seed=None). Pass --seed for a reproducible
-comparison across multiple batch_evaluate runs.
+All candidates are evaluated on the same set of landscapes for a fair comparison. The evaluation landscapes are
+independent of the training landscape by default (seed=None). Pass --seed for a reproducible comparison.
 
 Deduplication
 -------------
@@ -17,19 +17,21 @@ feature was added) can still be evaluated via the hof_*.dill + hof_*.expr files 
 Usage
 -----
     python -m scripts.batch_evaluate --results-dir PATH
-                                     [--runs INT] [--seed INT] [--output PATH]
+                                     [--landscapes INT] [--runs INT] [--seed INT] [--output PATH]
                                      [--rows INT] [--cols INT]
                                      [--treatments INT] [--max-steps INT] [--intervention-delay INT]
                                      [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
 
-    --output PATH   Save the ranked results table as a CSV file. Each row contains rank, mean,
-                    std, and the full (untruncated) expression string. Use this to identify
-                    candidates for further analysis scripts via --expr.
+    --landscapes INT  Number of independent landscapes to evaluate on (default 5).
+    --runs INT        Simulations per landscape (default 10).
+    --output PATH     Save the ranked results table as a CSV file. Each row contains rank, mean,
+                      std, and the full (untruncated) expression string. Use this to identify
+                      candidates for further analysis scripts via --expr.
 
 Examples
 --------
-    python -m scripts.batch_evaluate --results-dir results/2026-05-11_14-25-31 --runs 30 --seed 42
-    python -m scripts.batch_evaluate --results-dir results/2026-05-11_14-25-31 --runs 30 --seed 42 \
+    python -m scripts.batch_evaluate --results-dir results/2026-05-11_14-25-31
+    python -m scripts.batch_evaluate --results-dir results/2026-05-11_14-25-31 --landscapes 10 --runs 20 --seed 42 \
         --output results/2026-05-11_14-25-31/batch.csv
 """
 
@@ -58,32 +60,43 @@ log = logging.getLogger(__name__)
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
 
-    rng = np.random.default_rng(args.seed)
-    log.info("Building landscape (%dx%d, seed=%s)", args.rows, args.cols, args.seed)
-    graph = create_grid(args.rows, args.cols, seed=args.seed)
-    set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
-    set_fuel_moisture(graph, moisture=args.moisture)
-    ignition = select_ignition_node(graph, rng)
-    log.info("Ignition node: %s", ignition)
+    root_rng = np.random.default_rng(args.seed)
+
+    # Pre-generate all seeds so every candidate sees the same landscapes and spread sequences.
+    land_seeds = [int(root_rng.integers(2**31)) if args.seed is not None else None for _ in range(args.landscapes)]
+    run_seed_matrix = [
+        [int(root_rng.integers(2**31)) if args.seed is not None else None for _ in range(args.runs)]
+        for _ in range(args.landscapes)
+    ]
 
     candidates = _load_candidates(args.results_dir)
-    log.info("Evaluating %d unique candidates, %d runs each", len(candidates), args.runs)
+    log.info(
+        "Evaluating %d unique candidates across %d landscapes x %d runs",
+        len(candidates),
+        args.landscapes,
+        args.runs,
+    )
 
     results = []
     for i, (expr, func) in enumerate(candidates, 1):
         log.info("  %d/%d  %s", i, len(candidates), expr[:80])
-        burned_counts = [
-            evaluate(
-                func,
-                graph,
-                [ignition],
-                args.treatments,
-                args.max_steps,
-                np.random.default_rng(None if args.seed is None else args.seed + j),
-                args.intervention_delay,
-            )[0]
-            for j in range(args.runs)
-        ]
+        burned_counts = []
+        for land_idx, land_seed in enumerate(land_seeds):
+            graph = create_grid(args.rows, args.cols, seed=land_seed)
+            set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
+            set_fuel_moisture(graph, moisture=args.moisture)
+            ignition = select_ignition_node(graph, np.random.default_rng(land_seed))
+            for run_seed in run_seed_matrix[land_idx]:
+                b, _ = evaluate(
+                    func,
+                    graph,
+                    [ignition],
+                    args.treatments,
+                    args.max_steps,
+                    np.random.default_rng(run_seed),
+                    args.intervention_delay,
+                )
+                burned_counts.append(b)
         results.append((expr, float(np.mean(burned_counts)), float(np.std(burned_counts))))
 
     results.sort(key=lambda x: x[1])
@@ -149,7 +162,8 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--results-dir", type=pathlib.Path, required=True, help="Path to a run_gp.py results directory."
     )
-    parser.add_argument("--runs", type=int, default=30, help="Simulations per candidate (default 30).")
+    parser.add_argument("--landscapes", type=int, default=5, help="Number of independent landscapes (default 5).")
+    parser.add_argument("--runs", type=int, default=10, help="Simulations per landscape (default 10).")
     parser.add_argument("--output", type=str, default=None, help="Save ranked results as a CSV file.")
     add_landscape_args(parser)
     return parser.parse_args(argv)
