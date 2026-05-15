@@ -78,11 +78,11 @@ def simulate(
     for step in range(max_steps):
         if not any(graph.nodes[n][STATE] == NodeState.BURNING for n in graph.nodes):
             break
-        precompute_fire_map(graph)
-        precompute_burnable_fire_map(graph)
-        precompute_reachable_unburned_area(graph)
-        precompute_state_counts(graph)
         if step >= intervention_delay:
+            precompute_fire_map(graph)
+            precompute_burnable_fire_map(graph)
+            precompute_reachable_unburned_area(graph)
+            precompute_state_counts(graph)
             _apply_treatments(graph, func, treatments_per_step, rng)
         spread_step(graph, rng)
         yield step, graph

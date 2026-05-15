@@ -136,6 +136,21 @@ def test_evaluate_intervention_delay_first_treatment_at_delay_step():
     assert first_treated_step == 3
 
 
+def test_simulate_defers_feature_precompute_until_intervention_delay():
+    g = _setup(moisture=0.05, seed=0)
+    init_ignition(g, [(3, 3)])
+    cache_keys = ("nearest_fire", "burnable_fire_distance", "reachable_unburned_area", "_step_burning")
+
+    for step, sim_graph in simulate(
+        g, lambda graph, node: 1.0, treatments_per_step=5, max_steps=10, rng=_rng(), intervention_delay=2
+    ):
+        if step < 2:
+            assert all(key not in sim_graph.graph for key in cache_keys)
+        else:
+            assert all(key in sim_graph.graph for key in cache_keys)
+            break
+
+
 def test_evaluate_nan_score_treated_last():
     g = _setup(moisture=1.0)
     ignition = (3, 3)
