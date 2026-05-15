@@ -17,22 +17,24 @@ def _write_population(path, entries):
         dill.dump(entries, f)
 
 
+def _make_landscapes(n: int = 1, rows: int = 10, cols: int = 10) -> tuple[list, list[list]]:
+    """Return (landscapes, run_seed_matrix) for n landscapes on a rows×cols grid."""
+    landscapes = []
+    run_seed_matrix = []
+    for i in range(n):
+        seed = i
+        g = create_grid(rows, cols, seed=seed)
+        set_wind(g, speed=20.0, direction=0.0)
+        set_fuel_moisture(g, moisture=0.2)
+        ignition = select_ignition_node(g, np.random.default_rng(seed))
+        landscapes.append((seed, ignition))
+        run_seed_matrix.append([seed * 100 + j for j in range(5)])
+    return landscapes, run_seed_matrix
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture()
-def graph():
-    g = create_grid(10, 10, seed=0)
-    set_wind(g, speed=20.0, direction=0.0)
-    set_fuel_moisture(g, moisture=0.2)
-    return g
-
-
-@pytest.fixture()
-def ignition(graph):
-    return select_ignition_node(graph, np.random.default_rng(0))
 
 
 @pytest.fixture()
@@ -48,24 +50,30 @@ def dill_file(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_run_strategy_returns_arrays_of_correct_length(graph, ignition):
-    burned, peak = _run_strategy(random_score, graph, [ignition], 2, 20, runs=5, base_seed=0)
-    assert len(burned) == 5
-    assert len(peak) == 5
+def test_run_strategy_returns_arrays_of_correct_length():
+    landscapes, run_seed_matrix = _make_landscapes(n=2)
+    burned, peak = _run_strategy(random_score, landscapes, 2, 10, 10, 20.0, 0.0, 0.2, 20, run_seed_matrix)
+    assert len(burned) == 10  # 2 landscapes × 5 runs
+    assert len(peak) == 10
 
 
-def test_run_strategy_burned_values_are_non_negative(graph, ignition):
-    burned, _ = _run_strategy(random_score, graph, [ignition], 2, 20, runs=5, base_seed=0)
+def test_run_strategy_burned_values_are_non_negative():
+    landscapes, run_seed_matrix = _make_landscapes()
+    burned, _ = _run_strategy(random_score, landscapes, 2, 10, 10, 20.0, 0.0, 0.2, 20, run_seed_matrix)
     assert all(b >= 0 for b in burned)
 
 
-def test_run_strategy_peak_values_are_non_negative(graph, ignition):
-    _, peak = _run_strategy(random_score, graph, [ignition], 2, 20, runs=5, base_seed=0)
+def test_run_strategy_peak_values_are_non_negative():
+    landscapes, run_seed_matrix = _make_landscapes()
+    _, peak = _run_strategy(random_score, landscapes, 2, 10, 10, 20.0, 0.0, 0.2, 20, run_seed_matrix)
     assert all(p >= 0 for p in peak)
 
 
-def test_run_strategy_different_seeds_produce_variation(graph, ignition):
-    burned, _ = _run_strategy(random_score, graph, [ignition], 0, 20, runs=10, base_seed=0)
+def test_run_strategy_different_seeds_produce_variation():
+    landscapes, run_seed_matrix = _make_landscapes(n=2)
+    # Use 10 distinct run seeds across 2 landscapes
+    run_seed_matrix = [[i * 7 + j for j in range(5)] for i in range(2)]
+    burned, _ = _run_strategy(random_score, landscapes, 0, 10, 10, 20.0, 0.0, 0.2, 20, run_seed_matrix)
     assert burned.std() > 0
 
 
@@ -87,8 +95,25 @@ def test_load_strategies_baselines_always_present():
     assert all(f.__name__ in names for f in ALL_STRATEGIES)
 
 
-def test_main_includes_no_treatment_baseline(graph, ignition, capsys):
-    main(["--rows", "10", "--cols", "10", "--seed", "0", "--runs", "3", "--max-steps", "10"])
+def test_main_includes_no_treatment_baseline(capsys):
+    main(
+        [
+            "--rows",
+            "10",
+            "--cols",
+            "10",
+            "--seed",
+            "0",
+            "--runs",
+            "2",
+            "--landscapes",
+            "1",
+            "--max-steps",
+            "10",
+            "--min-burned",
+            "0",
+        ]
+    )
     output = capsys.readouterr().out
     assert "no_treatment" in output
 

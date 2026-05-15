@@ -6,7 +6,8 @@ import dill
 import numpy as np
 import pytest
 
-from scripts.batch_evaluate import _find_valid_ignition, _load_candidates, main
+from scripts.batch_evaluate import _load_candidates, main
+from scripts.cli import find_valid_ignition as _find_valid_ignition
 from wildfireGP.network import create_grid, set_fuel_moisture, set_wind
 
 
