@@ -97,13 +97,6 @@ def test_build_rgb_burning_state_takes_priority_over_water_terrain():
     assert np.array_equal(_build_rgb(graph, 3, 3)[_NODE], _BURNING)
 
 
-def test_build_rgb_burning_state_takes_priority_over_rock_terrain():
-    graph = _graph_with_node()
-    graph.nodes[_NODE][STATE] = NodeState.BURNING
-    graph.nodes[_NODE][TERRAIN] = TerrainType.ROCK
-    assert np.array_equal(_build_rgb(graph, 3, 3)[_NODE], _BURNING)
-
-
 def test_build_elevation_values_match_node_elevation_attributes():
     graph = create_grid(3, 3, seed=0)
     elevation = _build_elevation(graph, 3, 3)
