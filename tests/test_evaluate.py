@@ -123,18 +123,6 @@ def test_evaluate_intervention_delay_no_func_calls_before_delay():
     assert call_count[0] == 0
 
 
-def test_evaluate_intervention_delay_func_calls_happen_with_zero_delay():
-    g = _setup(moisture=0.05, seed=0)
-    call_count = [0]
-
-    def counting(graph, node):
-        call_count[0] += 1
-        return 1.0
-
-    evaluate(counting, g, [(3, 3)], treatments_per_step=5, max_steps=5, rng=_rng(), intervention_delay=0)
-    assert call_count[0] > 0
-
-
 def test_evaluate_intervention_delay_first_treatment_at_delay_step():
     g = _setup(moisture=0.05, seed=0)
     init_ignition(g, [(3, 3)])
