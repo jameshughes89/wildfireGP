@@ -38,12 +38,14 @@ Wind factor (Alexandridis et al., 2008):
     c2    : 0.131  (directional sensitivity)
 
 Slope factor (Alexandridis et al., 2008):
-    p_slope = exp(a_s * tan(phi))
+    p_slope = exp(a_s * phi)
 
-    phi   : slope proxy --- normalized elevation difference divided by cell-unit distance (1.0
-            cardinal, sqrt(2) diagonal). Elevation is stored as [0, 1] so tan(phi) is dimensionless
-            rather than a true physical tangent; the constant 0.078 is unchanged from Alexandridis
-            but now operates on this normalized proxy rather than a physical slope angle.
+    phi   : slope angle in radians, computed as atan(elev_diff / dist_cells) where elev_diff is the
+            normalized [0, 1] elevation difference src->dst and dist_cells is 1.0 cardinal or sqrt(2)
+            diagonal. Because elevation is stored normalized rather than in physical metres, phi is
+            not the true ground-truth slope angle of any specific landscape; the resulting effect is
+            small (<7% per cell at maximum gradient). The functional form matches Alexandridis et al.
+            exactly; the magnitude depends on how the synthetic elevation field is interpreted.
     a_s   : 0.078  (Alexandridis et al., 2008)
 
 Scale and timestep
@@ -215,8 +217,8 @@ def _ignition_probability(
 
     elev_diff = graph.nodes[dst][ELEVATION] - graph.nodes[src][ELEVATION]
     dist_cells = math.sqrt(2) if (si != di and sj != dj) else 1.0
-    slope_tan = elev_diff / dist_cells
-    p_slope = math.exp(_A_S * slope_tan)
+    slope_angle_rad = math.atan(elev_diff / dist_cells)
+    p_slope = math.exp(_A_S * slope_angle_rad)
 
     p = fuel * (1.0 - moisture) * p_wind * p_slope
     return min(1.0, max(0.0, p))

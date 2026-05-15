@@ -193,6 +193,18 @@ def test_ignition_probability_slope_effect_is_non_trivial():
     assert p_uphill / p_flat > 1.05
 
 
+def test_ignition_probability_slope_matches_alexandridis_atan_formula():
+    graph = _setup(moisture=0.0, wind_speed=0.0, wind_dir=0.0)
+    src = (2, 2)
+    uphill = (2, 3)
+    graph.nodes[uphill][TERRAIN] = TerrainType.LAND
+    graph.nodes[uphill][FUEL] = 0.5
+    graph.nodes[src][ELEVATION] = 0.0
+    graph.nodes[uphill][ELEVATION] = 1.0
+    expected = 0.5 * math.exp(0.078 * math.atan(1.0))
+    assert math.isclose(ignition_probability(graph, src, uphill), expected, rel_tol=1e-9)
+
+
 def test_ignition_probability_result_in_unit_interval():
     graph = _setup(moisture=0.0, wind_speed=50.0, wind_dir=45.0)
     src, dst = (2, 2), (2, 3)
