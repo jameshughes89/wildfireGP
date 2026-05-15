@@ -83,8 +83,9 @@ def _run_simulation(
     rng: np.random.Generator,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> list:
-    snapshots = [copy.deepcopy(graph)]
-    for _step, g in simulate(graph, func, treatments_per_step, max_steps, rng, intervention_delay):
+    g = copy.deepcopy(graph)
+    snapshots = [copy.deepcopy(g)]
+    for _step, _ in simulate(g, func, treatments_per_step, max_steps, rng, intervention_delay):
         snapshots.append(copy.deepcopy(g))
     return snapshots
 
