@@ -74,13 +74,18 @@ def main(argv: list[str] | None = None) -> None:
     rng = np.random.default_rng(args.seed)
     random.seed(args.seed)
 
-    log.info("Building landscape (%dx%d, seed=%s)", args.rows, args.cols, args.seed)
-    graph = create_grid(args.rows, args.cols, seed=args.seed)
-    set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
-    set_fuel_moisture(graph, moisture=args.moisture)
-
-    ignition_nodes = select_ignition_cluster(graph, rng, size=args.ignition_cluster_size)
-    log.info("Ignition cluster (%d nodes): %s", len(ignition_nodes), ignition_nodes)
+    scenarios = []
+    land_ignitions: list[list[tuple]] = []
+    for i in range(args.landscapes):
+        land_seed = None if args.seed is None else args.seed + i
+        log.info("Building landscape %d/%d (%dx%d, seed=%s)", i + 1, args.landscapes, args.rows, args.cols, land_seed)
+        graph = create_grid(args.rows, args.cols, seed=land_seed)
+        set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
+        set_fuel_moisture(graph, moisture=args.moisture)
+        ignition_nodes = select_ignition_cluster(graph, rng, size=args.ignition_cluster_size)
+        log.info("  ignition cluster (%d nodes): %s", len(ignition_nodes), ignition_nodes)
+        scenarios.append((graph, ignition_nodes))
+        land_ignitions.append(ignition_nodes)
 
     config = GPConfig(
         population_size=args.pop,
@@ -100,7 +105,8 @@ def main(argv: list[str] | None = None) -> None:
         "rows": args.rows,
         "cols": args.cols,
         "seed": args.seed,
-        "ignition_nodes": [list(n) for n in ignition_nodes],
+        "landscapes": args.landscapes,
+        "ignition_nodes_per_landscape": [[list(n) for n in cluster] for cluster in land_ignitions],
         "treatments_per_step": args.treatments,
         "max_steps": args.max_steps,
         "intervention_delay": args.intervention_delay,
@@ -109,9 +115,14 @@ def main(argv: list[str] | None = None) -> None:
         "fuel_moisture": args.moisture,
     }
 
-    log.info("Starting GP: %d individuals, %d generations", config.population_size, config.generations)
+    log.info(
+        "Starting GP: %d individuals, %d generations, %d landscape(s)",
+        config.population_size,
+        config.generations,
+        args.landscapes,
+    )
     population, logbook, hof = run(
-        config, graph, ignition_nodes, args.treatments, args.max_steps, rng, args.intervention_delay, hof_size=args.hof
+        config, scenarios, args.treatments, args.max_steps, rng, args.intervention_delay, hof_size=args.hof
     )
 
     out_dir = _make_output_dir(args.results_dir, args.run_name)
@@ -131,6 +142,13 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     add_landscape_args(parser)
     parser.add_argument("--results-dir", type=pathlib.Path, default=DEFAULT_RESULTS_DIR)
     parser.add_argument("--ignition-cluster-size", type=int, default=3, help="Number of nodes to ignite at t=0.")
+    parser.add_argument(
+        "--landscapes",
+        type=int,
+        default=3,
+        help="Number of landscapes to evaluate each candidate on per generation. Fitness is mean total_burned "
+        "across landscapes. Default 3.",
+    )
     parser.add_argument("--pop", type=int, default=100)
     parser.add_argument("--gens", type=int, default=50)
     parser.add_argument("--hof", type=int, default=5, help="Number of best individuals to save.")

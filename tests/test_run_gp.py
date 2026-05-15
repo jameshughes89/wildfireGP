@@ -69,7 +69,7 @@ def toolbox_and_pop(config):
     set_wind(graph, speed=20.0, direction=0.0)
     set_fuel_moisture(graph, moisture=0.2)
     ignition = select_ignition_node(graph, rng)
-    tb = build_toolbox(graph, [ignition], 2, 20, rng, config)
+    tb = build_toolbox([(graph, [ignition])], 2, 20, rng, config)
     pop = tb.population(n=config.population_size)
     for ind in pop:
         ind.fitness.values = (10.0,)
