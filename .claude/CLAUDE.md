@@ -20,13 +20,12 @@ This work generalizes prior research (eCov, CIBCB 2021) from epidemic mitigation
 - Fire spread is a probabilistic cellular automaton: each burning node ignites neighbors with probability determined by fuel load, wind, and slope
 - GP programs are tree-based, evaluated per-node to produce an allocation priority score
 - Resource constraint: K nodes may be treated per timestep (analogous to vaccine budget in eCov)
-- Fitness is multi-objective: minimize peak burning nodes AND total burned area
+- Fitness is single-objective: minimize total_burned. peak_burning is recorded as a secondary metric but does not influence selection.
 
 ## Style
 
 - Line length: 120
-- Python 3.11+
+- Python 3.12+
 - Type hints on all function signatures
 - No comments unless the WHY is non-obvious
 - Tests go in `tests/`, mirror the module structure
-- Property-based tests with Hypothesis where appropriate
