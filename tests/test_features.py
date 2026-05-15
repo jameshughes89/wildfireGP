@@ -397,6 +397,24 @@ def test_burnable_distance_differs_from_chebyshev_when_path_blocked():
     assert burnable_distance_to_fire(g, (2, 2)) == float("inf")
 
 
+def test_burnable_distance_to_fire_inf_when_only_path_is_through_water():
+    g = _graph()
+    g.nodes[(0, 0)][STATE] = NodeState.BURNING
+    for c in range(3):
+        g.nodes[(1, c)][TERRAIN] = TerrainType.WATER
+    precompute_burnable_fire_map(g)
+    assert burnable_distance_to_fire(g, (2, 0)) == float("inf")
+
+
+def test_burnable_distance_to_fire_inf_when_only_path_is_through_rock():
+    g = _graph()
+    g.nodes[(0, 0)][STATE] = NodeState.BURNING
+    for c in range(3):
+        g.nodes[(1, c)][TERRAIN] = TerrainType.ROCK
+    precompute_burnable_fire_map(g)
+    assert burnable_distance_to_fire(g, (2, 0)) == float("inf")
+
+
 # ---------------------------------------------------------------------------
 # Reachable unburned area
 # ---------------------------------------------------------------------------

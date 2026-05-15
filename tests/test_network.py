@@ -96,6 +96,16 @@ def test_create_grid_rock_fraction_exact_count():
     assert actual == expected
 
 
+def test_create_grid_rock_overwrites_water_when_both_nonzero():
+    graph = create_grid(20, 20, water_fraction=0.5, rock_fraction=0.5, seed=0)
+    assert not any(
+        graph.nodes[n][TERRAIN] == TerrainType.WATER and graph.nodes[n][TERRAIN] == TerrainType.ROCK
+        for n in graph.nodes
+    )
+    n_rock = sum(1 for n in graph.nodes if graph.nodes[n][TERRAIN] == TerrainType.ROCK)
+    assert n_rock == round(20 * 20 * 0.5)
+
+
 def test_create_grid_custom_cell_size_stored_on_graph():
     assert create_grid(3, 3, cell_size_m=30.0).graph[CELL_SIZE] == 30.0
 
