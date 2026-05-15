@@ -128,6 +128,10 @@ def score_ridgeline(graph: nx.Graph, node: tuple, min_distance: int = 2, max_dis
     committing crews to a distant ridge is premature, and establishing a ridgeline anchor when the fire is already
     adjacent is too late.
 
+    This is an elevation+slope proxy for ridgeline-style defence, not a geometric ridge detector. Flat high plateaus can
+    score well because of elevation alone, and steep walls can score well because of slope alone. The strategy name is
+    operational shorthand for favouring high, steep ground that may serve as an anchor or deny uphill acceleration.
+
     ANCHOR_WEIGHT * has_treated_neighbour acts as a tiebreaker: elevation + slope scores are in
     [0, 2] so the anchoring term (max 0.1) only separates near-equal candidates, nudging selection
     toward nodes adjacent to an existing treatment line.

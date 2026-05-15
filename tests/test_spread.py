@@ -3,6 +3,7 @@ import math
 import numpy as np
 import pytest
 
+from wildfireGP.features import precompute_fire_map, wind_fire_alignment
 from wildfireGP.network import (
     BURN_TIMER,
     ELEVATION,
@@ -145,6 +146,19 @@ def test_ignition_probability_downwind_higher_than_upwind():
     src = (2, 2)
     north = (1, 2)
     south = (3, 2)
+    assert ignition_probability(graph, src, south) > ignition_probability(graph, src, north)
+
+
+def test_wind_from_direction_convention_matches_feature_and_spread():
+    graph = _setup(moisture=0.1, wind_speed=30.0, wind_dir=0.0)
+    src = (2, 2)
+    north = (1, 2)
+    south = (3, 2)
+
+    graph.nodes[src][STATE] = NodeState.BURNING
+    precompute_fire_map(graph)
+
+    assert wind_fire_alignment(graph, south) > wind_fire_alignment(graph, north)
     assert ignition_probability(graph, src, south) > ignition_probability(graph, src, north)
 
 

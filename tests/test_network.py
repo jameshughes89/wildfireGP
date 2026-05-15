@@ -122,10 +122,40 @@ def test_set_wind_stores_direction_on_graph():
     assert graph.graph[WIND_DIRECTION] == 180.0
 
 
+def test_set_wind_rejects_negative_speed():
+    graph = create_grid(3, 3)
+    with pytest.raises(ValueError, match="Wind speed must be >= 0"):
+        set_wind(graph, speed=-1.0, direction=180.0)
+
+
+def test_set_wind_rejects_negative_direction():
+    graph = create_grid(3, 3)
+    with pytest.raises(ValueError, match="0 <= direction < 360"):
+        set_wind(graph, speed=30.0, direction=-1.0)
+
+
+def test_set_wind_rejects_direction_at_upper_bound():
+    graph = create_grid(3, 3)
+    with pytest.raises(ValueError, match="0 <= direction < 360"):
+        set_wind(graph, speed=30.0, direction=360.0)
+
+
 def test_set_fuel_moisture_stores_value_on_graph():
     graph = create_grid(3, 3)
     set_fuel_moisture(graph, 0.25)
     assert graph.graph[FUEL_MOISTURE] == 0.25
+
+
+def test_set_fuel_moisture_rejects_below_zero():
+    graph = create_grid(3, 3)
+    with pytest.raises(ValueError, match="0 <= moisture <= 1"):
+        set_fuel_moisture(graph, -0.1)
+
+
+def test_set_fuel_moisture_rejects_above_one():
+    graph = create_grid(3, 3)
+    with pytest.raises(ValueError, match="0 <= moisture <= 1"):
+        set_fuel_moisture(graph, 1.1)
 
 
 def test_create_grid_default_burn_timer_is_zero():

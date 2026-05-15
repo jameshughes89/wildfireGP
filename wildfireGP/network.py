@@ -204,7 +204,12 @@ def set_wind(graph: nx.Graph, speed: float, direction: float) -> None:
     :param graph: The landscape graph to modify.
     :param speed: Wind speed in km/h.
     :param direction: Wind direction in degrees (0 = north, clockwise).
+    :raises ValueError: If speed is negative or direction is outside [0, 360).
     """
+    if speed < 0.0:
+        raise ValueError(f"Wind speed must be >= 0; got {speed}.")
+    if direction < 0.0 or direction >= 360.0:
+        raise ValueError(f"Wind direction must satisfy 0 <= direction < 360; got {direction}.")
     graph.graph[WIND_SPEED] = speed
     graph.graph[WIND_DIRECTION] = direction
 
@@ -215,7 +220,10 @@ def set_fuel_moisture(graph: nx.Graph, moisture: float) -> None:
 
     :param graph: The landscape graph to modify.
     :param moisture: Relative fuel moisture in [0, 1]. 0 = bone dry, 1 = saturated.
+    :raises ValueError: If moisture is outside [0, 1].
     """
+    if moisture < 0.0 or moisture > 1.0:
+        raise ValueError(f"Fuel moisture must satisfy 0 <= moisture <= 1; got {moisture}.")
     graph.graph[FUEL_MOISTURE] = moisture
 
 

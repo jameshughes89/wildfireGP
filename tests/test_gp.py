@@ -2,9 +2,10 @@ import random
 
 import numpy as np
 import pytest
-from deap import creator
+from deap import creator, gp
 
-from wildfireGP.gp import GPConfig, _register_types, build_toolbox, run
+from wildfireGP.gp import GPConfig, _gen_grow, _register_types, build_toolbox, run
+from wildfireGP.language import PRIMITIVE_SET
 from wildfireGP.network import create_grid, set_fuel_moisture, set_wind
 
 
@@ -88,3 +89,17 @@ def test_build_toolbox_reuses_registered_types_on_second_call():
     fitness_cls = creator.FitnessWildfire
     build_toolbox(_graph(), [(2, 2)], 2, 10, _rng(), _config())
     assert creator.FitnessWildfire is fitness_cls
+
+
+def test_gen_grow_terminal_only_types_use_argument_terminals():
+    expr_graph = _gen_grow(PRIMITIVE_SET, 0, 0, type_=type(_graph()))
+    assert len(expr_graph) == 1
+    assert isinstance(expr_graph[0], gp.Terminal)
+    assert expr_graph[0].name == "ARG0"
+    assert expr_graph[0].ret is type(_graph())
+
+    expr_node = _gen_grow(PRIMITIVE_SET, 0, 0, type_=tuple)
+    assert len(expr_node) == 1
+    assert isinstance(expr_node[0], gp.Terminal)
+    assert expr_node[0].name == "ARG1"
+    assert expr_node[0].ret is tuple
