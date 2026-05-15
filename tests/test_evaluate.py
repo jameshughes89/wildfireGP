@@ -1,6 +1,12 @@
 import numpy as np
 
-from wildfireGP.evaluate import _apply_treatments, _safe_score, evaluate
+from wildfireGP.evaluate import (
+    _apply_treatments,
+    _safe_score,
+    evaluate,
+    init_ignition,
+    simulate,
+)
 from wildfireGP.features import (
     distance_to_fire,
     precompute_fire_map,
@@ -8,6 +14,7 @@ from wildfireGP.features import (
 from wildfireGP.network import (
     STATE,
     TERRAIN,
+    NodeState,
     TerrainType,
     create_grid,
     set_fuel_moisture,
@@ -104,7 +111,7 @@ def test_evaluate_treating_nearest_nodes_reduces_burned_area_smoke():
     assert burned_nearest <= burned_no_treatment
 
 
-def test_evaluate_intervention_delay_no_treatments_applied_before_delay():
+def test_evaluate_intervention_delay_no_func_calls_before_delay():
     g = _setup(moisture=0.05, seed=0)
     call_count = [0]
 
@@ -112,22 +119,33 @@ def test_evaluate_intervention_delay_no_treatments_applied_before_delay():
         call_count[0] += 1
         return 1.0
 
-    evaluate(counting, g, [(3, 3)], treatments_per_step=5, max_steps=3, rng=_rng(), intervention_delay=3)
+    evaluate(counting, g, [(3, 3)], treatments_per_step=5, max_steps=5, rng=_rng(), intervention_delay=5)
     assert call_count[0] == 0
 
 
-def test_evaluate_intervention_delay_treatments_applied_after_delay():
+def test_evaluate_intervention_delay_func_calls_happen_with_zero_delay():
     g = _setup(moisture=0.05, seed=0)
-    treated_counts = []
+    call_count = [0]
 
-    def record_treated(graph, node):
-        from wildfireGP.network import NodeState
-
-        treated_counts.append(sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.TREATED))
+    def counting(graph, node):
+        call_count[0] += 1
         return 1.0
 
-    evaluate(record_treated, g, [(3, 3)], treatments_per_step=5, max_steps=10, rng=_rng(), intervention_delay=3)
-    assert any(count > 0 for count in treated_counts)
+    evaluate(counting, g, [(3, 3)], treatments_per_step=5, max_steps=5, rng=_rng(), intervention_delay=0)
+    assert call_count[0] > 0
+
+
+def test_evaluate_intervention_delay_first_treatment_at_delay_step():
+    g = _setup(moisture=0.05, seed=0)
+    init_ignition(g, [(3, 3)])
+    first_treated_step = None
+    for step, sim_graph in simulate(
+        g, lambda graph, node: 1.0, treatments_per_step=5, max_steps=10, rng=_rng(), intervention_delay=3
+    ):
+        if any(sim_graph.nodes[n][STATE] == NodeState.TREATED for n in sim_graph.nodes):
+            first_treated_step = step
+            break
+    assert first_treated_step == 3
 
 
 def test_evaluate_nan_score_treated_last():
