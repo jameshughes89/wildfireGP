@@ -75,8 +75,7 @@ class GPConfig:
 
 
 def build_toolbox(
-    graph: nx.Graph,
-    ignition_nodes: list[tuple],
+    scenarios: list[tuple[nx.Graph, list[tuple]]],
     treatments_per_step: int,
     max_steps: int,
     rng: np.random.Generator,
@@ -84,10 +83,10 @@ def build_toolbox(
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> base.Toolbox:
     """
-    Build and return a DEAP Toolbox wired to the given simulation scenario.
+    Build and return a DEAP Toolbox wired to the given simulation scenarios.
 
-    :param graph: Landscape template. Deepcopied internally per evaluation; the original is never modified.
-    :param ignition_nodes: Nodes to ignite at t=0.
+    :param scenarios: List of (graph, ignition_nodes) pairs. Each individual is evaluated on all scenarios
+        and the mean total_burned is reported as its fitness. Graphs are deepcopied internally per evaluation.
     :param treatments_per_step: Treatment budget per timestep.
     :param max_steps: Maximum simulation timesteps.
     :param rng: NumPy random generator for spread stochasticity.
@@ -107,8 +106,7 @@ def build_toolbox(
     toolbox.register(
         "evaluate",
         _eval_individual,
-        graph=graph,
-        ignition_nodes=ignition_nodes,
+        scenarios=scenarios,
         treatments_per_step=treatments_per_step,
         max_steps=max_steps,
         rng=rng,
@@ -129,8 +127,7 @@ def build_toolbox(
 
 def run(
     config: GPConfig,
-    graph: nx.Graph,
-    ignition_nodes: list[tuple],
+    scenarios: list[tuple[nx.Graph, list[tuple]]],
     treatments_per_step: int,
     max_steps: int,
     rng: np.random.Generator,
@@ -147,17 +144,17 @@ def run(
         func = gp.compile(hof[0], pset=PRIMITIVE_SET)
 
     :param config: GP hyperparameters.
-    :param graph: Landscape template. Wind and moisture must be set before calling.
-    :param ignition_nodes: Nodes to ignite at t=0 for each evaluation.
+    :param scenarios: List of (graph, ignition_nodes) pairs. Each individual's fitness is the mean total_burned
+        across all scenarios. Each graph must have wind and moisture set before calling.
     :param treatments_per_step: Treatment budget per simulation timestep.
     :param max_steps: Maximum simulation timesteps before forced termination.
     :param rng: NumPy random generator.
     :param intervention_delay: Steps before treatments begin. See evaluate() for full documentation.
     :param hof_size: Number of best individuals to track across all generations.
-    :return: (population, logbook, hof). Logbook records gen, fitness (total_burned), size, peak_burning, and tree
-        height stats for every generation. hof contains the best hof_size individuals seen during evolution.
+    :return: (population, logbook, hof). Logbook records gen, fitness (mean total_burned), size, peak_burning, and
+        tree height stats for every generation. hof contains the best hof_size individuals seen during evolution.
     """
-    toolbox = build_toolbox(graph, ignition_nodes, treatments_per_step, max_steps, rng, config, intervention_delay)
+    toolbox = build_toolbox(scenarios, treatments_per_step, max_steps, rng, config, intervention_delay)
     mstats = _build_stats()
     logbook = tools.Logbook()
     logbook.header = ["gen", "fitness", "size", "peak", "height"]
@@ -251,19 +248,23 @@ def _register_types() -> None:
 
 def _eval_individual(
     individual,
-    graph: nx.Graph,
-    ignition_nodes: list[tuple],
+    scenarios: list[tuple[nx.Graph, list[tuple]]],
     treatments_per_step: int,
     max_steps: int,
     rng: np.random.Generator,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
-) -> tuple[int]:
+) -> tuple[float]:
     func = gp.compile(individual, pset=PRIMITIVE_SET)
-    total_burned, peak_burning = _sim_evaluate(
-        func, graph, ignition_nodes, treatments_per_step, max_steps, rng, intervention_delay
-    )
-    individual.peak_burning = peak_burning
-    return (total_burned,)
+    burns = []
+    peaks = []
+    for graph, ignition_nodes in scenarios:
+        total_burned, peak_burning = _sim_evaluate(
+            func, graph, ignition_nodes, treatments_per_step, max_steps, rng, intervention_delay
+        )
+        burns.append(total_burned)
+        peaks.append(peak_burning)
+    individual.peak_burning = float(np.mean(peaks))
+    return (float(np.mean(burns)),)
 
 
 def _evaluate_all(toolbox: base.Toolbox, population: list) -> None:
