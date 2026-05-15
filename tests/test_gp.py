@@ -92,13 +92,13 @@ def test_build_toolbox_reuses_registered_types_on_second_call():
 
 
 def test_gen_grow_terminal_only_types_use_argument_terminals():
-    expr_graph = _gen_grow(PRIMITIVE_SET, 0, 0, type_=type(_graph()))
+    expr_graph = _gen_grow(PRIMITIVE_SET, 1, 1, type_=type(_graph()))
     assert len(expr_graph) == 1
     assert isinstance(expr_graph[0], gp.Terminal)
     assert expr_graph[0].name == "ARG0"
     assert expr_graph[0].ret is type(_graph())
 
-    expr_node = _gen_grow(PRIMITIVE_SET, 0, 0, type_=tuple)
+    expr_node = _gen_grow(PRIMITIVE_SET, 1, 1, type_=tuple)
     assert len(expr_node) == 1
     assert isinstance(expr_node[0], gp.Terminal)
     assert expr_node[0].name == "ARG1"
