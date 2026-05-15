@@ -23,7 +23,7 @@ Usage
                                      [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
 
     --landscapes INT  Number of independent landscapes to evaluate on (default 5).
-    --runs INT        Simulations per landscape (default 10).
+    --runs INT        Simulations per landscape (default 5).
     --output PATH     Save the ranked results table as a CSV file. Each row contains rank, mean,
                       std, and the full (untruncated) expression string. Use this to identify
                       candidates for further analysis scripts via --expr.
@@ -163,7 +163,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--results-dir", type=pathlib.Path, required=True, help="Path to a run_gp.py results directory."
     )
     parser.add_argument("--landscapes", type=int, default=5, help="Number of independent landscapes (default 5).")
-    parser.add_argument("--runs", type=int, default=10, help="Simulations per landscape (default 10).")
+    parser.add_argument("--runs", type=int, default=5, help="Simulations per landscape (default 5).")
     parser.add_argument("--output", type=str, default=None, help="Save ranked results as a CSV file.")
     add_landscape_args(parser)
     return parser.parse_args(argv)
