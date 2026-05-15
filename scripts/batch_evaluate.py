@@ -58,55 +58,16 @@ import sys
 import dill
 import numpy as np
 
-from scripts.cli import add_landscape_args
+from scripts.cli import add_landscape_args, add_multi_landscape_args, find_valid_ignition
 from wildfireGP.evaluate import evaluate
 from wildfireGP.network import (
     create_grid,
-    select_ignition_node,
     set_fuel_moisture,
     set_wind,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger(__name__)
-
-
-def _find_valid_ignition(
-    graph,
-    rng: np.random.Generator,
-    max_steps: int,
-    intervention_delay: int,
-    min_burned: int,
-    max_tries: int,
-) -> tuple:
-    """
-    Sample ignition points until one produces meaningful fire spread without treatment.
-
-    Runs a no-treatment probe at each candidate ignition. If the fire burns fewer than min_burned
-    nodes it is discarded and a fresh ignition is sampled. If no valid ignition is found within
-    max_tries attempts, the best seen so far is returned with a warning.
-    """
-    best_ignition = None
-    best_burned = -1
-    for attempt in range(max_tries):
-        ignition = select_ignition_node(graph, rng)
-        burned, _ = evaluate(
-            lambda g, n: 0.0,
-            graph,
-            [ignition],
-            0,
-            max_steps,
-            np.random.default_rng(rng.integers(2**31)),
-            intervention_delay,
-        )
-        if burned >= min_burned:
-            return ignition
-        if burned > best_burned:
-            best_burned = burned
-            best_ignition = ignition
-        log.debug("  ignition %s burned %d < %d (attempt %d), resampling", ignition, burned, min_burned, attempt + 1)
-    log.warning("No valid ignition found after %d tries (best burned=%d); using best available", max_tries, best_burned)
-    return best_ignition
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -127,7 +88,7 @@ def main(argv: list[str] | None = None) -> None:
         graph = create_grid(args.rows, args.cols, seed=land_seed)
         set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
         set_fuel_moisture(graph, moisture=args.moisture)
-        ignition = _find_valid_ignition(
+        ignition = find_valid_ignition(
             graph,
             np.random.default_rng(land_seed),
             args.max_steps,
@@ -229,22 +190,10 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--results-dir", type=pathlib.Path, required=True, help="Path to a run_gp.py results directory."
     )
-    parser.add_argument("--landscapes", type=int, default=5, help="Number of independent landscapes (default 5).")
     parser.add_argument("--runs", type=int, default=5, help="Simulations per landscape (default 5).")
-    parser.add_argument(
-        "--min-burned",
-        type=int,
-        default=50,
-        help="Minimum burned nodes in no-treatment probe for ignition to be valid (default 50).",
-    )
-    parser.add_argument(
-        "--max-ignition-tries",
-        type=int,
-        default=20,
-        help="Max attempts to find a valid ignition per landscape (default 20).",
-    )
     parser.add_argument("--output", type=str, default=None, help="Save ranked results as a CSV file.")
     add_landscape_args(parser)
+    add_multi_landscape_args(parser)
     return parser.parse_args(argv)
 
 

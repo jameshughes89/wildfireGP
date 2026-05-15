@@ -1,8 +1,8 @@
 """
 Plot strategy comparison as box plots.
 
-Each strategy is evaluated over --runs independent simulations on the same landscape. Box plots of total_burned and
-peak_burning distributions are shown side-by-side, ranked by median total_burned.
+Each strategy is evaluated across --landscapes independent landscapes with --runs simulations per landscape. Box plots
+of total_burned and peak_burning distributions are shown side-by-side, ranked by median total_burned.
 
 Usage
 -----
@@ -10,7 +10,7 @@ Usage
                                       [--seed INT] [--rows INT] [--cols INT]
                                       [--treatments INT] [--max-steps INT] [--intervention-delay INT]
                                       [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
-                                      [--runs INT] [--output PATH]
+                                      [--landscapes INT] [--runs INT] [--output PATH]
 
     If --results-dir is given without --expr, all hof_*.dill files in that directory are loaded automatically alongside
     the builtin baselines. If neither --hof nor --results-dir is given, only baselines are compared.
@@ -22,7 +22,7 @@ Examples
 --------
     python -m scripts.plot_comparison
     python -m scripts.plot_comparison --results-dir results/2026-05-08_10-00-00
-    python -m scripts.plot_comparison --hof results/run/hof_0.dill --runs 50
+    python -m scripts.plot_comparison --hof results/run/hof_0.dill --runs 20 --landscapes 5
     python -m scripts.plot_comparison --results-dir results/2026-05-08_10-00-00 --expr "min(fuel_level, ...)"
 """
 
@@ -34,11 +34,14 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-from scripts.cli import add_landscape_args
+from scripts.cli import (
+    add_landscape_args,
+    add_multi_landscape_args,
+    find_valid_ignition,
+)
 from scripts.compare_strategies import _load_strategies, _run_strategy
 from wildfireGP.network import (
     create_grid,
-    select_ignition_node,
     set_fuel_moisture,
     set_wind,
 )
@@ -50,22 +53,48 @@ log = logging.getLogger(__name__)
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
 
-    rng = np.random.default_rng(args.seed)
-    log.info("Building landscape (%dx%d, seed=%s)", args.rows, args.cols, args.seed)
-    graph = create_grid(args.rows, args.cols, seed=args.seed)
-    set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
-    set_fuel_moisture(graph, moisture=args.moisture)
-    ignition = select_ignition_node(graph, rng)
-    log.info("Ignition node: %s", ignition)
+    root_rng = np.random.default_rng(args.seed)
+
+    land_seeds = [int(root_rng.integers(2**31)) if args.seed is not None else None for _ in range(args.landscapes)]
+    run_seed_matrix = [
+        [int(root_rng.integers(2**31)) if args.seed is not None else None for _ in range(args.runs)]
+        for _ in range(args.landscapes)
+    ]
+
+    log.info("Validating ignitions across %d landscapes", args.landscapes)
+    landscapes = []
+    for land_seed in land_seeds:
+        graph = create_grid(args.rows, args.cols, seed=land_seed)
+        set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
+        set_fuel_moisture(graph, moisture=args.moisture)
+        ignition = find_valid_ignition(
+            graph,
+            np.random.default_rng(land_seed),
+            args.max_steps,
+            args.intervention_delay,
+            args.min_burned,
+            args.max_ignition_tries,
+        )
+        landscapes.append((land_seed, ignition))
 
     strategies = _load_strategies(args)
-    log.info("Evaluating %d strategies over %d runs each", len(strategies), args.runs)
+    log.info("Evaluating %d strategies over %d landscapes x %d runs", len(strategies), args.landscapes, args.runs)
 
     results = {}
     for name, func in strategies:
         log.info("  %s ...", name)
         burned, peak = _run_strategy(
-            func, graph, [ignition], args.treatments, args.max_steps, args.runs, args.seed, args.intervention_delay
+            func,
+            landscapes,
+            args.treatments,
+            args.rows,
+            args.cols,
+            args.wind_speed,
+            args.wind_direction,
+            args.moisture,
+            args.max_steps,
+            run_seed_matrix,
+            args.intervention_delay,
         )
         results[name] = (burned, peak)
 
@@ -106,7 +135,8 @@ def _plot(results: dict[str, tuple[np.ndarray, np.ndarray]]) -> plt.Figure:
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Box-plot comparison of strategy outcomes.")
     add_landscape_args(parser)
-    parser.add_argument("--runs", type=int, default=30, help="Stochastic runs per strategy.")
+    add_multi_landscape_args(parser)
+    parser.add_argument("--runs", type=int, default=5, help="Simulations per landscape (default 5).")
     parser.add_argument("--results-dir", type=pathlib.Path, default=None)
     gp_source = parser.add_mutually_exclusive_group()
     gp_source.add_argument("--hof", type=pathlib.Path, nargs="+", default=None)

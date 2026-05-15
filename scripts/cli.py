@@ -5,17 +5,28 @@ add_landscape_args() registers the simulation-scenario arguments common to run_g
 animate_simulation.py. Centralising them here means defaults and help strings are defined once and all scripts stay in
 sync automatically.
 
+add_multi_landscape_args() adds --landscapes, --min-burned, and --max-ignition-tries on top of add_landscape_args().
+Use this for evaluation scripts that average results across N independent landscapes.
+
+find_valid_ignition() probes candidate ignition points on a landscape and returns one where fire spreads meaningfully
+without treatment, filtering out locations where the fire would naturally extinguish regardless of strategy.
+
 load_candidate_by_expr() loads a compiled GP callable from a results directory by its expression string. Use this to
 load a specific candidate identified from batch_evaluate.py output (--output CSV) rather than loading HOF .dill files
 by index.
 """
 
 import argparse
+import logging
 import pathlib
 
 import dill
+import numpy as np
 
-from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY
+from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, evaluate
+from wildfireGP.network import select_ignition_node
+
+log = logging.getLogger(__name__)
 
 
 def load_candidate_by_expr(results_dir: pathlib.Path, expr: str) -> object:
@@ -82,3 +93,72 @@ def add_landscape_args(parser: argparse.ArgumentParser) -> None:
         "--wind-direction", type=float, default=0.0, help="Wind direction in degrees (0=north, 90=east)."
     )
     parser.add_argument("--moisture", type=float, default=0.2, help="Fuel moisture fraction [0, 1].")
+
+
+def add_multi_landscape_args(parser: argparse.ArgumentParser) -> None:
+    """
+    Register multi-landscape evaluation arguments on parser.
+
+    Call this after add_landscape_args() in evaluation scripts that average over N landscapes.
+
+    Added arguments
+    ---------------
+    --landscapes INT          Number of independent landscapes to evaluate on. Default 5.
+    --min-burned INT          Minimum burned nodes in a no-treatment probe for an ignition to be
+                              considered valid. Ignitions below this threshold are resampled.
+                              Default 50 (2% of a 50x50 grid). Prevents natural fire extinction
+                              from being mistaken for strategy effectiveness.
+    --max-ignition-tries INT  Maximum attempts to find a valid ignition per landscape before
+                              falling back to the best seen. Default 20.
+    """
+    parser.add_argument("--landscapes", type=int, default=5, help="Number of independent landscapes (default 5).")
+    parser.add_argument(
+        "--min-burned",
+        type=int,
+        default=50,
+        help="Minimum burned nodes in no-treatment probe for ignition to be valid (default 50).",
+    )
+    parser.add_argument(
+        "--max-ignition-tries",
+        type=int,
+        default=20,
+        help="Max attempts to find a valid ignition per landscape (default 20).",
+    )
+
+
+def find_valid_ignition(
+    graph,
+    rng: np.random.Generator,
+    max_steps: int,
+    intervention_delay: int,
+    min_burned: int,
+    max_tries: int,
+) -> tuple:
+    """
+    Sample ignition points until one produces meaningful fire spread without treatment.
+
+    Runs a no-treatment probe at each candidate ignition. If the fire burns fewer than min_burned
+    nodes it is discarded and a fresh ignition is sampled. If no valid ignition is found within
+    max_tries attempts, the best seen so far is returned with a warning.
+    """
+    best_ignition = None
+    best_burned = -1
+    for attempt in range(max_tries):
+        ignition = select_ignition_node(graph, rng)
+        burned, _ = evaluate(
+            lambda g, n: 0.0,
+            graph,
+            [ignition],
+            0,
+            max_steps,
+            np.random.default_rng(rng.integers(2**31)),
+            intervention_delay,
+        )
+        if burned >= min_burned:
+            return ignition
+        if burned > best_burned:
+            best_burned = burned
+            best_ignition = ignition
+        log.debug("ignition %s burned %d < %d (attempt %d), resampling", ignition, burned, min_burned, attempt + 1)
+    log.warning("No valid ignition found after %d tries (best burned=%d); using best available", max_tries, best_burned)
+    return best_ignition
