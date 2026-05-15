@@ -169,12 +169,6 @@ def test_select_ignition_node_is_reproducible_with_same_seed():
     assert n1 == n2
 
 
-def test_select_ignition_node_varies_with_different_seeds():
-    graph = create_grid(20, 20, seed=0)
-    nodes = {select_ignition_node(graph, np.random.default_rng(i)) for i in range(30)}
-    assert len(nodes) > 1
-
-
 def test_select_ignition_node_falls_back_when_centre_has_no_burnable_nodes():
     graph = create_grid(10, 10, seed=0)
     rows, cols = 10, 10

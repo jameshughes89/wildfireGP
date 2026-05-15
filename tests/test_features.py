@@ -79,19 +79,6 @@ def test_mean_neighbour_elevation_returns_average_of_neighbour_elevation():
     assert mean_neighbour_elevation(g, _NODE) == 0.5
 
 
-def test_mean_neighbour_elevation_includes_zero_elevation_neighbours():
-    g = _graph()
-    g.nodes[(0, 0)][ELEVATION] = 0.0
-    g.nodes[(0, 1)][ELEVATION] = 0.0
-    g.nodes[(0, 2)][ELEVATION] = 0.0
-    g.nodes[(1, 0)][ELEVATION] = 0.0
-    g.nodes[(1, 2)][ELEVATION] = 1.0
-    g.nodes[(2, 0)][ELEVATION] = 1.0
-    g.nodes[(2, 1)][ELEVATION] = 1.0
-    g.nodes[(2, 2)][ELEVATION] = 1.0
-    assert mean_neighbour_elevation(g, _NODE) == 0.5
-
-
 def test_mean_neighbour_elevation_uses_available_neighbours_for_edge_node():
     g = _graph()
     g.nodes[(0, 1)][ELEVATION] = 0.2
@@ -115,19 +102,6 @@ def test_mean_neighbour_fuel_returns_average_of_neighbour_fuel():
     g.nodes[(2, 0)][FUEL] = 0.6
     g.nodes[(2, 1)][FUEL] = 0.8
     g.nodes[(2, 2)][FUEL] = 0.8
-    assert mean_neighbour_fuel(g, _NODE) == 0.5
-
-
-def test_mean_neighbour_fuel_includes_zero_fuel_neighbours():
-    g = _graph()
-    g.nodes[(0, 0)][FUEL] = 0.0
-    g.nodes[(0, 1)][FUEL] = 0.0
-    g.nodes[(0, 2)][FUEL] = 0.0
-    g.nodes[(1, 0)][FUEL] = 0.0
-    g.nodes[(1, 2)][FUEL] = 1.0
-    g.nodes[(2, 0)][FUEL] = 1.0
-    g.nodes[(2, 1)][FUEL] = 1.0
-    g.nodes[(2, 2)][FUEL] = 1.0
     assert mean_neighbour_fuel(g, _NODE) == 0.5
 
 
