@@ -85,6 +85,8 @@ def test_main_runs_and_prints_table(tmp_path, capsys):
         [
             "--results-dir",
             str(tmp_path),
+            "--landscapes",
+            "2",
             "--runs",
             "3",
             "--seed",
@@ -108,6 +110,8 @@ def test_main_saves_csv_when_output_flag_given(tmp_path):
         [
             "--results-dir",
             str(tmp_path),
+            "--landscapes",
+            "2",
             "--runs",
             "3",
             "--seed",
@@ -132,6 +136,8 @@ def test_main_no_csv_without_output_flag(tmp_path):
         [
             "--results-dir",
             str(tmp_path),
+            "--landscapes",
+            "2",
             "--runs",
             "3",
             "--seed",
