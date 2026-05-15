@@ -58,7 +58,11 @@ import sys
 import dill
 import numpy as np
 
-from scripts.cli import add_landscape_args, add_multi_landscape_args, find_valid_ignition
+from scripts.cli import (
+    add_landscape_args,
+    add_multi_landscape_args,
+    find_valid_ignition,
+)
 from wildfireGP.evaluate import evaluate
 from wildfireGP.network import (
     create_grid,
