@@ -3,9 +3,11 @@
 import pathlib
 
 import dill
+import numpy as np
 import pytest
 
-from scripts.batch_evaluate import _load_candidates, main
+from scripts.batch_evaluate import _find_valid_ignition, _load_candidates, main
+from wildfireGP.network import create_grid, set_fuel_moisture, set_wind
 
 
 def _const_func(graph, node):
@@ -72,6 +74,46 @@ def test_load_candidates_skips_hof_dill_without_expr_file(tmp_path):
         dill.dump(_const_func, f)
     with pytest.raises(SystemExit):
         _load_candidates(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# _find_valid_ignition
+# ---------------------------------------------------------------------------
+
+
+def test_find_valid_ignition_returns_a_tuple():
+    g = create_grid(10, 10, seed=0)
+    set_wind(g, speed=20.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.2)
+    ignition = _find_valid_ignition(
+        g, np.random.default_rng(0), max_steps=50, intervention_delay=0, min_burned=0, max_tries=5
+    )
+    assert isinstance(ignition, tuple)
+
+
+def test_find_valid_ignition_returns_node_in_graph():
+    g = create_grid(10, 10, seed=0)
+    set_wind(g, speed=20.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.2)
+    ignition = _find_valid_ignition(
+        g, np.random.default_rng(0), max_steps=50, intervention_delay=0, min_burned=0, max_tries=5
+    )
+    assert ignition in g.nodes
+
+
+def test_find_valid_ignition_falls_back_when_min_burned_impossible(caplog):
+    # min_burned set impossibly high so no ignition can satisfy it; should warn and return best
+    g = create_grid(10, 10, seed=0)
+    set_wind(g, speed=20.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.2)
+    import logging
+
+    with caplog.at_level(logging.WARNING):
+        ignition = _find_valid_ignition(
+            g, np.random.default_rng(0), max_steps=5, intervention_delay=0, min_burned=99999, max_tries=3
+        )
+    assert ignition is not None
+    assert "No valid ignition" in caplog.text
 
 
 # ---------------------------------------------------------------------------

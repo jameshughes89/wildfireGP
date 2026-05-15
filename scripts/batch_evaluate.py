@@ -8,6 +8,14 @@ directory, deduplicates by expression string, evaluates each candidate across --
 All candidates are evaluated on the same set of landscapes for a fair comparison. The evaluation landscapes are
 independent of the training landscape by default (seed=None). Pass --seed for a reproducible comparison.
 
+Natural extinction filtering
+----------------------------
+Some ignition points produce fires that die out regardless of strategy, due to low local fuel connectivity. Including
+these runs would conflate natural extinction with genuine strategy performance and drag the mean toward zero. To avoid
+this, each ignition point is validated upfront with a single no-treatment probe: if the fire burns fewer than
+--min-burned nodes without any intervention, the ignition is discarded and a new one is sampled (up to --max-ignition-
+tries attempts). Only ignition points where fire spreads meaningfully are used for candidate evaluation.
+
 Deduplication
 -------------
 Candidates are identified by their expression string. If the same expression appears in both the final population and
@@ -18,15 +26,21 @@ Usage
 -----
     python -m scripts.batch_evaluate --results-dir PATH
                                      [--landscapes INT] [--runs INT] [--seed INT] [--output PATH]
+                                     [--min-burned INT] [--max-ignition-tries INT]
                                      [--rows INT] [--cols INT]
                                      [--treatments INT] [--max-steps INT] [--intervention-delay INT]
                                      [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
 
-    --landscapes INT  Number of independent landscapes to evaluate on (default 5).
-    --runs INT        Simulations per landscape (default 5).
-    --output PATH     Save the ranked results table as a CSV file. Each row contains rank, mean,
-                      std, and the full (untruncated) expression string. Use this to identify
-                      candidates for further analysis scripts via --expr.
+    --landscapes INT          Number of independent landscapes to evaluate on (default 5).
+    --runs INT                Simulations per landscape (default 5).
+    --min-burned INT          Minimum burned nodes in a no-treatment probe for the ignition to be
+                              considered valid (default 50). Ignitions below this threshold are
+                              replaced with a fresh sample.
+    --max-ignition-tries INT  Maximum attempts to find a valid ignition per landscape (default 20).
+                              If no valid ignition is found, the best available is used with a warning.
+    --output PATH             Save the ranked results table as a CSV file. Each row contains rank, mean,
+                              std, and the full (untruncated) expression string. Use this to identify
+                              candidates for further analysis scripts via --expr.
 
 Examples
 --------
@@ -57,6 +71,44 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__name__)
 
 
+def _find_valid_ignition(
+    graph,
+    rng: np.random.Generator,
+    max_steps: int,
+    intervention_delay: int,
+    min_burned: int,
+    max_tries: int,
+) -> tuple:
+    """
+    Sample ignition points until one produces meaningful fire spread without treatment.
+
+    Runs a no-treatment probe at each candidate ignition. If the fire burns fewer than min_burned
+    nodes it is discarded and a fresh ignition is sampled. If no valid ignition is found within
+    max_tries attempts, the best seen so far is returned with a warning.
+    """
+    best_ignition = None
+    best_burned = -1
+    for attempt in range(max_tries):
+        ignition = select_ignition_node(graph, rng)
+        burned, _ = evaluate(
+            lambda g, n: 0.0,
+            graph,
+            [ignition],
+            0,
+            max_steps,
+            np.random.default_rng(rng.integers(2**31)),
+            intervention_delay,
+        )
+        if burned >= min_burned:
+            return ignition
+        if burned > best_burned:
+            best_burned = burned
+            best_ignition = ignition
+        log.debug("  ignition %s burned %d < %d (attempt %d), resampling", ignition, burned, min_burned, attempt + 1)
+    log.warning("No valid ignition found after %d tries (best burned=%d); using best available", max_tries, best_burned)
+    return best_ignition
+
+
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
 
@@ -68,6 +120,22 @@ def main(argv: list[str] | None = None) -> None:
         [int(root_rng.integers(2**31)) if args.seed is not None else None for _ in range(args.runs)]
         for _ in range(args.landscapes)
     ]
+
+    # Validate ignitions upfront — shared across all candidates for a fair comparison.
+    ignitions = []
+    for land_seed in land_seeds:
+        graph = create_grid(args.rows, args.cols, seed=land_seed)
+        set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
+        set_fuel_moisture(graph, moisture=args.moisture)
+        ignition = _find_valid_ignition(
+            graph,
+            np.random.default_rng(land_seed),
+            args.max_steps,
+            args.intervention_delay,
+            args.min_burned,
+            args.max_ignition_tries,
+        )
+        ignitions.append(ignition)
 
     candidates = _load_candidates(args.results_dir)
     log.info(
@@ -81,12 +149,11 @@ def main(argv: list[str] | None = None) -> None:
     for i, (expr, func) in enumerate(candidates, 1):
         log.info("  %d/%d  %s", i, len(candidates), expr[:80])
         burned_counts = []
-        for land_idx, land_seed in enumerate(land_seeds):
+        for land_seed, ignition, run_seeds in zip(land_seeds, ignitions, run_seed_matrix):
             graph = create_grid(args.rows, args.cols, seed=land_seed)
             set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
             set_fuel_moisture(graph, moisture=args.moisture)
-            ignition = select_ignition_node(graph, np.random.default_rng(land_seed))
-            for run_seed in run_seed_matrix[land_idx]:
+            for run_seed in run_seeds:
                 b, _ = evaluate(
                     func,
                     graph,
@@ -164,6 +231,18 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     parser.add_argument("--landscapes", type=int, default=5, help="Number of independent landscapes (default 5).")
     parser.add_argument("--runs", type=int, default=5, help="Simulations per landscape (default 5).")
+    parser.add_argument(
+        "--min-burned",
+        type=int,
+        default=50,
+        help="Minimum burned nodes in no-treatment probe for ignition to be valid (default 50).",
+    )
+    parser.add_argument(
+        "--max-ignition-tries",
+        type=int,
+        default=20,
+        help="Max attempts to find a valid ignition per landscape (default 20).",
+    )
     parser.add_argument("--output", type=str, default=None, help="Save ranked results as a CSV file.")
     add_landscape_args(parser)
     return parser.parse_args(argv)
