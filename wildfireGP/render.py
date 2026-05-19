@@ -13,7 +13,12 @@ import networkx as nx
 import numpy as np
 from matplotlib.animation import FuncAnimation
 
-from wildfireGP.features import precompute_burnable_fire_map, precompute_fire_map
+from wildfireGP.features import (
+    precompute_burnable_fire_map,
+    precompute_fire_map,
+    precompute_reachable_unburned_area,
+    precompute_state_counts,
+)
 from wildfireGP.network import (
     COLS,
     ELEVATION,
@@ -106,7 +111,8 @@ def render_heatmap(
     non-UNBURNED (BURNING, BURNED, TREATED) nodes are rendered with their standard colours matching draw(). A colorbar
     shows the score range. Elevation contour lines are overlaid.
 
-    precompute_fire_map and precompute_burnable_fire_map are called internally so strategies that depend on fire-map
+    All four precomputes (precompute_fire_map, precompute_burnable_fire_map, precompute_reachable_unburned_area,
+    precompute_state_counts) are called internally so any strategy that depends on graph-level precomputed
     features work correctly without the caller needing to do setup.
 
     :param graph: Landscape graph with wind and moisture set.
@@ -117,6 +123,8 @@ def render_heatmap(
     """
     precompute_fire_map(graph)
     precompute_burnable_fire_map(graph)
+    precompute_reachable_unburned_area(graph)
+    precompute_state_counts(graph)
 
     rows, cols = _grid_dims(graph)
     elevation = _build_elevation(graph, rows, cols)
@@ -174,8 +182,9 @@ def animate_heatmap(
     is normalised globally across all frames so colours are comparable between timesteps --- a node that is high
     priority in frame 1 uses the same green as a high-priority node in frame 20.
 
-    precompute_fire_map and precompute_burnable_fire_map are called once per snapshot during a pre-scoring pass
-    before animation begins, so strategies that depend on fire-map features work correctly.
+    All four precomputes (precompute_fire_map, precompute_burnable_fire_map, precompute_reachable_unburned_area,
+    precompute_state_counts) are called once per snapshot during a pre-scoring pass before animation begins, so
+    any strategy that depends on graph-level precomputed features works correctly.
 
     :param graphs: Ordered list of graph snapshots, one per frame.
     :param func: Strategy callable (graph, node) -> float.
@@ -189,6 +198,8 @@ def animate_heatmap(
     for g in graphs:
         precompute_fire_map(g)
         precompute_burnable_fire_map(g)
+        precompute_reachable_unburned_area(g)
+        precompute_state_counts(g)
 
     all_finite: list[float] = []
     for g in graphs:

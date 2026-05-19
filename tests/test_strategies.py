@@ -208,9 +208,11 @@ def test_score_fire_run_downwind_scores_higher_than_crosswind():
 def test_score_fire_run_anchor_weight_keeps_nudge_smaller_than_core():
     graph = _graph_with_fire(ignition=(5, 5))
     downwind = (7, 5)
-    anchor_contribution = ANCHOR_WEIGHT * 8 / 8  # max possible anchoring
-    core = abs(score_fire_run(graph, downwind) - anchor_contribution)
-    assert anchor_contribution <= core or core > 0  # nudge does not swamp core signal
+    # _graph_with_fire has no TREATED nodes, so has_treated_neighbour=0 and the score is pure core.
+    core_only = score_fire_run(graph, downwind)
+    # Max possible anchor contribution is ANCHOR_WEIGHT; core magnitude must exceed it so the nudge
+    # is a tiebreaker rather than the dominant signal.
+    assert abs(core_only) > ANCHOR_WEIGHT
 
 
 def test_score_fire_run_higher_fuel_scores_higher():
