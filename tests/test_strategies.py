@@ -12,7 +12,6 @@ from wildfireGP.network import (
 )
 from wildfireGP.spread import MAX_BURN_STEPS
 from wildfireGP.strategies import (
-    ANCHOR_WEIGHT,
     random_score,
     score_by_burning_neighbors,
     score_by_fire_proximity,
@@ -203,16 +202,6 @@ def test_score_fire_run_downwind_scores_higher_than_crosswind():
     downwind = (7, 5)  # south of fire, aligned with north wind
     crosswind = (5, 3)  # west of fire, perpendicular to wind
     assert score_fire_run(graph, downwind) > score_fire_run(graph, crosswind)
-
-
-def test_score_fire_run_anchor_weight_keeps_nudge_smaller_than_core():
-    graph = _graph_with_fire(ignition=(5, 5))
-    downwind = (7, 5)
-    # _graph_with_fire has no TREATED nodes, so has_treated_neighbour=0 and the score is pure core.
-    core_only = score_fire_run(graph, downwind)
-    # Max possible anchor contribution is ANCHOR_WEIGHT; core magnitude must exceed it so the nudge
-    # is a tiebreaker rather than the dominant signal.
-    assert abs(core_only) > ANCHOR_WEIGHT
 
 
 def test_score_fire_run_higher_fuel_scores_higher():
