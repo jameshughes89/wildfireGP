@@ -12,6 +12,7 @@ from wildfireGP.features import (
     precompute_fire_map,
 )
 from wildfireGP.network import (
+    FUEL,
     STATE,
     TERRAIN,
     NodeState,
@@ -81,6 +82,15 @@ def test_evaluate_peak_burning_not_greater_than_node_count():
     g = _setup()
     _, peak_burning = evaluate(_no_op, g, [(3, 3)], treatments_per_step=0, max_steps=20, rng=_rng())
     assert peak_burning <= g.number_of_nodes()
+
+
+def test_evaluate_peak_burning_counts_ignitions_that_burn_out_without_spreading():
+    g = _setup(moisture=1.0)
+    ignitions = [(3, 3), (3, 4)]
+    for n in ignitions:
+        g.nodes[n][FUEL] = 0.2
+    _, peak_burning = evaluate(_no_op, g, ignitions, treatments_per_step=0, max_steps=10, rng=_rng())
+    assert peak_burning >= len(ignitions)
 
 
 # ---------------------------------------------------------------------------
