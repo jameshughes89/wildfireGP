@@ -177,6 +177,31 @@ def test_render_heatmap_handles_uniform_scores():
     assert isinstance(ax, plt.Axes)
 
 
+def test_render_heatmap_runs_all_required_precomputes():
+    from wildfireGP.features import (
+        reachable_unburned_area,
+        total_burned,
+        total_burning,
+        total_treated,
+        total_unburned,
+    )
+
+    g = _heatmap_graph()
+
+    def strategy_using_all_precomputed_features(graph, node):
+        return (
+            reachable_unburned_area(graph, node)
+            + total_burned(graph)
+            + total_burning(graph)
+            + total_treated(graph)
+            + total_unburned(graph)
+        )
+
+    ax = render_heatmap(g, strategy_using_all_precomputed_features)
+    plt.close("all")
+    assert isinstance(ax, plt.Axes)
+
+
 # ---------------------------------------------------------------------------
 # animate_heatmap
 # ---------------------------------------------------------------------------
@@ -198,6 +223,29 @@ def test_animate_heatmap_single_frame(tmp_path):
 def test_animate_heatmap_handles_all_nonfinite_scores(tmp_path):
     out = tmp_path / "out.gif"
     animate_heatmap(_snapshots(), lambda graph, node: float("-inf"), path=str(out))
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_animate_heatmap_runs_all_required_precomputes(tmp_path):
+    from wildfireGP.features import (
+        reachable_unburned_area,
+        total_burned,
+        total_burning,
+        total_treated,
+        total_unburned,
+    )
+
+    def strategy_using_all_precomputed_features(graph, node):
+        return (
+            reachable_unburned_area(graph, node)
+            + total_burned(graph)
+            + total_burning(graph)
+            + total_treated(graph)
+            + total_unburned(graph)
+        )
+
+    out = tmp_path / "heatmap.gif"
+    animate_heatmap(_snapshots(), strategy_using_all_precomputed_features, path=str(out))
     assert out.exists() and out.stat().st_size > 0
 
 

@@ -118,7 +118,7 @@ def evaluate(
     """
     graph = copy.deepcopy(graph)
     init_ignition(graph, ignition_nodes)
-    peak_burning = 0
+    peak_burning = sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING)
     for _step, _ in simulate(graph, func, treatments_per_step, max_steps, rng, intervention_delay):
         peak_burning = max(peak_burning, sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING))
     total_burned = sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNED)
