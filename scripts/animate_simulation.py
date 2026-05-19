@@ -39,7 +39,7 @@ from scripts.cli import add_landscape_args, load_candidate_by_expr
 from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, init_ignition, simulate
 from wildfireGP.network import (
     create_grid,
-    select_ignition_node,
+    select_ignition_cluster,
     set_fuel_moisture,
     set_wind,
 )
@@ -62,10 +62,10 @@ def main(argv: list[str] | None = None) -> None:
     set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
     set_fuel_moisture(graph, moisture=args.moisture)
 
-    ignition = select_ignition_node(graph, rng)
-    log.info("Ignition node: %s  strategy: %s", ignition, label)
+    ignition_nodes = select_ignition_cluster(graph, rng, size=args.ignition_cluster_size)
+    log.info("Ignition cluster (%d nodes): %s  strategy: %s", len(ignition_nodes), ignition_nodes, label)
 
-    init_ignition(graph, [ignition])
+    init_ignition(graph, ignition_nodes)
     snapshots = _run_simulation(graph, func, args.treatments, args.max_steps, rng, args.intervention_delay)
     log.info("Simulation complete: %d frames", len(snapshots))
 
@@ -116,6 +116,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     source.add_argument("--expr", type=str, help="Load a candidate by expression string; requires --results-dir.")
     parser.add_argument("--results-dir", type=pathlib.Path, default=None)
     add_landscape_args(parser)
+    parser.add_argument("--ignition-cluster-size", type=int, default=3, help="Number of nodes to ignite at t=0.")
     parser.add_argument("--output", type=str, default="simulation.gif")
     parser.add_argument("--fps", type=int, default=4)
     return parser.parse_args(argv)
