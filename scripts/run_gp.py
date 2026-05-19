@@ -149,8 +149,8 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="Number of landscapes to evaluate each candidate on per generation. Fitness is mean total_burned "
         "across landscapes. Default 3.",
     )
-    parser.add_argument("--pop", type=int, default=100)
-    parser.add_argument("--gens", type=int, default=50)
+    parser.add_argument("--pop", type=int, default=GPConfig.population_size)
+    parser.add_argument("--gens", type=int, default=GPConfig.generations)
     parser.add_argument("--hof", type=int, default=5, help="Number of best individuals to save.")
     parser.add_argument("--tournament-size", type=int, default=GPConfig.tournament_size)
     parser.add_argument("--init-min-height", type=int, default=GPConfig.init_min_height)

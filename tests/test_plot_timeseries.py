@@ -23,7 +23,7 @@ def small_graph():
 
 @pytest.fixture()
 def ignition(small_graph):
-    return select_ignition_node(small_graph, np.random.default_rng(0))
+    return [select_ignition_node(small_graph, np.random.default_rng(0))]
 
 
 def _make_series(n_steps: int = 5) -> dict:

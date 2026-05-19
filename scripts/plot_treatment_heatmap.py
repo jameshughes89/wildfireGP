@@ -49,7 +49,7 @@ from wildfireGP.network import (
     STATE,
     NodeState,
     create_grid,
-    select_ignition_node,
+    select_ignition_cluster,
     set_fuel_moisture,
     set_wind,
 )
@@ -70,12 +70,12 @@ def main(argv: list[str] | None = None) -> None:
     graph = create_grid(args.rows, args.cols, seed=args.seed)
     set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
     set_fuel_moisture(graph, moisture=args.moisture)
-    ignition = select_ignition_node(graph, rng)
-    log.info("Ignition node: %s  strategy: %s", ignition, label)
+    ignition_nodes = select_ignition_cluster(graph, rng, size=args.ignition_cluster_size)
+    log.info("Ignition cluster (%d nodes): %s  strategy: %s", len(ignition_nodes), ignition_nodes, label)
 
     log.info("Running %d simulations ...", args.runs)
     treatment_freq, burn_freq = collect_spatial_data(
-        func, graph, ignition, args.treatments, args.max_steps, args.runs, args.seed, args.intervention_delay
+        func, graph, ignition_nodes, args.treatments, args.max_steps, args.runs, args.seed, args.intervention_delay
     )
 
     output = pathlib.Path(args.output) if args.output else pathlib.Path("treatment_heatmap.png")
@@ -88,7 +88,7 @@ def main(argv: list[str] | None = None) -> None:
 def collect_spatial_data(
     func,
     graph,
-    ignition: tuple,
+    ignition_nodes: list[tuple],
     treatments_per_step: int,
     max_steps: int,
     runs: int,
@@ -109,7 +109,7 @@ def collect_spatial_data(
     for i in range(runs):
         seed = None if base_seed is None else base_seed + i
         treated, burned = _run_and_collect(
-            graph, ignition, func, treatments_per_step, max_steps, np.random.default_rng(seed), intervention_delay
+            graph, ignition_nodes, func, treatments_per_step, max_steps, np.random.default_rng(seed), intervention_delay
         )
         for r, c in treated:
             treatment_count[r, c] += 1
@@ -121,7 +121,7 @@ def collect_spatial_data(
 
 def _run_and_collect(
     graph,
-    ignition: tuple,
+    ignition_nodes: list[tuple],
     func,
     treatments_per_step: int,
     max_steps: int,
@@ -129,7 +129,7 @@ def _run_and_collect(
     intervention_delay: int,
 ) -> tuple[set, set]:
     g = copy.deepcopy(graph)
-    init_ignition(g, [ignition])
+    init_ignition(g, ignition_nodes)
     for _step, _ in simulate(g, func, treatments_per_step, max_steps, rng, intervention_delay):
         pass
     treated_nodes = {n for n in g.nodes if g.nodes[n][STATE] == NodeState.TREATED}
@@ -183,6 +183,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     source.add_argument("--expr", type=str, help="Load a candidate by expression string; requires --results-dir.")
     parser.add_argument("--results-dir", type=pathlib.Path, default=None)
     add_landscape_args(parser)
+    parser.add_argument("--ignition-cluster-size", type=int, default=3, help="Number of nodes to ignite at t=0.")
     parser.add_argument("--runs", type=int, default=50, help="Simulations to accumulate (default 50).")
     parser.add_argument("--output", type=str, default=None)
     return parser.parse_args(argv)
