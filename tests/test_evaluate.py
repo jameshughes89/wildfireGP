@@ -10,6 +10,7 @@ from wildfireGP.evaluate import (
 from wildfireGP.features import (
     distance_to_fire,
     precompute_fire_map,
+    treated_neighbour_count,
 )
 from wildfireGP.network import (
     FUEL,
@@ -189,6 +190,30 @@ def test_apply_treatments_skips_water_and_rock():
             from wildfireGP.network import NodeState
 
             assert g.nodes[n][STATE] != NodeState.TREATED
+
+
+def test_apply_treatments_second_pick_is_adjacent_when_adjacency_rewarded():
+    g = create_grid(5, 5, seed=0)
+    set_wind(g, speed=0.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.1)
+    _apply_treatments(
+        g, lambda graph, node: float(treated_neighbour_count(graph, node)), budget=2, rng=np.random.default_rng(0)
+    )
+    treated = [n for n in g.nodes if g.nodes[n][STATE] == NodeState.TREATED]
+    assert len(treated) == 2
+    assert treated[1] in g.neighbors(treated[0]) or treated[0] in g.neighbors(treated[1])
+
+
+def test_apply_treatments_second_pick_not_adjacent_when_adjacency_penalised():
+    g = create_grid(5, 5, seed=0)
+    set_wind(g, speed=0.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.1)
+    _apply_treatments(
+        g, lambda graph, node: -float(treated_neighbour_count(graph, node)), budget=2, rng=np.random.default_rng(0)
+    )
+    treated = [n for n in g.nodes if g.nodes[n][STATE] == NodeState.TREATED]
+    assert len(treated) == 2
+    assert treated[1] not in g.neighbors(treated[0]) and treated[0] not in g.neighbors(treated[1])
 
 
 def test_safe_score_clamps_positive_inf():

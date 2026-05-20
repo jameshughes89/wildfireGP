@@ -131,15 +131,15 @@ def _apply_treatments(
     """
     Apply up to budget treatments to the highest-scoring UNBURNED burnable nodes.
 
-    Candidates are shuffled before sorting so that nodes with equal scores are broken randomly rather than
-    by graph insertion order (which would systematically favour low-index nodes — top-left of the grid).
-    Python's sort is stable, so the shuffle is the only source of tie-breaking randomness; the score ranking
-    is fully preserved above any tie.
+    Candidates are selected one at a time. After each placement the node is marked TREATED immediately,
+    so subsequent picks within the same step see updated treated-neighbour feature values. Candidates are
+    shuffled before each sort so equal-scoring nodes are broken randomly rather than by graph insertion order.
     """
     candidates = [n for n in graph.nodes if graph.nodes[n][STATE] == NodeState.UNBURNED and graph.nodes[n][FUEL] > 0.0]
-    rng.shuffle(candidates)
-    candidates.sort(key=lambda n: _safe_score(func, graph, n), reverse=True)
-    for node in candidates[:budget]:
+    for _ in range(min(budget, len(candidates))):
+        rng.shuffle(candidates)
+        candidates.sort(key=lambda n: _safe_score(func, graph, n), reverse=True)
+        node = candidates.pop(0)
         graph.nodes[node][STATE] = NodeState.TREATED
 
 
