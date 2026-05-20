@@ -7,6 +7,7 @@ from wildfireGP.features import (
     elevation_delta_to_fire,
     fuel_level,
     has_treated_neighbour,
+    treated_neighbour_count,
     mean_neighbour_elevation,
     mean_neighbour_fuel,
     precompute_burnable_fire_map,
@@ -215,6 +216,37 @@ def test_has_treated_neighbour_excludes_burning():
     g = _graph()
     g.nodes[(0, 1)][STATE] = NodeState.BURNING
     assert has_treated_neighbour(g, _NODE) == 0.0
+
+
+def test_treated_neighbour_count_zero_when_no_treatments():
+    g = _graph()
+    assert treated_neighbour_count(g, _NODE) == 0
+
+
+def test_treated_neighbour_count_one_when_single_neighbour_treated():
+    g = _graph()
+    g.nodes[(0, 1)][STATE] = NodeState.TREATED
+    assert treated_neighbour_count(g, _NODE) == 1
+
+
+def test_treated_neighbour_count_reflects_exact_number():
+    g = _graph()
+    g.nodes[(0, 1)][STATE] = NodeState.TREATED
+    g.nodes[(1, 0)][STATE] = NodeState.TREATED
+    g.nodes[(2, 2)][STATE] = NodeState.TREATED
+    assert treated_neighbour_count(g, _NODE) == 3
+
+
+def test_treated_neighbour_count_excludes_burned():
+    g = _graph()
+    g.nodes[(0, 1)][STATE] = NodeState.BURNED
+    assert treated_neighbour_count(g, _NODE) == 0
+
+
+def test_treated_neighbour_count_excludes_burning():
+    g = _graph()
+    g.nodes[(0, 1)][STATE] = NodeState.BURNING
+    assert treated_neighbour_count(g, _NODE) == 0
 
 
 # ---------------------------------------------------------------------------

@@ -97,6 +97,10 @@ def has_treated_neighbour(graph: nx.Graph, node: tuple) -> float:
     return 1.0 if any(graph.nodes[n][STATE] == NodeState.TREATED for n in graph.neighbors(node)) else 0.0
 
 
+def treated_neighbour_count(graph: nx.Graph, node: tuple) -> int:
+    return sum(1 for n in graph.neighbors(node) if graph.nodes[n][STATE] == NodeState.TREATED)
+
+
 # ---------------------------------------------------------------------------
 # Spatial --- requires precompute_fire_map / precompute_burnable_fire_map each simulation step
 # ---------------------------------------------------------------------------
