@@ -60,18 +60,18 @@ class GPConfig:
     Hyperparameters for the GP evolutionary loop.
     """
 
-    population_size: int = 100
-    generations: int = 50
+    population_size: int = 500
+    generations: int = 100
     crossover_prob: float = 0.8
     mutation_prob: float = 0.1
     tournament_size: int = 2
-    max_tree_height: int = 6
-    max_tree_nodes: int = 64
+    max_tree_height: int = 5
+    max_tree_nodes: int = 32
     elitism: int = 1
     init_min_height: int = 2
-    init_max_height: int = 6
+    init_max_height: int = 4
     mutation_min_height: int = 0
-    mutation_max_height: int = 4
+    mutation_max_height: int = 3
 
 
 def build_toolbox(
