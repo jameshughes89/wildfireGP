@@ -131,16 +131,25 @@ def _apply_treatments(
     """
     Apply up to budget treatments to the highest-scoring UNBURNED burnable nodes.
 
-    Candidates are selected one at a time. After each placement the node is marked TREATED immediately,
-    so subsequent picks within the same step see updated treated-neighbour feature values. Candidates are
-    shuffled before each sort so equal-scoring nodes are broken randomly rather than by graph insertion order.
+    Candidates are scored once up front, then selected one at a time. After each placement only the
+    Moore-neighbours of the just-treated node are rescored — they are the only nodes whose
+    treated-neighbour features can have changed. Candidates are shuffled before the initial sort so
+    equal-scoring nodes are broken randomly; timsort's stability preserves that order on re-sorts.
     """
     candidates = [n for n in graph.nodes if graph.nodes[n][STATE] == NodeState.UNBURNED and graph.nodes[n][FUEL] > 0.0]
+    rng.shuffle(candidates)
+    scores = {n: _safe_score(func, graph, n) for n in candidates}
+    candidate_set = set(candidates)
+    candidates.sort(key=lambda n: scores[n], reverse=True)
     for _ in range(min(budget, len(candidates))):
-        rng.shuffle(candidates)
-        candidates.sort(key=lambda n: _safe_score(func, graph, n), reverse=True)
         node = candidates.pop(0)
+        candidate_set.discard(node)
         graph.nodes[node][STATE] = NodeState.TREATED
+        to_rescore = [n for n in graph.neighbors(node) if n in candidate_set]
+        if to_rescore:
+            for n in to_rescore:
+                scores[n] = _safe_score(func, graph, n)
+            candidates.sort(key=lambda n: scores[n], reverse=True)
 
 
 def _safe_score(func: Callable[[nx.Graph, tuple], float], graph: nx.Graph, node: tuple) -> float:
