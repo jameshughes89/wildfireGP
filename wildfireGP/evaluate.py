@@ -33,7 +33,6 @@ total_burned is a count with uniform weight. When a VALUE node attribute is adde
 sum(graph.nodes[n][VALUE] for burned nodes) to weight high-value nodes more heavily in the fitness signal.
 """
 
-import copy
 import math
 from collections.abc import Iterator
 from typing import Callable
@@ -116,7 +115,7 @@ def evaluate(
         for remote terrain in North American fire management.
     :return: (total_burned, peak_burning). Both should be minimised.
     """
-    graph = copy.deepcopy(graph)
+    graph = _copy_graph(graph)
     init_ignition(graph, ignition_nodes)
     peak_burning = sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING)
     for _step, _ in simulate(graph, func, treatments_per_step, max_steps, rng, intervention_delay):
@@ -155,3 +154,11 @@ def _apply_treatments(
 def _safe_score(func: Callable[[nx.Graph, tuple], float], graph: nx.Graph, node: tuple) -> float:
     score = func(graph, node)
     return score if math.isfinite(score) else float("-inf")
+
+
+def _copy_graph(template: nx.Graph) -> nx.Graph:
+    g = template.__class__()
+    g.graph.update(template.graph)
+    g.add_nodes_from((n, dict(data)) for n, data in template.nodes(data=True))
+    g.add_edges_from(template.edges())
+    return g
