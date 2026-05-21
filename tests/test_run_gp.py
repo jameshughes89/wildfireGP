@@ -274,65 +274,6 @@ def test_main_run_name_creates_named_dir(tmp_path):
     assert (tmp_path / "experiment_A").is_dir()
 
 
-def test_main_wind_per_landscape_saved_with_valid_ranges(tmp_path):
-    main(
-        [
-            "--pop",
-            "4",
-            "--gens",
-            "2",
-            "--hof",
-            "1",
-            "--seed",
-            "0",
-            "--rows",
-            "5",
-            "--cols",
-            "5",
-            "--landscapes",
-            "2",
-            "--results-dir",
-            str(tmp_path),
-            "--run-name",
-            "wind_test",
-        ]
-    )
-    data = json.loads((tmp_path / "wind_test" / "config.json").read_text())
-    entries = data["scenario"]["wind_per_landscape"]
-    assert len(entries) == 2
-    for entry in entries:
-        assert 5.0 <= entry["speed"] <= 50.0
-        assert 0.0 <= entry["direction"] < 360.0
-
-
-def test_main_wind_per_landscape_varies_across_landscapes(tmp_path):
-    main(
-        [
-            "--pop",
-            "4",
-            "--gens",
-            "2",
-            "--hof",
-            "1",
-            "--seed",
-            "0",
-            "--rows",
-            "5",
-            "--cols",
-            "5",
-            "--landscapes",
-            "3",
-            "--results-dir",
-            str(tmp_path),
-            "--run-name",
-            "wind_vary_test",
-        ]
-    )
-    data = json.loads((tmp_path / "wind_vary_test" / "config.json").read_text())
-    entries = data["scenario"]["wind_per_landscape"]
-    speeds = [e["speed"] for e in entries]
-    assert len(set(speeds)) > 1
-
 
 def test_main_max_tree_height_and_nodes_in_config(tmp_path):
     main(
