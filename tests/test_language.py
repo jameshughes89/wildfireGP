@@ -85,7 +85,7 @@ def test_compiled_tree_score_differs_across_nodes():
     g = _graph()
     tree = gp.PrimitiveTree.from_string("fuel_level(graph, node)", PRIMITIVE_SET)
     func = gp.compile(tree, PRIMITIVE_SET)
-    scores = {node: func(g, node) for node in g.nodes}
+    scores = {node: func(g, node) for node in g.nodes()}
     assert len(set(scores.values())) > 1
 
 

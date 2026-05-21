@@ -34,7 +34,6 @@ Examples
 """
 
 import argparse
-import copy
 import logging
 import pathlib
 import sys
@@ -46,7 +45,6 @@ import numpy as np
 from scripts.cli import add_landscape_args, load_candidate_by_expr
 from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, init_ignition, simulate
 from wildfireGP.network import (
-    STATE,
     NodeState,
     create_grid,
     select_ignition_cluster,
@@ -67,15 +65,15 @@ def main(argv: list[str] | None = None) -> None:
 
     rng = np.random.default_rng(args.seed)
     log.info("Building landscape (%dx%d, seed=%s)", args.rows, args.cols, args.seed)
-    graph = create_grid(args.rows, args.cols, seed=args.seed)
-    set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
-    set_fuel_moisture(graph, moisture=args.moisture)
-    ignition_nodes = select_ignition_cluster(graph, rng, size=args.ignition_cluster_size)
+    state = create_grid(args.rows, args.cols, seed=args.seed)
+    set_wind(state, speed=args.wind_speed, direction=args.wind_direction)
+    set_fuel_moisture(state, moisture=args.moisture)
+    ignition_nodes = select_ignition_cluster(state, rng, size=args.ignition_cluster_size)
     log.info("Ignition cluster (%d nodes): %s  strategy: %s", len(ignition_nodes), ignition_nodes, label)
 
     log.info("Running %d simulations ...", args.runs)
     treatment_freq, burn_freq = collect_spatial_data(
-        func, graph, ignition_nodes, args.treatments, args.max_steps, args.runs, args.seed, args.intervention_delay
+        func, state, ignition_nodes, args.treatments, args.max_steps, args.runs, args.seed, args.intervention_delay
     )
 
     output = pathlib.Path(args.output) if args.output else pathlib.Path("treatment_heatmap.png")
@@ -87,7 +85,7 @@ def main(argv: list[str] | None = None) -> None:
 
 def collect_spatial_data(
     func,
-    graph,
+    state,
     ignition_nodes: list[tuple],
     treatments_per_step: int,
     max_steps: int,
@@ -100,41 +98,38 @@ def collect_spatial_data(
 
     :return: (treatment_freq, burn_freq) each an ndarray of shape (rows, cols) with values in [0, 1].
     """
-    nodes = list(graph.nodes)
-    rows = max(r for r, _ in nodes) + 1
-    cols = max(c for _, c in nodes) + 1
+    rows = state.rows
+    cols = state.cols
     treatment_count = np.zeros((rows, cols), dtype=int)
     burn_count = np.zeros((rows, cols), dtype=int)
 
     for i in range(runs):
         seed = None if base_seed is None else base_seed + i
-        treated, burned = _run_and_collect(
-            graph, ignition_nodes, func, treatments_per_step, max_steps, np.random.default_rng(seed), intervention_delay
+        treated_mask, burned_mask = _run_and_collect(
+            state, ignition_nodes, func, treatments_per_step, max_steps, np.random.default_rng(seed), intervention_delay
         )
-        for r, c in treated:
-            treatment_count[r, c] += 1
-        for r, c in burned:
-            burn_count[r, c] += 1
+        treatment_count += treated_mask.astype(int)
+        burn_count += burned_mask.astype(int)
 
     return treatment_count / runs, burn_count / runs
 
 
 def _run_and_collect(
-    graph,
+    state,
     ignition_nodes: list[tuple],
     func,
     treatments_per_step: int,
     max_steps: int,
     rng,
     intervention_delay: int,
-) -> tuple[set, set]:
-    g = copy.deepcopy(graph)
-    init_ignition(g, ignition_nodes)
-    for _step, _ in simulate(g, func, treatments_per_step, max_steps, rng, intervention_delay):
+) -> tuple[np.ndarray, np.ndarray]:
+    s = state.copy()
+    init_ignition(s, ignition_nodes)
+    for _step, _ in simulate(s, func, treatments_per_step, max_steps, rng, intervention_delay):
         pass
-    treated_nodes = {n for n in g.nodes if g.nodes[n][STATE] == NodeState.TREATED}
-    burned_nodes = {n for n in g.nodes if g.nodes[n][STATE] in (NodeState.BURNED, NodeState.BURNING)}
-    return treated_nodes, burned_nodes
+    treated_mask = s.state == NodeState.TREATED
+    burned_mask = (s.state == NodeState.BURNED) | (s.state == NodeState.BURNING)
+    return treated_mask, burned_mask
 
 
 def _plot(treatment_freq: np.ndarray, burn_freq: np.ndarray, label: str) -> plt.Figure:

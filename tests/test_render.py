@@ -1,15 +1,9 @@
-import copy
 import math
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 from wildfireGP.network import (
-    BURN_TIMER,
-    ELEVATION,
-    FUEL,
-    STATE,
-    TERRAIN,
     NodeState,
     TerrainType,
     create_grid,
@@ -22,7 +16,6 @@ from wildfireGP.render import (
     _ROCK,
     _TREATED,
     _WATER,
-    _build_elevation,
     _build_rgb,
     animate,
     animate_heatmap,
@@ -34,87 +27,81 @@ from wildfireGP.spread import MAX_BURN_STEPS, spread_step
 _NODE = (1, 1)
 
 
-def _graph_with_node():
+def _state_with_cell():
     return create_grid(3, 3, seed=0)
 
 
 def test_draw_default_returns_axes():
-    graph = create_grid(5, 5, seed=0)
-    ax = draw(graph)
+    s = create_grid(5, 5, seed=0)
+    ax = draw(s)
     plt.close("all")
     assert isinstance(ax, plt.Axes)
 
 
 def test_draw_with_provided_ax_returns_same_ax():
-    graph = create_grid(5, 5, seed=0)
+    s = create_grid(5, 5, seed=0)
     fig, ax = plt.subplots()
-    result = draw(graph, ax=ax)
+    result = draw(s, ax=ax)
     plt.close(fig)
     assert result is ax
 
 
-def test_build_rgb_burning_node_renders_as_burning_colour():
-    graph = _graph_with_node()
-    graph.nodes[_NODE][STATE] = NodeState.BURNING
-    assert np.array_equal(_build_rgb(graph, 3, 3)[_NODE], _BURNING)
+def test_build_rgb_burning_cell_renders_as_burning_colour():
+    s = _state_with_cell()
+    s.state[_NODE] = NodeState.BURNING
+    assert np.array_equal(_build_rgb(s)[_NODE], _BURNING)
 
 
-def test_build_rgb_burned_node_renders_as_burned_colour():
-    graph = _graph_with_node()
-    graph.nodes[_NODE][STATE] = NodeState.BURNED
-    assert np.array_equal(_build_rgb(graph, 3, 3)[_NODE], _BURNED)
+def test_build_rgb_burned_cell_renders_as_burned_colour():
+    s = _state_with_cell()
+    s.state[_NODE] = NodeState.BURNED
+    assert np.array_equal(_build_rgb(s)[_NODE], _BURNED)
 
 
-def test_build_rgb_treated_node_renders_as_treated_colour():
-    graph = _graph_with_node()
-    graph.nodes[_NODE][STATE] = NodeState.TREATED
-    assert np.array_equal(_build_rgb(graph, 3, 3)[_NODE], _TREATED)
+def test_build_rgb_treated_cell_renders_as_treated_colour():
+    s = _state_with_cell()
+    s.state[_NODE] = NodeState.TREATED
+    assert np.array_equal(_build_rgb(s)[_NODE], _TREATED)
 
 
 def test_build_rgb_water_terrain_unburned_renders_as_water_colour():
-    graph = _graph_with_node()
-    graph.nodes[_NODE][TERRAIN] = TerrainType.WATER
-    assert np.array_equal(_build_rgb(graph, 3, 3)[_NODE], _WATER)
+    s = _state_with_cell()
+    s.terrain[_NODE] = TerrainType.WATER
+    assert np.array_equal(_build_rgb(s)[_NODE], _WATER)
 
 
 def test_build_rgb_rock_terrain_unburned_renders_as_rock_colour():
-    graph = _graph_with_node()
-    graph.nodes[_NODE][TERRAIN] = TerrainType.ROCK
-    assert np.array_equal(_build_rgb(graph, 3, 3)[_NODE], _ROCK)
+    s = _state_with_cell()
+    s.terrain[_NODE] = TerrainType.ROCK
+    assert np.array_equal(_build_rgb(s)[_NODE], _ROCK)
 
 
 def test_build_rgb_land_unburned_renders_as_fuel_mapped_colour():
-    graph = _graph_with_node()
-    colour = _build_rgb(graph, 3, 3)[_NODE]
+    s = _state_with_cell()
+    colour = _build_rgb(s)[_NODE]
     fixed = [_BURNING, _BURNED, _TREATED, _WATER, _ROCK]
     assert not any(np.array_equal(colour, c) for c in fixed)
 
 
 def test_build_rgb_burning_state_takes_priority_over_water_terrain():
-    graph = _graph_with_node()
-    graph.nodes[_NODE][STATE] = NodeState.BURNING
-    graph.nodes[_NODE][TERRAIN] = TerrainType.WATER
-    assert np.array_equal(_build_rgb(graph, 3, 3)[_NODE], _BURNING)
-
-
-def test_build_elevation_values_match_node_elevation_attributes():
-    graph = create_grid(3, 3, seed=0)
-    elevation = _build_elevation(graph, 3, 3)
-    assert all(elevation[i, j] == graph.nodes[(i, j)][ELEVATION] for i, j in graph.nodes)
+    s = _state_with_cell()
+    s.state[_NODE] = NodeState.BURNING
+    s.terrain[_NODE] = TerrainType.WATER
+    assert np.array_equal(_build_rgb(s)[_NODE], _BURNING)
 
 
 def _snapshots(seed=0, steps=3):
-    graph = create_grid(5, 5, seed=seed)
-    set_wind(graph, speed=20.0, direction=0.0)
-    set_fuel_moisture(graph, moisture=0.1)
+    s = create_grid(5, 5, seed=seed)
+    set_wind(s, speed=20.0, direction=0.0)
+    set_fuel_moisture(s, moisture=0.1)
     node = (2, 2)
-    graph.nodes[node][STATE] = NodeState.BURNING
-    graph.nodes[node][BURN_TIMER] = max(1, math.ceil(graph.nodes[node][FUEL] * MAX_BURN_STEPS))
+    s.state[node] = NodeState.BURNING
+    s.burn_timer[node] = max(1, math.ceil(float(s.fuel[node]) * MAX_BURN_STEPS))
     rng = np.random.default_rng(seed)
-    frames = [copy.deepcopy(graph)]
+    frames = [s.copy()]
     for _ in range(steps - 1):
-        spread_step(graph, rng)
-        frames.append(copy.deepcopy(graph))
+        spread_step(s, rng)
+        frames.append(s.copy())
     return frames
 
 
@@ -131,80 +118,70 @@ def test_animate_does_not_leave_open_figures(tmp_path):
 
 
 def test_animate_single_frame(tmp_path):
-    graph = create_grid(3, 3, seed=0)
+    s = create_grid(3, 3, seed=0)
     out = tmp_path / "out.gif"
-    animate([graph], path=str(out))
+    animate([s], path=str(out))
     assert out.exists() and out.stat().st_size > 0
 
 
-# ---------------------------------------------------------------------------
-# render_heatmap
-# ---------------------------------------------------------------------------
-
-
-def _heatmap_graph():
-    g = create_grid(5, 5, seed=0)
-    set_wind(g, speed=10.0, direction=0.0)
-    set_fuel_moisture(g, moisture=0.2)
-    return g
+def _heatmap_state():
+    s = create_grid(5, 5, seed=0)
+    set_wind(s, speed=10.0, direction=0.0)
+    set_fuel_moisture(s, moisture=0.2)
+    return s
 
 
 def test_render_heatmap_returns_axes():
-    g = _heatmap_graph()
-    ax = render_heatmap(g, lambda graph, node: 1.0)
+    s = _heatmap_state()
+    ax = render_heatmap(s, lambda state, node: 1.0)
     plt.close("all")
     assert isinstance(ax, plt.Axes)
 
 
 def test_render_heatmap_saves_file(tmp_path):
-    g = _heatmap_graph()
+    s = _heatmap_state()
     out = tmp_path / "heatmap.png"
-    render_heatmap(g, lambda graph, node: 1.0, path=str(out))
+    render_heatmap(s, lambda state, node: 1.0, path=str(out))
     assert out.exists() and out.stat().st_size > 0
 
 
 def test_render_heatmap_handles_all_nonfinite_scores():
-    g = _heatmap_graph()
-    ax = render_heatmap(g, lambda graph, node: float("-inf"))
+    s = _heatmap_state()
+    ax = render_heatmap(s, lambda state, node: float("-inf"))
     plt.close("all")
     assert isinstance(ax, plt.Axes)
 
 
 def test_render_heatmap_handles_uniform_scores():
-    g = _heatmap_graph()
-    ax = render_heatmap(g, lambda graph, node: 0.5)
+    s = _heatmap_state()
+    ax = render_heatmap(s, lambda state, node: 0.5)
     plt.close("all")
     assert isinstance(ax, plt.Axes)
 
 
-# ---------------------------------------------------------------------------
-# animate_heatmap
-# ---------------------------------------------------------------------------
-
-
 def test_animate_heatmap_creates_gif(tmp_path):
     out = tmp_path / "heatmap.gif"
-    animate_heatmap(_snapshots(), lambda graph, node: 1.0, path=str(out))
+    animate_heatmap(_snapshots(), lambda state, node: 1.0, path=str(out))
     assert out.exists() and out.stat().st_size > 0
 
 
 def test_animate_heatmap_single_frame(tmp_path):
-    graph = _heatmap_graph()
+    s = _heatmap_state()
     out = tmp_path / "out.gif"
-    animate_heatmap([graph], lambda g, n: 1.0, path=str(out))
+    animate_heatmap([s], lambda state, node: 1.0, path=str(out))
     assert out.exists() and out.stat().st_size > 0
 
 
 def test_animate_heatmap_handles_all_nonfinite_scores(tmp_path):
     out = tmp_path / "out.gif"
-    animate_heatmap(_snapshots(), lambda graph, node: float("-inf"), path=str(out))
+    animate_heatmap(_snapshots(), lambda state, node: float("-inf"), path=str(out))
     assert out.exists() and out.stat().st_size > 0
 
 
 def test_animate_heatmap_global_normalisation_uses_all_frames(tmp_path):
     scores = iter(range(100))
 
-    def incrementing(graph, node):
+    def incrementing(state, node):
         return float(next(scores, 0))
 
     out = tmp_path / "out.gif"

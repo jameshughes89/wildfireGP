@@ -6,9 +6,6 @@ import pytest
 
 from scripts.animate_simulation import _load_strategy, _run_simulation
 from wildfireGP.network import (
-    BURN_TIMER,
-    FUEL,
-    STATE,
     NodeState,
     create_grid,
     select_ignition_node,
@@ -18,20 +15,16 @@ from wildfireGP.network import (
 from wildfireGP.spread import MAX_BURN_STEPS
 from wildfireGP.strategies import random_score, score_by_fire_proximity
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
 
 @pytest.fixture()
-def graph():
-    g = create_grid(10, 10, seed=0)
-    set_wind(g, speed=20.0, direction=0.0)
-    set_fuel_moisture(g, moisture=0.2)
-    ignition = select_ignition_node(g, np.random.default_rng(0))
-    g.nodes[ignition][STATE] = NodeState.BURNING
-    g.nodes[ignition][BURN_TIMER] = max(1, math.ceil(g.nodes[ignition][FUEL] * MAX_BURN_STEPS))
-    return g
+def state():
+    s = create_grid(10, 10, seed=0)
+    set_wind(s, speed=20.0, direction=0.0)
+    set_fuel_moisture(s, moisture=0.2)
+    ignition = select_ignition_node(s, np.random.default_rng(0))
+    s.state[ignition] = NodeState.BURNING
+    s.burn_timer[ignition] = max(1, math.ceil(float(s.fuel[ignition]) * MAX_BURN_STEPS))
+    return s
 
 
 @pytest.fixture()
@@ -48,11 +41,6 @@ class _FakeArgs:
         self.hof = hof
         self.expr = expr
         self.results_dir = results_dir
-
-
-# ---------------------------------------------------------------------------
-# _load_strategy
-# ---------------------------------------------------------------------------
 
 
 def test_load_strategy_builtin_returns_callable():
@@ -103,31 +91,26 @@ def test_load_strategy_expr_without_results_dir_raises():
         _load_strategy(_FakeArgs(expr="my_expr"))
 
 
-# ---------------------------------------------------------------------------
-# _run_simulation
-# ---------------------------------------------------------------------------
-
-
-def test_run_simulation_snapshot_count_within_bounds(graph):
+def test_run_simulation_snapshot_count_within_bounds(state):
     max_steps = 30
-    snapshots = _run_simulation(graph, random_score, 2, max_steps, np.random.default_rng(0), intervention_delay=0)
+    snapshots = _run_simulation(state, random_score, 2, max_steps, np.random.default_rng(0), intervention_delay=0)
     assert 1 <= len(snapshots) <= max_steps + 1
 
 
-def test_run_simulation_first_snapshot_has_burning_node(graph):
-    snapshots = _run_simulation(graph, random_score, 2, 30, np.random.default_rng(0), intervention_delay=0)
-    assert any(snapshots[0].nodes[n][STATE] == NodeState.BURNING for n in snapshots[0].nodes)
+def test_run_simulation_first_snapshot_has_burning_cell(state):
+    snapshots = _run_simulation(state, random_score, 2, 30, np.random.default_rng(0), intervention_delay=0)
+    assert (snapshots[0].state == NodeState.BURNING).any()
 
 
-def test_run_simulation_last_snapshot_has_no_burning_nodes_or_hit_max(graph):
+def test_run_simulation_last_snapshot_has_no_burning_cells_or_hit_max(state):
     max_steps = 50
-    snapshots = _run_simulation(graph, random_score, 2, max_steps, np.random.default_rng(0), intervention_delay=0)
+    snapshots = _run_simulation(state, random_score, 2, max_steps, np.random.default_rng(0), intervention_delay=0)
     last = snapshots[-1]
-    no_fire = not any(last.nodes[n][STATE] == NodeState.BURNING for n in last.nodes)
+    no_fire = not (last.state == NodeState.BURNING).any()
     assert no_fire or len(snapshots) == max_steps + 1
 
 
-def test_run_simulation_treatments_are_applied(graph):
-    snapshots = _run_simulation(graph, score_by_fire_proximity, 5, 10, np.random.default_rng(0), intervention_delay=0)
-    treated_count = sum(1 for n in snapshots[-1].nodes if snapshots[-1].nodes[n][STATE] == NodeState.TREATED)
+def test_run_simulation_treatments_are_applied(state):
+    snapshots = _run_simulation(state, score_by_fire_proximity, 5, 10, np.random.default_rng(0), intervention_delay=0)
+    treated_count = int((snapshots[-1].state == NodeState.TREATED).sum())
     assert treated_count > 0

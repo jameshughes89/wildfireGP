@@ -1,83 +1,43 @@
 """
-Wildfire landscape graph construction and management.
+Wildfire landscape state representation backed by numpy arrays.
 
-A landscape is represented as a NetworkX grid graph where each node corresponds to a spatial patch and carries six
-attributes: state, burn_timer, terrain, fuel, slope, and elevation. Fire weather (wind and moisture) is stored as
-graph-level attributes, as these quantities are meteorologically driven and effectively uniform across the landscape at
-the scales we model. Nodes use a Moore (8-connectivity) neighbourhood: each cell is connected to its four cardinal
-neighbours and four diagonal neighbours, matching the Alexandridis et al. (2008) fire spread model.
+A landscape is represented as a :class:`SimState` dataclass holding per-cell attribute arrays and scalar weather. The
+grid is implicitly Moore-connected: each cell has up to 8 neighbours (cardinal + diagonal), matching the Alexandridis et
+al. (2008) fire spread model and the eight-connectivity used by all GP features.
 
-Node attributes
----------------
-state : NodeState
-    Dynamic fire state of the patch (UNBURNED, BURNING, BURNED, or TREATED). Initialised to UNBURNED; modified by the
-    spread simulation.
-burn_timer : int >= 0
-    Remaining timesteps the node will continue burning. Set to ceil(fuel * MAX_BURN_STEPS) on ignition; decremented each
-    timestep; node transitions to BURNED when it reaches zero. Initialised to 0 for all nodes and maintained as internal
-    spread-model state rather than a GP feature.
-terrain : TerrainType
-    Physical terrain category: LAND (burnable), WATER (low-elevation basin), or ROCK (steep slope). WATER and ROCK nodes
-    have fuel=0 and are non-burnable. Stored explicitly so the spread model and GP terminals can distinguish terrain
-    type without re-inferring it from elevation or slope.
-fuel : float in [0, 1]
-    Relative fuel load. Higher values indicate more burnable material and increase ignition probability and burn
-    duration. Currently assigned via spatially correlated synthetic generation. When real data loading is added, this
-    will be derived from categorical fuel type classifications (Canadian FBP system or US LANDFIRE Scott-Burgan models).
-    Set to 0.0 on burnout (alongside WATER/ROCK nodes), so fuel=0 is a reliable proxy for "no longer a valid treatment
-    target" without requiring the GP to know about NodeState.
-slope : float in [0, 1]
-    Terrain steepness normalised to [0, 1]. Fire spread rate increases with slope (Rothermel, 1972). Derived from a
-    synthetic terrain heightmap via numpy.gradient; will use a real DEM when real data loading is added.
-elevation : float in [0, 1]
-    Relative terrain height normalised to [0, 1]. Elevation is the primary terrain variable from which slope and
-    non-burnable patches are derived: low-elevation basins become water, and steep slopes derived from the terrain
-    gradient become rock. Synthetically generated as the heightmap itself; will be derived from a DEM when real data
-    loading is added.
+Node attributes (each a 2D numpy array of shape (rows, cols))
+-------------------------------------------------------------
+state : int8
+    Dynamic fire state (NodeState). UNBURNED, BURNING, BURNED, or TREATED. Initialised to UNBURNED.
+burn_timer : int8
+    Remaining timesteps the cell will continue burning. Set to ceil(fuel * MAX_BURN_STEPS) on ignition; decremented each
+    step; cell becomes BURNED when timer reaches zero. Initialised to 0.
+terrain : int8
+    Physical terrain category (TerrainType): LAND, WATER, or ROCK. WATER and ROCK cells have fuel=0 and never ignite.
+fuel : float32 in [0, 1]
+    Relative fuel load. Higher values increase ignition probability and burn duration. Set to 0 on burnout.
+slope : float32 in [0, 1]
+    Terrain steepness normalised to [0, 1]. Fire spread rate increases with slope (Rothermel, 1972). Derived from
+    numpy.gradient of the elevation heightmap.
+elevation : float32 in [0, 1]
+    Relative terrain height normalised to [0, 1]. Synthetically generated as the heightmap itself.
 
-Graph-level attributes
-----------------------
-cell_size_m : float
-    Side length of each grid cell in metres. Defaults to 100m, matching Canadian FBP operational scale. A 50x50 grid at
-    100m represents a 5km x 5km landscape, which is a meaningful scale for resource allocation decisions. Stored for use
-    by GP features and real data loaders; the spread model uses cell-unit distances internally. When real data is
-    loaded,
-    this should be set from the raster metadata.
-wind_speed : float
-    Wind speed in km/h. Wind is the dominant driver of fire spread direction and rate (Rothermel, 1972). Modelled as a
-    uniform field --- per-node variation would require meteorological downscaling data not generally available at the
-    resolution we operate at.
-wind_direction : float
-    Wind direction in degrees (0 = north, clockwise). Uniform across the landscape. Degrees picked for matching real
-    data sources.
-fuel_moisture : float in [0, 1]
-    Relative fuel moisture. Acts as an ignition gate: high moisture suppresses spread, low moisture amplifies it. In
-    practice this corresponds to the Fine Fuel Moisture Code (FFMC) from the Canadian Fire Weather Index system
-    (Van Wagner, 1987).
+Scalar weather (graph-level)
+----------------------------
+wind_speed       : km/h. Uniform field; per-cell variation is not modelled.
+wind_direction   : degrees clockwise from north. 0 = wind from the north.
+fuel_moisture    : in [0, 1]. Acts as an ignition gate.
+cell_size_m      : side length of each cell in metres. Default 100m.
 
 Excluded attributes
 -------------------
-The following were considered and deliberately omitted:
-
-- Canopy attributes (height, bulk density, base height, cover): relevant for crown fire modelling. We model surface fire
-  only, which is appropriate for the GP resource allocation framing. Adding canopy attributes would require 3+
-  additional node features with marginal benefit at this scale.
-- Aspect: compass direction a slope faces. A second-order microclimate effect dominated by wind direction and slope
-  magnitude at the scales we model.
-- Spotting (ember transport): long-range stochastic ignition ahead of the fire front. Requires a separate sub-model and
-  is out of scope for a graph-based CA.
-- Dynamic fuel moisture: temporal variation in moisture during a single run. Held constant per run, consistent with
-  standard probabilistic CA practice.
-- Particle-level fuel properties (heat content, particle size, mineral content): Rothermel uses 13 fuel descriptors;
-  categorical fuel type captures sufficient variance for our purposes.
+Canopy, aspect, spotting, dynamic moisture, particle-level fuel properties — see the previous NetworkX-backed
+implementation history for the rationale.
 
 Synthetic data
 --------------
-create_grid() generates a synthetic landscape from a Gaussian-smoothed terrain heightmap. Slope is derived from the
-terrain gradient, giving physically consistent directionality. Low-elevation cells become water and high-slope cells
-become rock (both fuel=0), matching the non-burnable categories present in real FBP and LANDFIRE data. Fuel is a
-separate smoothed field, zeroed where water or rock is present. Terrain and fuel smoothing are independent parameters,
-allowing rugged terrain with fine-grained fuel variation or smooth terrain with coarse fuel patches.
+:func:`create_grid` generates a synthetic landscape from a Gaussian-smoothed terrain heightmap. Slope is derived from
+the terrain gradient. Low-elevation cells become water; high-slope cells become rock (both fuel=0).
 
 References
 ----------
@@ -92,36 +52,96 @@ Pais, C. et al. (2021). Cell2Fire: A Cell-Based Forest Fire Growth Model to Supp
 """
 
 import enum
+from dataclasses import dataclass, field
 
-import networkx as nx
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
-STATE = "state"
-TERRAIN = "terrain"
-FUEL = "fuel"
-SLOPE = "slope"
-ELEVATION = "elevation"
-WIND_SPEED = "wind_speed"
-WIND_DIRECTION = "wind_direction"
-FUEL_MOISTURE = "fuel_moisture"
-CELL_SIZE = "cell_size_m"
-ROWS = "rows"
-COLS = "cols"
-BURN_TIMER = "burn_timer"
 
-
-class NodeState(enum.Enum):
+class NodeState(enum.IntEnum):
     UNBURNED = 0
     BURNING = 1
     BURNED = 2
     TREATED = 3
 
 
-class TerrainType(enum.Enum):
+class TerrainType(enum.IntEnum):
     LAND = 0
     WATER = 1
     ROCK = 2
+
+
+@dataclass
+class SimState:
+    """
+    Numpy-backed wildfire landscape state.
+
+    Attribute arrays are stored as (rows, cols) numpy arrays. The (row, col) tuple is the canonical node identifier and
+    is used everywhere a "node" appears in spread, features, evaluate, and strategies.
+
+    Precompute fields are populated by :mod:`wildfireGP.features`. They are reset implicitly each step by re-invocation.
+    """
+
+    rows: int
+    cols: int
+    state: np.ndarray
+    fuel: np.ndarray
+    elevation: np.ndarray
+    slope: np.ndarray
+    terrain: np.ndarray
+    burn_timer: np.ndarray
+    wind_speed: float = 0.0
+    wind_direction: float = 0.0
+    fuel_moisture: float = 0.0
+    cell_size_m: float = 100.0
+    nearest_fire: dict = field(default_factory=dict)
+    burnable_fire_distance: dict = field(default_factory=dict)
+    reachable_unburned_area_map: dict = field(default_factory=dict)
+    step_burning: int = 0
+    step_burned: int = 0
+    step_unburned: int = 0
+    step_treated: int = 0
+
+    def copy(self) -> "SimState":
+        """Return a deep copy of the state arrays; precomputes are reset to empty."""
+        return SimState(
+            rows=self.rows,
+            cols=self.cols,
+            state=self.state.copy(),
+            fuel=self.fuel.copy(),
+            elevation=self.elevation.copy(),
+            slope=self.slope.copy(),
+            terrain=self.terrain.copy(),
+            burn_timer=self.burn_timer.copy(),
+            wind_speed=self.wind_speed,
+            wind_direction=self.wind_direction,
+            fuel_moisture=self.fuel_moisture,
+            cell_size_m=self.cell_size_m,
+        )
+
+    def neighbours(self, node: tuple) -> list[tuple]:
+        """Return the Moore (8-connectivity) neighbours of node within grid bounds."""
+        r, c = node
+        result = []
+        rows = self.rows
+        cols = self.cols
+        for dr in (-1, 0, 1):
+            nr = r + dr
+            if nr < 0 or nr >= rows:
+                continue
+            for dc in (-1, 0, 1):
+                if dr == 0 and dc == 0:
+                    continue
+                nc = c + dc
+                if 0 <= nc < cols:
+                    result.append((nr, nc))
+        return result
+
+    def nodes(self):
+        """Yield every (row, col) in row-major order."""
+        for r in range(self.rows):
+            for c in range(self.cols):
+                yield (r, c)
 
 
 def create_grid(
@@ -133,46 +153,29 @@ def create_grid(
     rock_fraction: float = 0.0,
     cell_size_m: float = 100.0,
     seed: int | None = None,
-) -> nx.Graph:
+) -> SimState:
     """
-    Create a synthetic landscape grid graph with spatially correlated fuel and slope.
-
-    Slope is derived from the gradient of a synthetic terrain heightmap, giving physically consistent directionality.
-    Low-elevation cells become water and high-slope cells become rock (both fuel=0). Fuel is a separate smoothed field.
-    Terrain and fuel smoothing are independent: rugged terrain with coarse fuel patches and smooth terrain with
-    fine-grained fuel variation are both representable.
+    Create a synthetic landscape SimState with spatially correlated fuel and slope.
 
     :param rows: Number of rows in the grid.
     :param cols: Number of columns in the grid.
-    :param terrain_smoothing: Gaussian filter sigma for the terrain heightmap. Controls the spatial scale of hills,
-        valleys, and ridges. Higher values produce broader, more gradual terrain.
-    :param fuel_smoothing: Gaussian filter sigma for the fuel field. Controls the spatial scale of fuel patches. Higher
-        values produce larger, more homogeneous fuel zones.
-    :param water_fraction: Fraction of nodes to mark as water (fuel=0), selected from the lowest-elevation cells.
-        Default 0.0 produces no water.
-    :param rock_fraction: Fraction of nodes to mark as rock (fuel=0), selected from the steepest cells. Default 0.0
-        produces no rock. When both water_fraction and rock_fraction are nonzero, rock assignment runs after water and
-        can overwrite water cells, so the final counts may not exactly match both requested fractions simultaneously.
-        For synthetic GP training landscapes this overlap is an acceptable approximation.
-    :param cell_size_m: Side length of each grid cell in metres. Stored as a graph attribute for use by GP features and
-        real data loaders. Default 100m matches Canadian FBP operational scale.
+    :param terrain_smoothing: Gaussian filter sigma for the terrain heightmap.
+    :param fuel_smoothing: Gaussian filter sigma for the fuel field.
+    :param water_fraction: Fraction of nodes to mark as water (fuel=0), from the lowest-elevation cells.
+    :param rock_fraction: Fraction of nodes to mark as rock (fuel=0), from the steepest cells. Rock runs after water and
+        can overwrite water cells; the final counts may not exactly match both requested fractions simultaneously.
+    :param cell_size_m: Side length of each grid cell in metres. Default 100m.
     :param seed: Random seed for reproducibility.
-    :return: Grid graph with STATE, TERRAIN, FUEL, SLOPE, and ELEVATION node attributes. Wind and moisture are not set.
-        Nodes are connected with a Moore (8-connectivity) neighbourhood.
+    :return: A SimState with all node-attribute arrays populated. Wind and moisture remain at their defaults (0.0).
     """
     rng = np.random.default_rng(seed)
-    graph = nx.grid_2d_graph(rows, cols)
-    for i in range(rows - 1):
-        for j in range(cols - 1):
-            graph.add_edge((i, j), (i + 1, j + 1))
-            graph.add_edge((i + 1, j), (i, j + 1))
 
     terrain_height = _normalize(gaussian_filter(rng.random((rows, cols)), sigma=terrain_smoothing))
     dy, dx = np.gradient(terrain_height)
     slope_norm = _normalize(np.sqrt(dx**2 + dy**2))
     fuel_norm = _normalize(gaussian_filter(rng.random((rows, cols)), sigma=fuel_smoothing))
 
-    terrain_type = np.full((rows, cols), TerrainType.LAND, dtype=object)
+    terrain_type = np.full((rows, cols), TerrainType.LAND, dtype=np.int8)
     if water_fraction > 0.0:
         n_water = max(1, round(rows * cols * water_fraction))
         flat_order = np.argsort(terrain_height.ravel())
@@ -190,143 +193,107 @@ def create_grid(
         fuel_norm[rock_mask] = 0.0
         terrain_type[rock_mask] = TerrainType.ROCK
 
-    graph.graph[CELL_SIZE] = cell_size_m
-    graph.graph[ROWS] = rows
-    graph.graph[COLS] = cols
-    _attach_node_attributes(graph, fuel_norm, slope_norm, terrain_height, terrain_type)
-    return graph
+    return SimState(
+        rows=rows,
+        cols=cols,
+        state=np.full((rows, cols), NodeState.UNBURNED, dtype=np.int8),
+        fuel=fuel_norm.astype(np.float32),
+        elevation=terrain_height.astype(np.float32),
+        slope=slope_norm.astype(np.float32),
+        terrain=terrain_type,
+        burn_timer=np.zeros((rows, cols), dtype=np.int8),
+        cell_size_m=cell_size_m,
+    )
 
 
-def set_wind(graph: nx.Graph, speed: float, direction: float) -> None:
+def set_wind(state: SimState, speed: float, direction: float) -> None:
     """
-    Set wind speed and direction as graph-level attributes.
+    Set wind speed (km/h) and direction (degrees clockwise from north).
 
-    :param graph: The landscape graph to modify.
-    :param speed: Wind speed in km/h.
-    :param direction: Wind direction in degrees (0 = north, clockwise).
     :raises ValueError: If speed is negative or direction is outside [0, 360).
     """
     if speed < 0.0:
         raise ValueError(f"Wind speed must be >= 0; got {speed}.")
     if direction < 0.0 or direction >= 360.0:
         raise ValueError(f"Wind direction must satisfy 0 <= direction < 360; got {direction}.")
-    graph.graph[WIND_SPEED] = speed
-    graph.graph[WIND_DIRECTION] = direction
+    state.wind_speed = float(speed)
+    state.wind_direction = float(direction)
 
 
-def set_fuel_moisture(graph: nx.Graph, moisture: float) -> None:
+def set_fuel_moisture(state: SimState, moisture: float) -> None:
     """
-    Set fuel moisture as a graph-level attribute.
+    Set fuel moisture as a fraction in [0, 1].
 
-    :param graph: The landscape graph to modify.
-    :param moisture: Relative fuel moisture in [0, 1]. 0 = bone dry, 1 = saturated.
     :raises ValueError: If moisture is outside [0, 1].
     """
     if moisture < 0.0 or moisture > 1.0:
         raise ValueError(f"Fuel moisture must satisfy 0 <= moisture <= 1; got {moisture}.")
-    graph.graph[FUEL_MOISTURE] = moisture
+    state.fuel_moisture = float(moisture)
 
 
-def reset_states(graph: nx.Graph) -> None:
-    """
-    Reset all node states to UNBURNED.
-
-    :param graph: The landscape graph to reset.
-    """
-    for node in graph.nodes:
-        graph.nodes[node][STATE] = NodeState.UNBURNED
-        graph.nodes[node][BURN_TIMER] = 0
+def reset_states(state: SimState) -> None:
+    """Reset all node states to UNBURNED and clear burn timers."""
+    state.state[:] = NodeState.UNBURNED
+    state.burn_timer[:] = 0
 
 
-def select_ignition_node(graph: nx.Graph, rng: np.random.Generator, centre_fraction: float = 0.5) -> tuple:
+def select_ignition_node(state: SimState, rng: np.random.Generator, centre_fraction: float = 0.5) -> tuple:
     """
     Return a randomly selected burnable node from the central region of the landscape.
 
-    The central region is defined as the inner (centre_fraction) of each grid dimension. For example,
-    centre_fraction=0.5 restricts candidates to nodes in the middle 50% of rows and middle 50% of columns, excluding
-    nodes near the edges where fire would quickly hit a boundary.
+    Falls back to any burnable node on the full grid if no burnable nodes exist within the central region.
 
-    Falls back to any burnable node on the full graph if no burnable nodes exist within the central region.
-
-    :param graph: Landscape graph. Must have ROWS and COLS graph attributes set.
-    :param rng: NumPy random generator for reproducible selection.
-    :param centre_fraction: Fraction of each dimension to use as the candidate region, centred on the grid. Must be in
-        (0, 1]. Default 0.5.
-    :return: A node (row, col) that is UNBURNED, LAND terrain, and fuel > 0.
-    :raises ValueError: If no burnable nodes exist anywhere on the graph.
+    :param state: Landscape state.
+    :param rng: NumPy random generator.
+    :param centre_fraction: Fraction of each dimension to use as the candidate region. Must be in (0, 1]. Default 0.5.
+    :return: An (row, col) that is UNBURNED, LAND, and fuel > 0.
+    :raises ValueError: If no burnable nodes exist anywhere on the grid.
     """
-    rows = graph.graph[ROWS]
-    cols = graph.graph[COLS]
+    rows = state.rows
+    cols = state.cols
     margin = (1.0 - centre_fraction) / 2.0
     row_lo = int(rows * margin)
     row_hi = int(rows * (1.0 - margin))
     col_lo = int(cols * margin)
     col_hi = int(cols * (1.0 - margin))
 
-    def _is_valid(node: tuple) -> bool:
-        return (
-            graph.nodes[node][STATE] == NodeState.UNBURNED
-            and graph.nodes[node][TERRAIN] == TerrainType.LAND
-            and graph.nodes[node][FUEL] > 0.0
+    def _valid_mask(r0: int, r1: int, c0: int, c1: int) -> np.ndarray:
+        mask = np.zeros((rows, cols), dtype=bool)
+        sub = (
+            (state.state[r0:r1, c0:c1] == NodeState.UNBURNED)
+            & (state.terrain[r0:r1, c0:c1] == TerrainType.LAND)
+            & (state.fuel[r0:r1, c0:c1] > 0.0)
         )
+        mask[r0:r1, c0:c1] = sub
+        return mask
 
-    candidates = [
-        (r, c)
-        for r in range(row_lo, row_hi)
-        for c in range(col_lo, col_hi)
-        if (r, c) in graph.nodes and _is_valid((r, c))
-    ]
-
-    if not candidates:
-        candidates = [n for n in graph.nodes if _is_valid(n)]
-
-    if not candidates:
+    mask = _valid_mask(row_lo, row_hi, col_lo, col_hi)
+    if not mask.any():
+        mask = _valid_mask(0, rows, 0, cols)
+    if not mask.any():
         raise ValueError("No burnable nodes available on this landscape.")
 
-    return candidates[rng.integers(len(candidates))]
+    candidates = np.argwhere(mask)
+    idx = int(rng.integers(len(candidates)))
+    r, c = candidates[idx]
+    return (int(r), int(c))
 
 
-def select_ignition_cluster(graph: nx.Graph, rng: np.random.Generator, size: int = 3) -> list[tuple]:
+def select_ignition_cluster(state: SimState, rng: np.random.Generator, size: int = 3) -> list[tuple]:
     """
     Return a cluster of burnable nodes to ignite simultaneously at t=0.
 
-    Selects one centre node via select_ignition_node, then expands to up to size-1 randomly chosen
-    burnable LAND neighbours. Using multiple ignition nodes prevents fire self-extinction on the first
-    spread step: a single-node ignition can fail to ignite any neighbour due to stochastic spread
-    probabilities, producing a spurious burned=1 outcome that is a stochastic artefact rather than a
-    learned strategy. A cluster guarantees the fire is established before intervention begins.
-
-    :param graph: Landscape graph.
-    :param rng: NumPy random generator.
-    :param size: Target cluster size. Actual size may be smaller if fewer burnable neighbours exist.
-    :return: List of (row, col) nodes to ignite, length between 1 and size.
+    Selects one centre via :func:`select_ignition_node`, then expands to up to ``size - 1`` randomly chosen burnable
+    LAND neighbours. Multi-node ignition prevents fire self-extinction on the first spread step.
     """
-    centre = select_ignition_node(graph, rng)
+    centre = select_ignition_node(state, rng)
     burnable_neighbours = [
         n
-        for n in graph.neighbors(centre)
-        if graph.nodes[n][STATE] == NodeState.UNBURNED
-        and graph.nodes[n][TERRAIN] == TerrainType.LAND
-        and graph.nodes[n][FUEL] > 0.0
+        for n in state.neighbours(centre)
+        if state.state[n] == NodeState.UNBURNED and state.terrain[n] == TerrainType.LAND and state.fuel[n] > 0.0
     ]
     rng.shuffle(burnable_neighbours)
     return [centre] + burnable_neighbours[: size - 1]
-
-
-def _attach_node_attributes(
-    graph: nx.Graph,
-    fuel_array: np.ndarray,
-    slope_array: np.ndarray,
-    elevation_array: np.ndarray,
-    terrain_type_array: np.ndarray,
-) -> None:
-    for i, j in graph.nodes:
-        graph.nodes[(i, j)][STATE] = NodeState.UNBURNED
-        graph.nodes[(i, j)][BURN_TIMER] = 0
-        graph.nodes[(i, j)][TERRAIN] = terrain_type_array[i, j]
-        graph.nodes[(i, j)][FUEL] = float(fuel_array[i, j])
-        graph.nodes[(i, j)][SLOPE] = float(slope_array[i, j])
-        graph.nodes[(i, j)][ELEVATION] = float(elevation_array[i, j])
 
 
 def _normalize(array: np.ndarray) -> np.ndarray:

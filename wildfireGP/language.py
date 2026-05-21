@@ -1,26 +1,26 @@
 """
 DEAP typed primitive set for the wildfire GP language.
 
-The GP tree is a function (graph, node) -> float, compiled and evaluated per node to produce a priority score for
-treatment allocation. Higher score means higher priority for treatment.
+The GP tree is a function ``(state, node) -> float``, compiled and evaluated per node to produce a priority score for
+treatment allocation. Higher score means higher priority.
 
-PrimitiveSetTyped is used with two input types --- nx.Graph and tuple (node coordinate) --- and float output. Feature
-functions appear as branch nodes (primitives) rather than zero-arity terminals: they receive graph and/or node directly,
-threaded down from the tree root. This eliminates global context injection and makes the compiled tree callable as
-func(graph, node).
+PrimitiveSetTyped is used with two input types --- :class:`wildfireGP.network.SimState` and ``tuple`` --- and float
+output. Feature functions appear as branch nodes (primitives) rather than zero-arity terminals: they receive state
+and/or node directly, threaded down from the tree root. The compiled tree is callable as ``func(state, node)``.
 
-Arithmetic primitives operate on float only. The type system prevents the tree generator from passing a graph or node
-where a float is expected, so trees are semantically valid by construction.
+For backwards compatibility with previously saved ``.expr`` strings, the argument names remain ``graph`` and ``node``.
 
-Infinite-valued features (distance_to_fire, burnable_distance_to_fire when no fire is present) propagate through
-arithmetic normally. Clamping of the final priority score is the responsibility of the evaluator.
+Arithmetic primitives operate on float only. The type system prevents the tree generator from passing a state or node
+where a float is expected.
+
+Infinite-valued features (``distance_to_fire``, ``burnable_distance_to_fire`` when no fire is present) propagate
+through arithmetic normally. Clamping of the final priority score is the responsibility of the evaluator.
 """
 
 import operator
 import random
 from functools import partial
 
-import networkx as nx
 from deap import gp
 
 from wildfireGP.features import (
@@ -33,7 +33,6 @@ from wildfireGP.features import (
     fuel_level,
     fuel_moisture,
     has_treated_neighbour,
-    treated_neighbour_count,
     mean_neighbour_elevation,
     mean_neighbour_fuel,
     reachable_unburned_area,
@@ -42,11 +41,13 @@ from wildfireGP.features import (
     total_burning,
     total_treated,
     total_unburned,
+    treated_neighbour_count,
     unburnable_neighbour_count,
     unburned_neighbour_count,
     wind_fire_alignment,
     wind_speed,
 )
+from wildfireGP.network import SimState
 
 # ---------------------------------------------------------------------------
 # Arithmetic helpers
@@ -103,7 +104,7 @@ _GRAPH_FEATURES = [
 
 
 def _build() -> gp.PrimitiveSetTyped:
-    pset = gp.PrimitiveSetTyped("MAIN", [nx.Graph, tuple], float)
+    pset = gp.PrimitiveSetTyped("MAIN", [SimState, tuple], float)
     pset.renameArguments(ARG0="graph", ARG1="node")
 
     pset.addPrimitive(operator.add, [float, float], float, name="add")
@@ -116,10 +117,10 @@ def _build() -> gp.PrimitiveSetTyped:
     pset.addPrimitive(_if_positive, [float, float, float], float, name="if_pos")
 
     for func in _NODE_FEATURES:
-        pset.addPrimitive(func, [nx.Graph, tuple], float, name=func.__name__)
+        pset.addPrimitive(func, [SimState, tuple], float, name=func.__name__)
 
     for func in _GRAPH_FEATURES:
-        pset.addPrimitive(func, [nx.Graph], float, name=func.__name__)
+        pset.addPrimitive(func, [SimState], float, name=func.__name__)
 
     pset.addEphemeralConstant("const", partial(random.uniform, -20.0, 20.0), float)
 

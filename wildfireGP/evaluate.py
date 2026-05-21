@@ -1,43 +1,38 @@
 """
 Fitness evaluation for GP individuals and comparison strategies.
 
-evaluate() runs one simulation scenario and returns (total_burned, peak_burning) --- both to be minimised. The graph
-passed in is deepcopied internally so the same landscape template can be reused across many evaluations without
+:func:`evaluate` runs one simulation scenario and returns ``(total_burned, peak_burning)`` --- both to be minimised. The
+landscape state passed in is copied internally so the same template can be reused across many evaluations without
 mutation.
 
 Treatment selection
 -------------------
-At each timestep on or after intervention_delay, every UNBURNED node with fuel > 0 (i.e. burnable LAND nodes) is
-scored by func(graph, node). The top treatments_per_step nodes by score are treated before spread_step is called.
-Non-finite scores (produced by arithmetic like inf - inf in the tree) are clamped to -inf so they sort last and are
-never treated preferentially.
+At each timestep on or after ``intervention_delay``, every UNBURNED node with fuel > 0 (i.e. burnable LAND nodes) is
+scored by ``func(state, node)``. The top ``treatments_per_step`` nodes by score are treated before :func:`spread_step`
+is called. Non-finite scores (produced by arithmetic like inf - inf in the tree) are clamped to -inf so they sort last
+and are never treated preferentially.
 
 Intervention delay
 ------------------
-Real wildfire response involves detection, dispatch, and travel before any resource reaches the fire. intervention_delay
-models this as a number of simulation steps during which no treatments are applied. At 100m/cell the default of 3 steps
-corresponds to roughly 90 minutes to 2 hours of elapsed real time before initial attack resources arrive --- consistent
-with North American initial attack response time targets for fires in remote terrain.
+``intervention_delay`` models detection, dispatch, and travel before initial attack resources arrive. Default 3 steps
+correspond to roughly 90 minutes to 2 hours at 100m/cell --- consistent with North American initial attack response
+time targets for fires in remote terrain.
 
 Treatment budget
 ----------------
-treatments_per_step represents the aggregate intervention capacity per timestep across all available resources (aerial
-retardant drops, dozer lines, hand crews). At 100m/cell it does not represent individual crew actions but the combined
-effect of a coordinated response. The default of 3 reflects a modest initial attack force; larger values represent
-heavier resource commitment. Calibration runs on 50x50 grids show that treatments=3 with delay=3 produces a regime
-where strategy choice meaningfully changes outcomes --- fire_proximity burns ~10-30% vs ~85% for no_treatment.
+``treatments_per_step`` is the aggregate intervention capacity per timestep across all available resources (aerial
+retardant drops, dozer lines, hand crews). Default 3 reflects a modest initial attack force.
 
 Weighted fitness
 ----------------
-total_burned is a count with uniform weight. When a VALUE node attribute is added, total_burned should become
-sum(graph.nodes[n][VALUE] for burned nodes) to weight high-value nodes more heavily in the fitness signal.
+``total_burned`` is a count with uniform weight. When a VALUE node attribute is added, ``total_burned`` should become
+``sum(state.value[n] for burned nodes)`` to weight high-value nodes more heavily in the fitness signal.
 """
 
 import math
 from collections.abc import Iterator
 from typing import Callable
 
-import networkx as nx
 import numpy as np
 
 from wildfireGP.features import (
@@ -46,50 +41,50 @@ from wildfireGP.features import (
     precompute_reachable_unburned_area,
     precompute_state_counts,
 )
-from wildfireGP.network import BURN_TIMER, FUEL, STATE, NodeState
+from wildfireGP.network import NodeState, SimState
 from wildfireGP.spread import MAX_BURN_STEPS, spread_step
 
 DEFAULT_TREATMENTS_PER_STEP = 3
 DEFAULT_INTERVENTION_DELAY = 3
 
 
-def init_ignition(graph: nx.Graph, ignition_nodes: list[tuple]) -> None:
+def init_ignition(state: SimState, ignition_nodes: list[tuple]) -> None:
     """Set ignition nodes to BURNING state with fuel-proportional burn timers."""
     for node in ignition_nodes:
-        graph.nodes[node][STATE] = NodeState.BURNING
-        graph.nodes[node][BURN_TIMER] = max(1, math.ceil(graph.nodes[node][FUEL] * MAX_BURN_STEPS))
+        state.state[node] = NodeState.BURNING
+        state.burn_timer[node] = max(1, math.ceil(float(state.fuel[node]) * MAX_BURN_STEPS))
 
 
 def simulate(
-    graph: nx.Graph,
-    func: Callable[[nx.Graph, tuple], float],
+    state: SimState,
+    func: Callable[[SimState, tuple], float],
     treatments_per_step: int,
     max_steps: int,
     rng: np.random.Generator,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
-) -> Iterator[tuple[int, nx.Graph]]:
+) -> Iterator[tuple[int, SimState]]:
     """
-    Run one fire simulation, yielding (step, graph) after each spread step.
+    Run one fire simulation, yielding ``(step, state)`` after each spread step.
 
-    Assumes init_ignition() has already been called. Modifies graph in place. The yielded graph
-    is the same object mutated each step — callers that need a snapshot must deepcopy it themselves.
+    Assumes :func:`init_ignition` has already been called. Modifies state in place. The yielded state is the same
+    object mutated each step --- callers that need a snapshot must copy it themselves.
     """
     for step in range(max_steps):
-        if not any(graph.nodes[n][STATE] == NodeState.BURNING for n in graph.nodes):
+        if not (state.state == NodeState.BURNING).any():
             break
         if step >= intervention_delay:
-            precompute_fire_map(graph)
-            precompute_burnable_fire_map(graph)
-            precompute_reachable_unburned_area(graph)
-            precompute_state_counts(graph)
-            _apply_treatments(graph, func, treatments_per_step, rng)
-        spread_step(graph, rng)
-        yield step, graph
+            precompute_fire_map(state)
+            precompute_burnable_fire_map(state)
+            precompute_reachable_unburned_area(state)
+            precompute_state_counts(state)
+            _apply_treatments(state, func, treatments_per_step, rng)
+        spread_step(state, rng)
+        yield step, state
 
 
 def evaluate(
-    func: Callable[[nx.Graph, tuple], float],
-    graph: nx.Graph,
+    func: Callable[[SimState, tuple], float],
+    state: SimState,
     ignition_nodes: list[tuple],
     treatments_per_step: int,
     max_steps: int,
@@ -97,68 +92,55 @@ def evaluate(
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> tuple[int, int]:
     """
-    Run one simulation scenario and return (total_burned, peak_burning).
+    Run one simulation scenario and return ``(total_burned, peak_burning)``.
 
-    :param func: Compiled GP tree or strategy callable with signature (graph, node) -> float.
-        Higher score means higher treatment priority. Must handle any node state gracefully.
-    :param graph: Landscape template. Deepcopied internally; the original is never modified.
-        Wind and moisture must be set before calling.
+    :param func: Compiled GP tree or strategy callable ``(state, node) -> float``. Higher score = higher priority.
+    :param state: Landscape template. Copied internally; the original is never modified. Wind and moisture must be set
+        before calling.
     :param ignition_nodes: Nodes to ignite at t=0. Should be UNBURNED LAND nodes.
-    :param treatments_per_step: Maximum number of treatments applied per timestep. Represents aggregate
-        intervention capacity across all resources, not individual crew actions. Default 3 reflects a
-        modest initial attack force at 100m/cell resolution.
+    :param treatments_per_step: Maximum number of treatments applied per timestep.
     :param max_steps: Maximum simulation steps before terminating regardless of fire state.
     :param rng: NumPy random generator for stochastic spread.
-    :param intervention_delay: Number of steps before any treatments are applied. Models detection,
-        dispatch, and travel time before resources reach the fire. Default 3 corresponds to roughly
-        90 minutes to 2 hours at 100m/cell --- consistent with initial attack response time targets
-        for remote terrain in North American fire management.
-    :return: (total_burned, peak_burning). Both should be minimised.
+    :param intervention_delay: Number of steps before any treatments are applied.
+    :return: ``(total_burned, peak_burning)``. Both should be minimised.
     """
-    graph = _copy_graph(graph)
-    init_ignition(graph, ignition_nodes)
-    peak_burning = sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING)
-    for _step, _ in simulate(graph, func, treatments_per_step, max_steps, rng, intervention_delay):
-        peak_burning = max(peak_burning, sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNING))
-    total_burned = sum(1 for n in graph.nodes if graph.nodes[n][STATE] == NodeState.BURNED)
+    state = state.copy()
+    init_ignition(state, ignition_nodes)
+    peak_burning = int((state.state == NodeState.BURNING).sum())
+    for _step, _ in simulate(state, func, treatments_per_step, max_steps, rng, intervention_delay):
+        peak_burning = max(peak_burning, int((state.state == NodeState.BURNING).sum()))
+    total_burned = int((state.state == NodeState.BURNED).sum())
     return total_burned, peak_burning
 
 
 def _apply_treatments(
-    graph: nx.Graph, func: Callable[[nx.Graph, tuple], float], budget: int, rng: np.random.Generator
+    state: SimState, func: Callable[[SimState, tuple], float], budget: int, rng: np.random.Generator
 ) -> None:
     """
-    Apply up to budget treatments to the highest-scoring UNBURNED burnable nodes.
+    Apply up to ``budget`` treatments to the highest-scoring UNBURNED burnable nodes.
 
-    Candidates are scored once up front, then selected one at a time. After each placement only the
-    Moore-neighbours of the just-treated node are rescored — they are the only nodes whose
-    treated-neighbour features can have changed. Candidates are shuffled before the initial sort so
-    equal-scoring nodes are broken randomly; timsort's stability preserves that order on re-sorts.
+    Candidates are scored once up front, then selected one at a time. After each placement only the Moore-neighbours of
+    the just-treated node are rescored --- they are the only nodes whose treated-neighbour features can have changed.
+    Candidates are shuffled before the initial sort so equal-scoring nodes are broken randomly; timsort's stability
+    preserves that order on re-sorts.
     """
-    candidates = [n for n in graph.nodes if graph.nodes[n][STATE] == NodeState.UNBURNED and graph.nodes[n][FUEL] > 0.0]
+    candidate_arr = np.argwhere((state.state == NodeState.UNBURNED) & (state.fuel > 0.0))
+    candidates = [(int(r), int(c)) for r, c in candidate_arr]
     rng.shuffle(candidates)
-    scores = {n: _safe_score(func, graph, n) for n in candidates}
+    scores = {n: _safe_score(func, state, n) for n in candidates}
     candidate_set = set(candidates)
     candidates.sort(key=lambda n: scores[n], reverse=True)
     for _ in range(min(budget, len(candidates))):
         node = candidates.pop(0)
         candidate_set.discard(node)
-        graph.nodes[node][STATE] = NodeState.TREATED
-        to_rescore = [n for n in graph.neighbors(node) if n in candidate_set]
+        state.state[node] = NodeState.TREATED
+        to_rescore = [n for n in state.neighbours(node) if n in candidate_set]
         if to_rescore:
             for n in to_rescore:
-                scores[n] = _safe_score(func, graph, n)
+                scores[n] = _safe_score(func, state, n)
             candidates.sort(key=lambda n: scores[n], reverse=True)
 
 
-def _safe_score(func: Callable[[nx.Graph, tuple], float], graph: nx.Graph, node: tuple) -> float:
-    score = func(graph, node)
+def _safe_score(func: Callable[[SimState, tuple], float], state: SimState, node: tuple) -> float:
+    score = func(state, node)
     return score if math.isfinite(score) else float("-inf")
-
-
-def _copy_graph(template: nx.Graph) -> nx.Graph:
-    g = template.__class__()
-    g.graph.update(template.graph)
-    g.add_nodes_from((n, dict(data)) for n, data in template.nodes(data=True))
-    g.add_edges_from(template.edges())
-    return g

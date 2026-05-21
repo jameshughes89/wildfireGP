@@ -2,9 +2,6 @@ import math
 
 from wildfireGP.features import precompute_burnable_fire_map, precompute_fire_map
 from wildfireGP.network import (
-    BURN_TIMER,
-    FUEL,
-    STATE,
     NodeState,
     create_grid,
     set_fuel_moisture,
@@ -23,192 +20,171 @@ from wildfireGP.strategies import (
 )
 
 
-def _graph_no_fire():
-    g = create_grid(10, 10, seed=0)
-    set_wind(g, speed=20.0, direction=0.0)
-    set_fuel_moisture(g, moisture=0.2)
-    precompute_fire_map(g)
-    precompute_burnable_fire_map(g)
-    return g
+def _state_no_fire():
+    s = create_grid(10, 10, seed=0)
+    set_wind(s, speed=20.0, direction=0.0)
+    set_fuel_moisture(s, moisture=0.2)
+    precompute_fire_map(s)
+    precompute_burnable_fire_map(s)
+    return s
 
 
-def _graph_with_fire(ignition=(5, 5)):
-    g = create_grid(10, 10, seed=0)
-    set_wind(g, speed=20.0, direction=0.0)
-    set_fuel_moisture(g, moisture=0.2)
-    g.nodes[ignition][STATE] = NodeState.BURNING
-    g.nodes[ignition][BURN_TIMER] = max(1, math.ceil(g.nodes[ignition][FUEL] * MAX_BURN_STEPS))
-    precompute_fire_map(g)
-    precompute_burnable_fire_map(g)
-    return g
+def _state_with_fire(ignition=(5, 5)):
+    s = create_grid(10, 10, seed=0)
+    set_wind(s, speed=20.0, direction=0.0)
+    set_fuel_moisture(s, moisture=0.2)
+    s.state[ignition] = NodeState.BURNING
+    s.burn_timer[ignition] = max(1, math.ceil(float(s.fuel[ignition]) * MAX_BURN_STEPS))
+    precompute_fire_map(s)
+    precompute_burnable_fire_map(s)
+    return s
 
 
-def test_random_score_varies_across_nodes():
-    graph = _graph_with_fire()
-    scores = {random_score(graph, n) for n in graph.nodes}
+def test_random_score_varies_across_cells():
+    s = _state_with_fire()
+    scores = {random_score(s, n) for n in s.nodes()}
     assert len(scores) > 1
 
 
 def test_score_by_fire_proximity_closer_scores_higher():
-    graph = _graph_with_fire(ignition=(5, 5))
-    assert score_by_fire_proximity(graph, (5, 4)) > score_by_fire_proximity(graph, (0, 0))
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_by_fire_proximity(s, (5, 4)) > score_by_fire_proximity(s, (0, 0))
 
 
 def test_score_by_burning_neighbors_more_neighbors_scores_higher():
-    graph = _graph_no_fire()
+    s = _state_no_fire()
     node = (5, 5)
-    for nb in list(graph.neighbors(node))[:3]:
-        graph.nodes[nb][STATE] = NodeState.BURNING
-    precompute_fire_map(graph)
-    assert score_by_burning_neighbors(graph, node) > score_by_burning_neighbors(graph, (0, 0))
-
-
-# ---------------------------------------------------------------------------
-# score_indirect_attack
-# ---------------------------------------------------------------------------
+    for nb in s.neighbours(node)[:3]:
+        s.state[nb] = NodeState.BURNING
+    precompute_fire_map(s)
+    assert score_by_burning_neighbors(s, node) > score_by_burning_neighbors(s, (0, 0))
 
 
 def test_score_indirect_attack_zero_when_no_fire():
-    assert score_indirect_attack(_graph_no_fire(), (5, 5)) == 0.0
+    assert score_indirect_attack(_state_no_fire(), (5, 5)) == 0.0
 
 
 def test_score_indirect_attack_zero_below_min_distance():
     one_hop_from_fire = (5, 4)
-    graph = _graph_with_fire(ignition=(5, 5))
-    assert score_indirect_attack(graph, one_hop_from_fire) == 0.0
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_indirect_attack(s, one_hop_from_fire) == 0.0
 
 
 def test_score_indirect_attack_zero_above_max_distance():
     five_hops_from_fire = (0, 0)
-    graph = _graph_with_fire(ignition=(5, 5))
-    assert score_indirect_attack(graph, five_hops_from_fire, max_distance=3) == 0.0
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_indirect_attack(s, five_hops_from_fire, max_distance=3) == 0.0
 
 
 def test_score_indirect_attack_closer_scores_higher_within_window():
     two_hops_from_fire = (5, 3)
     five_hops_from_fire = (0, 0)
-    graph = _graph_with_fire(ignition=(5, 5))
-    for nb in graph.neighbors(two_hops_from_fire):
-        graph.nodes[nb][FUEL] = 0.9
-    for nb in graph.neighbors(five_hops_from_fire):
-        graph.nodes[nb][FUEL] = 0.9
-    assert score_indirect_attack(graph, two_hops_from_fire) > score_indirect_attack(graph, five_hops_from_fire)
-
-
-# ---------------------------------------------------------------------------
-# score_ridgeline
-# ---------------------------------------------------------------------------
+    s = _state_with_fire(ignition=(5, 5))
+    for nb in s.neighbours(two_hops_from_fire):
+        s.fuel[nb] = 0.9
+    for nb in s.neighbours(five_hops_from_fire):
+        s.fuel[nb] = 0.9
+    assert score_indirect_attack(s, two_hops_from_fire) > score_indirect_attack(s, five_hops_from_fire)
 
 
 def test_score_ridgeline_zero_when_no_fire():
-    assert score_ridgeline(_graph_no_fire(), (5, 5)) == 0.0
+    assert score_ridgeline(_state_no_fire(), (5, 5)) == 0.0
 
 
 def test_score_ridgeline_zero_below_min_distance():
     one_hop_from_fire = (5, 4)
-    graph = _graph_with_fire(ignition=(5, 5))
-    assert score_ridgeline(graph, one_hop_from_fire) == 0.0
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_ridgeline(s, one_hop_from_fire) == 0.0
 
 
 def test_score_ridgeline_zero_above_max_distance():
     five_hops_from_fire = (0, 0)
-    graph = _graph_with_fire(ignition=(5, 5))
-    assert score_ridgeline(graph, five_hops_from_fire, max_distance=3) == 0.0
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_ridgeline(s, five_hops_from_fire, max_distance=3) == 0.0
 
 
 def test_score_ridgeline_higher_elevation_and_slope_scores_higher():
-    graph = _graph_with_fire()
+    s = _state_with_fire()
     no_distance_limit = dict(min_distance=0, max_distance=100)
-    high = max(graph.nodes, key=lambda n: score_ridgeline(graph, n, **no_distance_limit))
-    low = min(graph.nodes, key=lambda n: score_ridgeline(graph, n, **no_distance_limit))
-    assert score_ridgeline(graph, high, **no_distance_limit) > score_ridgeline(graph, low, **no_distance_limit)
-
-
-# ---------------------------------------------------------------------------
-# score_head_fire
-# ---------------------------------------------------------------------------
+    nodes = list(s.nodes())
+    high = max(nodes, key=lambda n: score_ridgeline(s, n, **no_distance_limit))
+    low = min(nodes, key=lambda n: score_ridgeline(s, n, **no_distance_limit))
+    assert score_ridgeline(s, high, **no_distance_limit) > score_ridgeline(s, low, **no_distance_limit)
 
 
 def test_score_by_fuel_higher_fuel_scores_higher():
-    g = _graph_no_fire()
+    s = _state_no_fire()
     high, low = (3, 3), (3, 4)
-    g.nodes[high][FUEL] = 0.9
-    g.nodes[low][FUEL] = 0.1
-    assert score_by_fuel(g, high) > score_by_fuel(g, low)
+    s.fuel[high] = 0.9
+    s.fuel[low] = 0.1
+    assert score_by_fuel(s, high) > score_by_fuel(s, low)
 
 
-def test_score_by_fuel_anchor_nudges_equal_fuel_toward_node_with_treated_neighbour():
-    g = _graph_no_fire()
+def test_score_by_fuel_anchor_nudges_equal_fuel_toward_cell_with_treated_neighbour():
+    s = _state_no_fire()
     node_with_anchor, node_without = (1, 1), (8, 8)
-    g.nodes[node_with_anchor][FUEL] = g.nodes[node_without][FUEL] = 0.5
-    g.nodes[(0, 0)][STATE] = NodeState.TREATED  # neighbour of (1,1), not of (8,8)
-    assert score_by_fuel(g, node_with_anchor) > score_by_fuel(g, node_without)
+    s.fuel[node_with_anchor] = s.fuel[node_without] = 0.5
+    s.state[0, 0] = NodeState.TREATED
+    assert score_by_fuel(s, node_with_anchor) > score_by_fuel(s, node_without)
 
 
 def test_score_head_fire_zero_when_no_fire():
-    assert score_head_fire(_graph_no_fire(), (5, 5)) == 0.0
+    assert score_head_fire(_state_no_fire(), (5, 5)) == 0.0
 
 
 def test_score_head_fire_zero_below_min_distance():
     one_hop_from_fire = (5, 4)
-    graph = _graph_with_fire(ignition=(5, 5))
-    assert score_head_fire(graph, one_hop_from_fire) == 0.0
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_head_fire(s, one_hop_from_fire) == 0.0
 
 
 def test_score_head_fire_zero_above_max_distance():
     five_hops_from_fire = (0, 0)
-    graph = _graph_with_fire(ignition=(5, 5))
-    assert score_head_fire(graph, five_hops_from_fire, max_distance=3) == 0.0
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_head_fire(s, five_hops_from_fire, max_distance=3) == 0.0
 
 
 def test_score_head_fire_finite_within_window():
     two_hops_from_fire = (5, 3)
-    assert math.isfinite(score_head_fire(_graph_with_fire(ignition=(5, 5)), two_hops_from_fire))
+    assert math.isfinite(score_head_fire(_state_with_fire(ignition=(5, 5)), two_hops_from_fire))
 
 
 def test_score_head_fire_downwind_scores_higher_than_crosswind():
-    g = _graph_with_fire(ignition=(5, 5))
+    s = _state_with_fire(ignition=(5, 5))
     downwind = (7, 5)
     crosswind = (5, 3)
-    assert score_head_fire(g, downwind) > score_head_fire(g, crosswind)
-
-
-# ---------------------------------------------------------------------------
-# score_fire_run
-# ---------------------------------------------------------------------------
+    assert score_head_fire(s, downwind) > score_head_fire(s, crosswind)
 
 
 def test_score_fire_run_zero_when_no_fire():
-    assert score_fire_run(_graph_no_fire(), (5, 5)) == 0.0
+    assert score_fire_run(_state_no_fire(), (5, 5)) == 0.0
 
 
 def test_score_fire_run_zero_below_min_distance():
-    graph = _graph_with_fire(ignition=(5, 5))
-    assert score_fire_run(graph, (5, 4)) == 0.0
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_fire_run(s, (5, 4)) == 0.0
 
 
 def test_score_fire_run_zero_above_max_distance():
-    graph = _graph_with_fire(ignition=(5, 5))
-    assert score_fire_run(graph, (0, 0), max_distance=3) == 0.0
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_fire_run(s, (0, 0), max_distance=3) == 0.0
 
 
 def test_score_fire_run_finite_within_window():
-    graph = _graph_with_fire(ignition=(5, 5))
-    assert math.isfinite(score_fire_run(graph, (7, 5)))
+    s = _state_with_fire(ignition=(5, 5))
+    assert math.isfinite(score_fire_run(s, (7, 5)))
 
 
 def test_score_fire_run_downwind_scores_higher_than_crosswind():
-    graph = _graph_with_fire(ignition=(5, 5))
-    downwind = (7, 5)  # south of fire, aligned with north wind
-    crosswind = (5, 3)  # west of fire, perpendicular to wind
-    assert score_fire_run(graph, downwind) > score_fire_run(graph, crosswind)
+    s = _state_with_fire(ignition=(5, 5))
+    downwind = (7, 5)
+    crosswind = (5, 3)
+    assert score_fire_run(s, downwind) > score_fire_run(s, crosswind)
 
 
 def test_score_fire_run_higher_fuel_scores_higher():
-    # (7,4) and (7,6) are both Chebyshev distance 2 from (5,5) and have identical wind alignment
-    # (symmetric about the fire column), so fuel is the only differentiating factor.
-    graph = _graph_with_fire(ignition=(5, 5))
+    s = _state_with_fire(ignition=(5, 5))
     high_fuel, low_fuel = (7, 4), (7, 6)
-    graph.nodes[high_fuel][FUEL] = 0.9
-    graph.nodes[low_fuel][FUEL] = 0.1
-    assert score_fire_run(graph, high_fuel) > score_fire_run(graph, low_fuel)
+    s.fuel[high_fuel] = 0.9
+    s.fuel[low_fuel] = 0.1
+    assert score_fire_run(s, high_fuel) > score_fire_run(s, low_fuel)

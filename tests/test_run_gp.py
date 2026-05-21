@@ -274,7 +274,6 @@ def test_main_run_name_creates_named_dir(tmp_path):
     assert (tmp_path / "experiment_A").is_dir()
 
 
-
 def test_main_max_tree_height_and_nodes_in_config(tmp_path):
     main(
         [

@@ -99,7 +99,8 @@ def test_find_valid_ignition_returns_node_in_graph():
     ignition = _find_valid_ignition(
         g, np.random.default_rng(0), max_steps=50, intervention_delay=0, min_burned=0, max_tries=5
     )
-    assert ignition in g.nodes
+    r, c = ignition
+    assert 0 <= r < g.rows and 0 <= c < g.cols
 
 
 def test_find_valid_ignition_falls_back_when_min_burned_impossible(caplog):

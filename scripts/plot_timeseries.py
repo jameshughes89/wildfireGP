@@ -26,7 +26,6 @@ Examples
 """
 
 import argparse
-import copy
 import logging
 import pathlib
 import sys
@@ -38,7 +37,6 @@ import numpy as np
 from scripts.cli import add_landscape_args, load_candidate_by_expr
 from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, init_ignition, simulate
 from wildfireGP.network import (
-    STATE,
     NodeState,
     create_grid,
     select_ignition_cluster,
@@ -58,10 +56,10 @@ def main(argv: list[str] | None = None) -> None:
 
     rng = np.random.default_rng(args.seed)
     log.info("Building landscape (%dx%d, seed=%s)", args.rows, args.cols, args.seed)
-    graph = create_grid(args.rows, args.cols, seed=args.seed)
-    set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
-    set_fuel_moisture(graph, moisture=args.moisture)
-    ignition_nodes = select_ignition_cluster(graph, rng, size=args.ignition_cluster_size)
+    state = create_grid(args.rows, args.cols, seed=args.seed)
+    set_wind(state, speed=args.wind_speed, direction=args.wind_direction)
+    set_fuel_moisture(state, moisture=args.moisture)
+    ignition_nodes = select_ignition_cluster(state, rng, size=args.ignition_cluster_size)
     log.info("Ignition cluster (%d nodes): %s", len(ignition_nodes), ignition_nodes)
 
     strategies = _load_strategies(args)
@@ -71,7 +69,7 @@ def main(argv: list[str] | None = None) -> None:
     for name, func in strategies:
         log.info("  %s ...", name)
         series_data[name] = collect_series(
-            func, graph, ignition_nodes, args.treatments, args.max_steps, args.runs, args.seed, args.intervention_delay
+            func, state, ignition_nodes, args.treatments, args.max_steps, args.runs, args.seed, args.intervention_delay
         )
 
     output = pathlib.Path(args.output) if args.output else pathlib.Path("sim_timeseries.png")
@@ -83,7 +81,7 @@ def main(argv: list[str] | None = None) -> None:
 
 def collect_series(
     func,
-    graph,
+    state,
     ignition_nodes: list[tuple],
     treatments_per_step: int,
     max_steps: int,
@@ -103,7 +101,7 @@ def collect_series(
     for i in range(runs):
         seed = None if base_seed is None else base_seed + i
         burning, burned = _run_simulation(
-            graph, ignition_nodes, func, treatments_per_step, max_steps, np.random.default_rng(seed), intervention_delay
+            state, ignition_nodes, func, treatments_per_step, max_steps, np.random.default_rng(seed), intervention_delay
         )
         all_burning.append(burning)
         all_burned.append(burned)
@@ -117,15 +115,15 @@ def collect_series(
 
 
 def _run_simulation(
-    graph, ignition_nodes: list[tuple], func, treatments_per_step: int, max_steps: int, rng, intervention_delay: int
+    state, ignition_nodes: list[tuple], func, treatments_per_step: int, max_steps: int, rng, intervention_delay: int
 ) -> tuple[list[int], list[int]]:
-    g = copy.deepcopy(graph)
-    init_ignition(g, ignition_nodes)
-    burning = [sum(1 for n in g.nodes if g.nodes[n][STATE] == NodeState.BURNING)]
-    burned = [sum(1 for n in g.nodes if g.nodes[n][STATE] == NodeState.BURNED)]
-    for _step, _ in simulate(g, func, treatments_per_step, max_steps, rng, intervention_delay):
-        burning.append(sum(1 for n in g.nodes if g.nodes[n][STATE] == NodeState.BURNING))
-        burned.append(sum(1 for n in g.nodes if g.nodes[n][STATE] == NodeState.BURNED))
+    s = state.copy()
+    init_ignition(s, ignition_nodes)
+    burning = [int((s.state == NodeState.BURNING).sum())]
+    burned = [int((s.state == NodeState.BURNED).sum())]
+    for _step, _ in simulate(s, func, treatments_per_step, max_steps, rng, intervention_delay):
+        burning.append(int((s.state == NodeState.BURNING).sum()))
+        burned.append(int((s.state == NodeState.BURNED).sum()))
     return burning, burned
 
 

@@ -27,7 +27,6 @@ Examples
 """
 
 import argparse
-import copy
 import logging
 import pathlib
 import sys
@@ -76,17 +75,17 @@ def main(argv: list[str] | None = None) -> None:
 
 
 def _run_simulation(
-    graph,
+    state,
     func,
     treatments_per_step: int,
     max_steps: int,
     rng: np.random.Generator,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> list:
-    g = copy.deepcopy(graph)
-    snapshots = [copy.deepcopy(g)]
-    for _step, _ in simulate(g, func, treatments_per_step, max_steps, rng, intervention_delay):
-        snapshots.append(copy.deepcopy(g))
+    s = state.copy()
+    snapshots = [s.copy()]
+    for _step, _ in simulate(s, func, treatments_per_step, max_steps, rng, intervention_delay):
+        snapshots.append(s.copy())
     return snapshots
 
 
