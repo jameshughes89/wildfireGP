@@ -76,16 +76,29 @@ def main(argv: list[str] | None = None) -> None:
 
     scenarios = []
     land_ignitions: list[list[tuple]] = []
+    wind_per_landscape: list[dict[str, float]] = []
     for i in range(args.landscapes):
         land_seed = None if args.seed is None else args.seed + i
-        log.info("Building landscape %d/%d (%dx%d, seed=%s)", i + 1, args.landscapes, args.rows, args.cols, land_seed)
+        wind_speed = float(rng.uniform(5.0, 50.0))
+        wind_direction = float(rng.uniform(0.0, 360.0))
+        log.info(
+            "Building landscape %d/%d (%dx%d, seed=%s, wind=%.1f km/h @ %.1f°)",
+            i + 1,
+            args.landscapes,
+            args.rows,
+            args.cols,
+            land_seed,
+            wind_speed,
+            wind_direction,
+        )
         graph = create_grid(args.rows, args.cols, seed=land_seed)
-        set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
+        set_wind(graph, speed=wind_speed, direction=wind_direction)
         set_fuel_moisture(graph, moisture=args.moisture)
         ignition_nodes = select_ignition_cluster(graph, rng, size=args.ignition_cluster_size)
         log.info("  ignition cluster (%d nodes): %s", len(ignition_nodes), ignition_nodes)
         scenarios.append((graph, ignition_nodes))
         land_ignitions.append(ignition_nodes)
+        wind_per_landscape.append({"speed": wind_speed, "direction": wind_direction})
 
     config = GPConfig(
         population_size=args.pop,
@@ -110,8 +123,7 @@ def main(argv: list[str] | None = None) -> None:
         "treatments_per_step": args.treatments,
         "max_steps": args.max_steps,
         "intervention_delay": args.intervention_delay,
-        "wind_speed": args.wind_speed,
-        "wind_direction": args.wind_direction,
+        "wind_per_landscape": wind_per_landscape,
         "fuel_moisture": args.moisture,
     }
 
