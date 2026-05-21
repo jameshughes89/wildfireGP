@@ -50,7 +50,7 @@ Alexandridis et al. (2008) use 5x5m cells. The functional form of the ignition p
 sensitivities remains valid at coarser resolutions; the model makes no claim about the wall-clock duration of a
 timestep.
 
-Wind and moisture must be set on the SimState before calling :func:`spread_step`.
+Wind and moisture must be set on the GraphState before calling :func:`spread_step`.
 
 References
 ----------
@@ -65,7 +65,7 @@ import math
 
 import numpy as np
 
-from wildfireGP.network import NodeState, SimState, TerrainType
+from wildfireGP.network import NodeState, GraphState, TerrainType
 
 MAX_BURN_STEPS = 5
 
@@ -75,7 +75,7 @@ _A_S = 0.078
 _KMH_TO_MS = 1.0 / 3.6
 
 
-def spread_step(state: SimState, rng: np.random.Generator) -> None:
+def spread_step(state: GraphState, rng: np.random.Generator) -> None:
     """
     Advance the fire simulation by one timestep.
 
@@ -100,7 +100,7 @@ def spread_step(state: SimState, rng: np.random.Generator) -> None:
     _burn_out_nodes(state, to_burn_out)
 
 
-def ignition_probability(state: SimState, src: tuple, dst: tuple) -> float:
+def ignition_probability(state: GraphState, src: tuple, dst: tuple) -> float:
     """
     Compute the ignition probability from BURNING node ``src`` to UNBURNED node ``dst``.
 
@@ -114,17 +114,17 @@ def ignition_probability(state: SimState, src: tuple, dst: tuple) -> float:
     return _ignition_probability(state, src, dst, wind_speed_ms, wind_dir_rad, moisture)
 
 
-def _is_burnable(state: SimState, node: tuple) -> bool:
+def _is_burnable(state: GraphState, node: tuple) -> bool:
     terrain = state.terrain[node]
     return terrain != TerrainType.WATER and terrain != TerrainType.ROCK
 
 
-def _can_ignite(state: SimState, node: tuple) -> bool:
+def _can_ignite(state: GraphState, node: tuple) -> bool:
     return state.state[node] == NodeState.UNBURNED and _is_burnable(state, node)
 
 
 def _ignition_targets(
-    state: SimState,
+    state: GraphState,
     node: tuple,
     rng: np.random.Generator,
     wind_speed_ms: float,
@@ -141,12 +141,12 @@ def _ignition_targets(
     return targets
 
 
-def _decrement_burn_timer(state: SimState, node: tuple) -> bool:
+def _decrement_burn_timer(state: GraphState, node: tuple) -> bool:
     state.burn_timer[node] -= 1
     return state.burn_timer[node] <= 0
 
 
-def _ignite_nodes(state: SimState, nodes: list[tuple]) -> None:
+def _ignite_nodes(state: GraphState, nodes: list[tuple]) -> None:
     for node in nodes:
         if state.state[node] != NodeState.UNBURNED:
             continue
@@ -155,14 +155,14 @@ def _ignite_nodes(state: SimState, nodes: list[tuple]) -> None:
         state.burn_timer[node] = max(1, math.ceil(fuel * MAX_BURN_STEPS))
 
 
-def _burn_out_nodes(state: SimState, nodes: list[tuple]) -> None:
+def _burn_out_nodes(state: GraphState, nodes: list[tuple]) -> None:
     for node in nodes:
         state.state[node] = NodeState.BURNED
         state.fuel[node] = 0.0
 
 
 def _ignition_probability(
-    state: SimState,
+    state: GraphState,
     src: tuple,
     dst: tuple,
     wind_speed_ms: float,

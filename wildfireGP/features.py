@@ -19,26 +19,26 @@ from collections import deque
 
 import numpy as np
 
-from wildfireGP.network import NodeState, SimState, TerrainType
+from wildfireGP.network import NodeState, GraphState, TerrainType
 
 # ---------------------------------------------------------------------------
 # Terrain
 # ---------------------------------------------------------------------------
 
 
-def fuel_level(state: SimState, node: tuple) -> float:
+def fuel_level(state: GraphState, node: tuple) -> float:
     return float(state.fuel[node])
 
 
-def elevation(state: SimState, node: tuple) -> float:
+def elevation(state: GraphState, node: tuple) -> float:
     return float(state.elevation[node])
 
 
-def slope(state: SimState, node: tuple) -> float:
+def slope(state: GraphState, node: tuple) -> float:
     return float(state.slope[node])
 
 
-def mean_neighbour_elevation(state: SimState, node: tuple) -> float:
+def mean_neighbour_elevation(state: GraphState, node: tuple) -> float:
     neighbours = state.neighbours(node)
     return sum(float(state.elevation[n]) for n in neighbours) / len(neighbours)
 
@@ -48,16 +48,16 @@ def mean_neighbour_elevation(state: SimState, node: tuple) -> float:
 # ---------------------------------------------------------------------------
 
 
-def mean_neighbour_fuel(state: SimState, node: tuple) -> float:
+def mean_neighbour_fuel(state: GraphState, node: tuple) -> float:
     neighbours = state.neighbours(node)
     return sum(float(state.fuel[n]) for n in neighbours) / len(neighbours)
 
 
-def burning_neighbour_count(state: SimState, node: tuple) -> int:
+def burning_neighbour_count(state: GraphState, node: tuple) -> int:
     return sum(1 for n in state.neighbours(node) if state.state[n] == NodeState.BURNING)
 
 
-def burning_two_hop_count(state: SimState, node: tuple) -> int:
+def burning_two_hop_count(state: GraphState, node: tuple) -> int:
     one_hop = set(state.neighbours(node))
     two_hop: set[tuple] = set()
     for neighbour in one_hop:
@@ -67,11 +67,11 @@ def burning_two_hop_count(state: SimState, node: tuple) -> int:
     return sum(1 for n in two_hop if state.state[n] == NodeState.BURNING)
 
 
-def unburned_neighbour_count(state: SimState, node: tuple) -> int:
+def unburned_neighbour_count(state: GraphState, node: tuple) -> int:
     return sum(1 for n in state.neighbours(node) if state.state[n] == NodeState.UNBURNED)
 
 
-def unburnable_neighbour_count(state: SimState, node: tuple) -> int:
+def unburnable_neighbour_count(state: GraphState, node: tuple) -> int:
     count = 0
     for n in state.neighbours(node):
         s = state.state[n]
@@ -81,11 +81,11 @@ def unburnable_neighbour_count(state: SimState, node: tuple) -> int:
     return count
 
 
-def has_treated_neighbour(state: SimState, node: tuple) -> float:
+def has_treated_neighbour(state: GraphState, node: tuple) -> float:
     return 1.0 if any(state.state[n] == NodeState.TREATED for n in state.neighbours(node)) else 0.0
 
 
-def treated_neighbour_count(state: SimState, node: tuple) -> int:
+def treated_neighbour_count(state: GraphState, node: tuple) -> int:
     return sum(1 for n in state.neighbours(node) if state.state[n] == NodeState.TREATED)
 
 
@@ -94,7 +94,7 @@ def treated_neighbour_count(state: SimState, node: tuple) -> int:
 # ---------------------------------------------------------------------------
 
 
-def precompute_fire_map(state: SimState) -> None:
+def precompute_fire_map(state: GraphState) -> None:
     nearest: dict[tuple, tuple] = {}
     queue: deque[tuple] = deque()
     burning = np.argwhere(state.state == NodeState.BURNING)
@@ -111,14 +111,14 @@ def precompute_fire_map(state: SimState) -> None:
     state.nearest_fire = nearest
 
 
-def distance_to_fire(state: SimState, node: tuple) -> float:
+def distance_to_fire(state: GraphState, node: tuple) -> float:
     fire = state.nearest_fire.get(node)
     if fire is None:
         return float("inf")
     return max(abs(node[0] - fire[0]), abs(node[1] - fire[1]))
 
 
-def precompute_burnable_fire_map(state: SimState) -> None:
+def precompute_burnable_fire_map(state: GraphState) -> None:
     distance: dict[tuple, int] = {}
     queue: deque[tuple] = deque()
     burning = np.argwhere(state.state == NodeState.BURNING)
@@ -136,14 +136,14 @@ def precompute_burnable_fire_map(state: SimState) -> None:
     state.burnable_fire_distance = distance
 
 
-def burnable_distance_to_fire(state: SimState, node: tuple) -> float:
+def burnable_distance_to_fire(state: GraphState, node: tuple) -> float:
     dist = state.burnable_fire_distance.get(node)
     if dist is None:
         return float("inf")
     return float(dist)
 
 
-def precompute_reachable_unburned_area(state: SimState) -> None:
+def precompute_reachable_unburned_area(state: GraphState) -> None:
     """Compute the connected-component size of the unburned-land subgraph for each node.
 
     All nodes in the same connected component of UNBURNED LAND cells share the same reachable area value, so only one
@@ -173,18 +173,18 @@ def precompute_reachable_unburned_area(state: SimState) -> None:
     state.reachable_unburned_area_map = area
 
 
-def reachable_unburned_area(state: SimState, node: tuple) -> float:
+def reachable_unburned_area(state: GraphState, node: tuple) -> float:
     return float(state.reachable_unburned_area_map.get(node, 0))
 
 
-def elevation_delta_to_fire(state: SimState, node: tuple) -> float:
+def elevation_delta_to_fire(state: GraphState, node: tuple) -> float:
     fire = state.nearest_fire.get(node)
     if fire is None or fire == node:
         return 0.0
     return float(state.elevation[node]) - float(state.elevation[fire])
 
 
-def wind_fire_alignment(state: SimState, node: tuple) -> float:
+def wind_fire_alignment(state: GraphState, node: tuple) -> float:
     fire = state.nearest_fire.get(node)
     if fire is None or fire == node:
         return 0.0
@@ -202,11 +202,11 @@ def wind_fire_alignment(state: SimState, node: tuple) -> float:
 # ---------------------------------------------------------------------------
 
 
-def wind_speed(state: SimState) -> float:
+def wind_speed(state: GraphState) -> float:
     return float(state.wind_speed)
 
 
-def fuel_moisture(state: SimState) -> float:
+def fuel_moisture(state: GraphState) -> float:
     return float(state.fuel_moisture)
 
 
@@ -215,7 +215,7 @@ def fuel_moisture(state: SimState) -> float:
 # ---------------------------------------------------------------------------
 
 
-def precompute_state_counts(state: SimState) -> None:
+def precompute_state_counts(state: GraphState) -> None:
     """Count cells in each state in a single pass and cache on state."""
     counts = np.bincount(state.state.ravel(), minlength=4)
     state.step_unburned = int(counts[NodeState.UNBURNED])
@@ -224,17 +224,17 @@ def precompute_state_counts(state: SimState) -> None:
     state.step_treated = int(counts[NodeState.TREATED])
 
 
-def total_burning(state: SimState) -> int:
+def total_burning(state: GraphState) -> int:
     return state.step_burning
 
 
-def total_burned(state: SimState) -> int:
+def total_burned(state: GraphState) -> int:
     return state.step_burned
 
 
-def total_unburned(state: SimState) -> int:
+def total_unburned(state: GraphState) -> int:
     return state.step_unburned
 
 
-def total_treated(state: SimState) -> int:
+def total_treated(state: GraphState) -> int:
     return state.step_treated

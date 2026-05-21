@@ -18,7 +18,7 @@ from wildfireGP.features import (
     precompute_reachable_unburned_area,
     precompute_state_counts,
 )
-from wildfireGP.network import NodeState, SimState, TerrainType
+from wildfireGP.network import NodeState, GraphState, TerrainType
 
 _WIND_ARROWS = ["↓", "↙", "←", "↖", "↑", "↗", "→", "↘"]
 
@@ -30,7 +30,7 @@ _TREATED = np.array([0.61, 0.35, 0.71])
 _FUEL_CMAP = plt.cm.YlGn
 
 
-def draw(state: SimState, ax: plt.Axes | None = None) -> plt.Axes:
+def draw(state: GraphState, ax: plt.Axes | None = None) -> plt.Axes:
     """
     Render the landscape state as a static image with elevation contour lines overlaid.
     """
@@ -46,7 +46,7 @@ def draw(state: SimState, ax: plt.Axes | None = None) -> plt.Axes:
     return ax
 
 
-def animate(states: list[SimState], path: str, fps: int = 4) -> None:
+def animate(states: list[GraphState], path: str, fps: int = 4) -> None:
     """
     Save an animation from a sequence of landscape state snapshots.
     """
@@ -69,8 +69,8 @@ _SCORE_CMAP = plt.cm.RdYlGn
 
 
 def render_heatmap(
-    state: SimState,
-    func: Callable[[SimState, tuple], float],
+    state: GraphState,
+    func: Callable[[GraphState, tuple], float],
     path: str | None = None,
     title: str | None = None,
 ) -> plt.Axes:
@@ -124,8 +124,8 @@ def render_heatmap(
 
 
 def animate_heatmap(
-    states: list[SimState],
-    func: Callable[[SimState, tuple], float],
+    states: list[GraphState],
+    func: Callable[[GraphState, tuple], float],
     path: str,
     fps: int = 4,
     title: str | None = None,
@@ -182,7 +182,7 @@ def animate_heatmap(
     plt.close(fig)
 
 
-def _draw_env_overlay(state: SimState, ax: plt.Axes) -> None:
+def _draw_env_overlay(state: GraphState, ax: plt.Axes) -> None:
     parts = []
     speed = state.wind_speed
     direction = state.wind_direction
@@ -202,7 +202,7 @@ def _draw_env_overlay(state: SimState, ax: plt.Axes) -> None:
     )
 
 
-def _build_rgb(state: SimState) -> np.ndarray:
+def _build_rgb(state: GraphState) -> np.ndarray:
     rows, cols = state.rows, state.cols
     rgb = np.zeros((rows, cols, 3))
     state_arr = state.state

@@ -41,14 +41,14 @@ from wildfireGP.features import (
     precompute_reachable_unburned_area,
     precompute_state_counts,
 )
-from wildfireGP.network import NodeState, SimState
+from wildfireGP.network import NodeState, GraphState
 from wildfireGP.spread import MAX_BURN_STEPS, spread_step
 
 DEFAULT_TREATMENTS_PER_STEP = 3
 DEFAULT_INTERVENTION_DELAY = 3
 
 
-def init_ignition(state: SimState, ignition_nodes: list[tuple]) -> None:
+def init_ignition(state: GraphState, ignition_nodes: list[tuple]) -> None:
     """Set ignition nodes to BURNING state with fuel-proportional burn timers."""
     for node in ignition_nodes:
         state.state[node] = NodeState.BURNING
@@ -56,13 +56,13 @@ def init_ignition(state: SimState, ignition_nodes: list[tuple]) -> None:
 
 
 def simulate(
-    state: SimState,
-    func: Callable[[SimState, tuple], float],
+    state: GraphState,
+    func: Callable[[GraphState, tuple], float],
     treatments_per_step: int,
     max_steps: int,
     rng: np.random.Generator,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
-) -> Iterator[tuple[int, SimState]]:
+) -> Iterator[tuple[int, GraphState]]:
     """
     Run one fire simulation, yielding ``(step, state)`` after each spread step.
 
@@ -83,8 +83,8 @@ def simulate(
 
 
 def evaluate(
-    func: Callable[[SimState, tuple], float],
-    state: SimState,
+    func: Callable[[GraphState, tuple], float],
+    state: GraphState,
     ignition_nodes: list[tuple],
     treatments_per_step: int,
     max_steps: int,
@@ -114,7 +114,7 @@ def evaluate(
 
 
 def _apply_treatments(
-    state: SimState, func: Callable[[SimState, tuple], float], budget: int, rng: np.random.Generator
+    state: GraphState, func: Callable[[GraphState, tuple], float], budget: int, rng: np.random.Generator
 ) -> None:
     """
     Apply up to ``budget`` treatments to the highest-scoring UNBURNED burnable nodes.
@@ -141,6 +141,6 @@ def _apply_treatments(
             candidates.sort(key=lambda n: scores[n], reverse=True)
 
 
-def _safe_score(func: Callable[[SimState, tuple], float], state: SimState, node: tuple) -> float:
+def _safe_score(func: Callable[[GraphState, tuple], float], state: GraphState, node: tuple) -> float:
     score = func(state, node)
     return score if math.isfinite(score) else float("-inf")

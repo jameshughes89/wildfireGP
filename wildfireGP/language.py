@@ -4,7 +4,7 @@ DEAP typed primitive set for the wildfire GP language.
 The GP tree is a function ``(state, node) -> float``, compiled and evaluated per node to produce a priority score for
 treatment allocation. Higher score means higher priority.
 
-PrimitiveSetTyped is used with two input types --- :class:`wildfireGP.network.SimState` and ``tuple`` --- and float
+PrimitiveSetTyped is used with two input types --- :class:`wildfireGP.network.GraphState` and ``tuple`` --- and float
 output. Feature functions appear as branch nodes (primitives) rather than zero-arity terminals: they receive state
 and/or node directly, threaded down from the tree root. The compiled tree is callable as ``func(state, node)``.
 
@@ -47,7 +47,7 @@ from wildfireGP.features import (
     wind_fire_alignment,
     wind_speed,
 )
-from wildfireGP.network import SimState
+from wildfireGP.network import GraphState
 
 # ---------------------------------------------------------------------------
 # Arithmetic helpers
@@ -104,7 +104,7 @@ _GRAPH_FEATURES = [
 
 
 def _build() -> gp.PrimitiveSetTyped:
-    pset = gp.PrimitiveSetTyped("MAIN", [SimState, tuple], float)
+    pset = gp.PrimitiveSetTyped("MAIN", [GraphState, tuple], float)
     pset.renameArguments(ARG0="graph", ARG1="node")
 
     pset.addPrimitive(operator.add, [float, float], float, name="add")
@@ -117,10 +117,10 @@ def _build() -> gp.PrimitiveSetTyped:
     pset.addPrimitive(_if_positive, [float, float, float], float, name="if_pos")
 
     for func in _NODE_FEATURES:
-        pset.addPrimitive(func, [SimState, tuple], float, name=func.__name__)
+        pset.addPrimitive(func, [GraphState, tuple], float, name=func.__name__)
 
     for func in _GRAPH_FEATURES:
-        pset.addPrimitive(func, [SimState], float, name=func.__name__)
+        pset.addPrimitive(func, [GraphState], float, name=func.__name__)
 
     pset.addEphemeralConstant("const", partial(random.uniform, -20.0, 20.0), float)
 

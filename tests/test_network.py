@@ -3,7 +3,7 @@ import pytest
 
 from wildfireGP.network import (
     NodeState,
-    SimState,
+    GraphState,
     TerrainType,
     create_grid,
     reset_states,
@@ -234,4 +234,4 @@ def test_simstate_copy_is_independent():
 
 
 def test_simstate_is_dataclass_instance():
-    assert isinstance(create_grid(3, 3), SimState)
+    assert isinstance(create_grid(3, 3), GraphState)

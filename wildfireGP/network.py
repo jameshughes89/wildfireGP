@@ -1,7 +1,7 @@
 """
 Wildfire landscape state representation backed by numpy arrays.
 
-A landscape is represented as a :class:`SimState` dataclass holding per-cell attribute arrays and scalar weather. The
+A landscape is represented as a :class:`GraphState` dataclass holding per-cell attribute arrays and scalar weather. The
 grid is implicitly Moore-connected: each cell has up to 8 neighbours (cardinal + diagonal), matching the Alexandridis et
 al. (2008) fire spread model and the eight-connectivity used by all GP features.
 
@@ -72,7 +72,7 @@ class TerrainType(enum.IntEnum):
 
 
 @dataclass
-class SimState:
+class GraphState:
     """
     Numpy-backed wildfire landscape state.
 
@@ -102,9 +102,9 @@ class SimState:
     step_unburned: int = 0
     step_treated: int = 0
 
-    def copy(self) -> "SimState":
+    def copy(self) -> "GraphState":
         """Return a deep copy of the state arrays; precomputes are reset to empty."""
-        return SimState(
+        return GraphState(
             rows=self.rows,
             cols=self.cols,
             state=self.state.copy(),
@@ -153,9 +153,9 @@ def create_grid(
     rock_fraction: float = 0.0,
     cell_size_m: float = 100.0,
     seed: int | None = None,
-) -> SimState:
+) -> GraphState:
     """
-    Create a synthetic landscape SimState with spatially correlated fuel and slope.
+    Create a synthetic landscape GraphState with spatially correlated fuel and slope.
 
     :param rows: Number of rows in the grid.
     :param cols: Number of columns in the grid.
@@ -166,7 +166,7 @@ def create_grid(
         can overwrite water cells; the final counts may not exactly match both requested fractions simultaneously.
     :param cell_size_m: Side length of each grid cell in metres. Default 100m.
     :param seed: Random seed for reproducibility.
-    :return: A SimState with all node-attribute arrays populated. Wind and moisture remain at their defaults (0.0).
+    :return: A GraphState with all node-attribute arrays populated. Wind and moisture remain at their defaults (0.0).
     """
     rng = np.random.default_rng(seed)
 
@@ -193,7 +193,7 @@ def create_grid(
         fuel_norm[rock_mask] = 0.0
         terrain_type[rock_mask] = TerrainType.ROCK
 
-    return SimState(
+    return GraphState(
         rows=rows,
         cols=cols,
         state=np.full((rows, cols), NodeState.UNBURNED, dtype=np.int8),
@@ -206,7 +206,7 @@ def create_grid(
     )
 
 
-def set_wind(state: SimState, speed: float, direction: float) -> None:
+def set_wind(state: GraphState, speed: float, direction: float) -> None:
     """
     Set wind speed (km/h) and direction (degrees clockwise from north).
 
@@ -220,7 +220,7 @@ def set_wind(state: SimState, speed: float, direction: float) -> None:
     state.wind_direction = float(direction)
 
 
-def set_fuel_moisture(state: SimState, moisture: float) -> None:
+def set_fuel_moisture(state: GraphState, moisture: float) -> None:
     """
     Set fuel moisture as a fraction in [0, 1].
 
@@ -231,13 +231,13 @@ def set_fuel_moisture(state: SimState, moisture: float) -> None:
     state.fuel_moisture = float(moisture)
 
 
-def reset_states(state: SimState) -> None:
+def reset_states(state: GraphState) -> None:
     """Reset all node states to UNBURNED and clear burn timers."""
     state.state[:] = NodeState.UNBURNED
     state.burn_timer[:] = 0
 
 
-def select_ignition_node(state: SimState, rng: np.random.Generator, centre_fraction: float = 0.5) -> tuple:
+def select_ignition_node(state: GraphState, rng: np.random.Generator, centre_fraction: float = 0.5) -> tuple:
     """
     Return a randomly selected burnable node from the central region of the landscape.
 
@@ -279,7 +279,7 @@ def select_ignition_node(state: SimState, rng: np.random.Generator, centre_fract
     return (int(r), int(c))
 
 
-def select_ignition_cluster(state: SimState, rng: np.random.Generator, size: int = 3) -> list[tuple]:
+def select_ignition_cluster(state: GraphState, rng: np.random.Generator, size: int = 3) -> list[tuple]:
     """
     Return a cluster of burnable nodes to ignite simultaneously at t=0.
 

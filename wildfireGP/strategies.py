@@ -37,32 +37,32 @@ from wildfireGP.features import (
     slope,
     wind_fire_alignment,
 )
-from wildfireGP.network import SimState
+from wildfireGP.network import GraphState
 
 ANCHOR_WEIGHT = 0.1
 
 
-def random_score(state: SimState, node: tuple) -> float:
+def random_score(state: GraphState, node: tuple) -> float:
     """Assign a random priority score --- treatment order is arbitrary."""
     return random.random()
 
 
-def score_by_fuel(state: SimState, node: tuple) -> float:
+def score_by_fuel(state: GraphState, node: tuple) -> float:
     """Prioritise nodes with the highest fuel load."""
     return fuel_level(state, node) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
 
 
-def score_by_fire_proximity(state: SimState, node: tuple) -> float:
+def score_by_fire_proximity(state: GraphState, node: tuple) -> float:
     """Prioritise nodes closest to the active fire front (direct attack)."""
     return -distance_to_fire(state, node) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
 
 
-def score_by_burning_neighbors(state: SimState, node: tuple) -> float:
+def score_by_burning_neighbors(state: GraphState, node: tuple) -> float:
     """Prioritise nodes already surrounded by burning neighbours (direct defence)."""
     return float(burning_neighbour_count(state, node)) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
 
 
-def score_indirect_attack(state: SimState, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
+def score_indirect_attack(state: GraphState, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
     """Prioritise fuel-rich ground just ahead of the fire front (indirect attack)."""
     d = distance_to_fire(state, node)
     if d < min_distance or d > max_distance:
@@ -70,7 +70,7 @@ def score_indirect_attack(state: SimState, node: tuple, min_distance: int = 2, m
     return mean_neighbour_fuel(state, node) / (1.0 + d) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
 
 
-def score_ridgeline(state: SimState, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
+def score_ridgeline(state: GraphState, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
     """Prioritise topographic high points within engagement range of the fire (ridgeline defence)."""
     d = distance_to_fire(state, node)
     if d < min_distance or d > max_distance:
@@ -78,7 +78,7 @@ def score_ridgeline(state: SimState, node: tuple, min_distance: int = 2, max_dis
     return elevation(state, node) + slope(state, node) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
 
 
-def score_fire_run(state: SimState, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
+def score_fire_run(state: GraphState, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
     """Prioritise fuel-rich nodes downwind of the fire within engagement range."""
     d = distance_to_fire(state, node)
     if d < min_distance or d > max_distance:
@@ -88,7 +88,7 @@ def score_fire_run(state: SimState, node: tuple, min_distance: int = 2, max_dist
     ) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
 
 
-def score_head_fire(state: SimState, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
+def score_head_fire(state: GraphState, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
     """Prioritise nodes downwind and within engagement range of the fire (head fire defence)."""
     d = distance_to_fire(state, node)
     if d < min_distance or d > max_distance:

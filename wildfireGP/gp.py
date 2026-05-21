@@ -18,10 +18,10 @@ individual in a generation overfitting to one specific fire trajectory.
 
 Tree generation
 ---------------
-_gen_grow() is a type-aware replacement for DEAP's genGrow/genFull. The typed pset uses SimState and tuple as
+_gen_grow() is a type-aware replacement for DEAP's genGrow/genFull. The typed pset uses GraphState and tuple as
 pass-through input types that carry no primitives --- only terminals (ARG0, ARG1). DEAP's generate() decides
 terminal-vs-primitive without knowing the current type, so it will occasionally try to pick a primitive of type
-SimState and fail. _gen_grow() adds a single guard: if the current type has no primitives, always use a terminal.
+GraphState and fail. _gen_grow() adds a single guard: if the current type has no primitives, always use a terminal.
 
 Bloat control
 -------------
@@ -48,7 +48,7 @@ from deap.gp import MetaEphemeral
 from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY
 from wildfireGP.evaluate import evaluate as _sim_evaluate
 from wildfireGP.language import PRIMITIVE_SET
-from wildfireGP.network import SimState
+from wildfireGP.network import GraphState
 
 log = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ class GPConfig:
 
 
 def build_toolbox(
-    scenarios: list[tuple[SimState, list[tuple]]],
+    scenarios: list[tuple[GraphState, list[tuple]]],
     treatments_per_step: int,
     max_steps: int,
     rng: np.random.Generator,
@@ -126,7 +126,7 @@ def build_toolbox(
 
 def run(
     config: GPConfig,
-    scenarios: list[tuple[SimState, list[tuple]]],
+    scenarios: list[tuple[GraphState, list[tuple]]],
     treatments_per_step: int,
     max_steps: int,
     rng: np.random.Generator,
@@ -197,7 +197,7 @@ def _gen_grow(pset, min_: int, max_: int, type_=None):
     Type-aware grow generator for typed primitive sets with input-threading types.
 
     Identical to DEAP's genGrow except the terminal condition also fires when the current type has no
-    primitives, preventing IndexError on types like SimState and tuple that are terminals-only.
+    primitives, preventing IndexError on types like GraphState and tuple that are terminals-only.
     """
     if type_ is None:
         type_ = pset.ret
@@ -247,7 +247,7 @@ def _register_types() -> None:
 
 def _eval_individual(
     individual,
-    scenarios: list[tuple[SimState, list[tuple]]],
+    scenarios: list[tuple[GraphState, list[tuple]]],
     treatments_per_step: int,
     max_steps: int,
     rng: np.random.Generator,
