@@ -120,22 +120,12 @@ class GraphState:
         )
 
     def neighbours(self, node: tuple) -> list[tuple]:
-        """Return the Moore (8-connectivity) neighbours of node within grid bounds."""
-        r, c = node
-        result = []
-        rows = self.rows
-        cols = self.cols
-        for dr in (-1, 0, 1):
-            nr = r + dr
-            if nr < 0 or nr >= rows:
-                continue
-            for dc in (-1, 0, 1):
-                if dr == 0 and dc == 0:
-                    continue
-                nc = c + dc
-                if 0 <= nc < cols:
-                    result.append((nr, nc))
-        return result
+        """Return the Moore (8-connectivity) neighbours of node within grid bounds.
+
+        Backed by a process-wide cache keyed on (rows, cols): the neighbour table is built once per grid shape and
+        shared across every SimState of that shape. Callers must not mutate the returned list.
+        """
+        return _neighbour_table(self.rows, self.cols)[node]
 
     def nodes(self):
         """Yield every (row, col) in row-major order."""
@@ -301,3 +291,29 @@ def _normalize(array: np.ndarray) -> np.ndarray:
     if hi == low:
         return np.zeros_like(array, dtype=float)
     return (array - low) / (hi - low)
+
+
+_NEIGHBOUR_TABLE_CACHE: dict[tuple[int, int], dict[tuple[int, int], list[tuple[int, int]]]] = {}
+
+
+def _neighbour_table(rows: int, cols: int) -> dict[tuple[int, int], list[tuple[int, int]]]:
+    table = _NEIGHBOUR_TABLE_CACHE.get((rows, cols))
+    if table is not None:
+        return table
+    table = {}
+    for r in range(rows):
+        for c in range(cols):
+            entry: list[tuple[int, int]] = []
+            for dr in (-1, 0, 1):
+                nr = r + dr
+                if nr < 0 or nr >= rows:
+                    continue
+                for dc in (-1, 0, 1):
+                    if dr == 0 and dc == 0:
+                        continue
+                    nc = c + dc
+                    if 0 <= nc < cols:
+                        entry.append((nr, nc))
+            table[(r, c)] = entry
+    _NEIGHBOUR_TABLE_CACHE[(rows, cols)] = table
+    return table
