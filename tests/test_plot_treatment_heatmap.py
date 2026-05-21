@@ -1,9 +1,10 @@
 """Tests for scripts/plot_treatment_heatmap.py."""
 
-import dill
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+
+_EXPR = "fuel_level(graph, node)"
 
 from scripts.plot_treatment_heatmap import (
     _load_strategy,
@@ -110,33 +111,29 @@ def test_load_strategy_unknown_name_raises():
         _load_strategy(_FakeArgs(strategy="does_not_exist"))
 
 
-def test_load_strategy_dill_returns_callable(tmp_path):
-    path = tmp_path / "hof_0.dill"
-    with open(path, "wb") as f:
-        dill.dump(random_score, f)
+def test_load_strategy_hof_returns_callable(tmp_path):
+    path = tmp_path / "hof_0.expr"
+    path.write_text(_EXPR)
     func, _ = _load_strategy(_FakeArgs(hof=path))
     assert callable(func)
 
 
-def test_load_strategy_dill_label_is_stem(tmp_path):
-    path = tmp_path / "hof_0.dill"
-    with open(path, "wb") as f:
-        dill.dump(random_score, f)
+def test_load_strategy_hof_label_is_stem(tmp_path):
+    path = tmp_path / "hof_0.expr"
+    path.write_text(_EXPR)
     _, label = _load_strategy(_FakeArgs(hof=path))
     assert label == "hof_0"
 
 
 def test_load_strategy_expr_returns_callable(tmp_path):
-    expr = "test_expr"
-    with open(tmp_path / "final_population.dill", "wb") as f:
-        dill.dump([(expr, random_score)], f)
-    func, _ = _load_strategy(_FakeArgs(expr=expr, results_dir=tmp_path))
+    (tmp_path / "final_population.expr").write_text(_EXPR + "\n")
+    func, _ = _load_strategy(_FakeArgs(expr=_EXPR, results_dir=tmp_path))
     assert callable(func)
 
 
 def test_load_strategy_expr_without_results_dir_raises():
     with pytest.raises(SystemExit):
-        _load_strategy(_FakeArgs(expr="test_expr"))
+        _load_strategy(_FakeArgs(expr=_EXPR))
 
 
 # ---------------------------------------------------------------------------

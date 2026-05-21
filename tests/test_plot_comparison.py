@@ -48,12 +48,11 @@ def test_main_default_output_name(tmp_path, monkeypatch):
     assert (tmp_path / "strategy_comparison.png").exists()
 
 
-def test_main_with_results_dir_loads_dill(tmp_path):
-    import dill
+_EXPR = "fuel_level(graph, node)"
 
-    from wildfireGP.strategies import random_score
 
-    (tmp_path / "hof_0.dill").write_bytes(dill.dumps(random_score))
+def test_main_with_results_dir_loads_hof(tmp_path):
+    (tmp_path / "hof_0.expr").write_text(_EXPR)
     out = tmp_path / "comp.png"
     main(
         [
@@ -75,20 +74,14 @@ def test_main_with_results_dir_loads_dill(tmp_path):
 
 
 def test_main_expr_loads_candidate(tmp_path):
-    import dill
-
-    from wildfireGP.strategies import random_score
-
-    expr = "test_expr"
-    with open(tmp_path / "final_population.dill", "wb") as f:
-        dill.dump([(expr, random_score)], f)
+    (tmp_path / "final_population.expr").write_text(_EXPR + "\n")
     out = tmp_path / "comp.png"
     main(
         [
             "--results-dir",
             str(tmp_path),
             "--expr",
-            expr,
+            _EXPR,
             "--rows",
             "5",
             "--cols",

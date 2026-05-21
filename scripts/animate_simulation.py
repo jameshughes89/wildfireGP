@@ -15,14 +15,14 @@ Usage
     Exactly one of --strategy, --hof, or --expr must be supplied.
 
     --strategy NAME  Name of a builtin baseline from strategies.py, e.g. score_head_fire.
-    --hof PATH       Path to a .dill file produced by run_gp.py.
+    --hof PATH       Path to a .expr file produced by run_gp.py.
     --expr STRING    Expression string of a specific GP candidate; requires --results-dir. Copy the expr value from
                      the batch_evaluate.py CSV output.
 
 Examples
 --------
     python -m scripts.animate_simulation --strategy score_head_fire --output head_fire.gif
-    python -m scripts.animate_simulation --hof results/2026-05-06_14-32-00/hof_0.dill --output gp_best.gif
+    python -m scripts.animate_simulation --hof results/2026-05-06_14-32-00/hof_0.expr --output gp_best.gif
     python -m scripts.animate_simulation --results-dir results/2026-05-06_14-32-00 --expr "min(fuel_level, ...)"
 """
 
@@ -31,10 +31,9 @@ import logging
 import pathlib
 import sys
 
-import dill
 import numpy as np
 
-from scripts.cli import add_landscape_args, load_candidate_by_expr
+from scripts.cli import add_landscape_args, load_candidate_by_expr, load_expr
 from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, init_ignition, simulate
 from wildfireGP.network import (
     create_grid,
@@ -92,9 +91,7 @@ def _run_simulation(
 def _load_strategy(args: argparse.Namespace) -> tuple:
     if args.hof:
         path = pathlib.Path(args.hof)
-        with open(path, "rb") as f:
-            func = dill.load(f)
-        return func, path.stem
+        return load_expr(path.read_text().strip()), path.stem
     if args.expr:
         if not args.results_dir:
             raise SystemExit("--results-dir is required when using --expr.")
@@ -111,7 +108,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Animate a wildfire simulation with a chosen strategy.")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--strategy", type=str, help="Builtin strategy name.")
-    source.add_argument("--hof", type=pathlib.Path, help="Path to a .dill HOF file.")
+    source.add_argument("--hof", type=pathlib.Path, help="Path to a .expr HOF file.")
     source.add_argument("--expr", type=str, help="Load a candidate by expression string; requires --results-dir.")
     parser.add_argument("--results-dir", type=pathlib.Path, default=None)
     add_landscape_args(parser)

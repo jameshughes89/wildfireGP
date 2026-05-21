@@ -2,7 +2,6 @@
 
 import pathlib
 
-import dill
 import numpy as np
 import pytest
 
@@ -10,69 +9,45 @@ from scripts.batch_evaluate import _load_candidates, main
 from scripts.cli import find_valid_ignition as _find_valid_ignition
 from wildfireGP.network import create_grid, set_fuel_moisture, set_wind
 
-
-def _const_func(graph, node):
-    return 1.0
-
-
-def _const_func_2(graph, node):
-    return 2.0
+_EXPR_A = "fuel_level(graph, node)"
+_EXPR_B = "elevation(graph, node)"
 
 
-def _write_population(path: pathlib.Path, entries: list[tuple[str, object]]) -> None:
-    with open(path, "wb") as f:
-        dill.dump(entries, f)
+def _write_population(directory: pathlib.Path, exprs: list[str]) -> None:
+    (directory / "final_population.expr").write_text("\n".join(exprs) + "\n")
 
 
-def _write_hof(directory: pathlib.Path, expr: str, func: object, index: int = 0) -> None:
-    with open(directory / f"hof_{index}.dill", "wb") as f:
-        dill.dump(func, f)
+def _write_hof(directory: pathlib.Path, expr: str, index: int = 0) -> None:
     (directory / f"hof_{index}.expr").write_text(expr)
 
 
-# ---------------------------------------------------------------------------
-# _load_candidates
-# ---------------------------------------------------------------------------
-
-
 def test_load_candidates_returns_population_entries(tmp_path):
-    _write_population(tmp_path / "final_population.dill", [("expr_a", _const_func), ("expr_b", _const_func_2)])
-    candidates = _load_candidates(tmp_path)
-    exprs = [e for e, _ in candidates]
-    assert "expr_a" in exprs
-    assert "expr_b" in exprs
+    _write_population(tmp_path, [_EXPR_A, _EXPR_B])
+    exprs = [e for e, _ in _load_candidates(tmp_path)]
+    assert _EXPR_A in exprs
+    assert _EXPR_B in exprs
 
 
 def test_load_candidates_deduplicates_identical_expressions(tmp_path):
-    _write_population(tmp_path / "final_population.dill", [("shared_expr", _const_func)])
-    _write_hof(tmp_path, "shared_expr", _const_func, index=0)
-    candidates = _load_candidates(tmp_path)
-    assert len(candidates) == 1
+    _write_population(tmp_path, [_EXPR_A])
+    _write_hof(tmp_path, _EXPR_A, index=0)
+    assert len(_load_candidates(tmp_path)) == 1
 
 
 def test_load_candidates_includes_hof_only_expressions(tmp_path):
-    _write_population(tmp_path / "final_population.dill", [("expr_pop", _const_func)])
-    _write_hof(tmp_path, "expr_hof", _const_func_2, index=0)
-    candidates = _load_candidates(tmp_path)
-    exprs = [e for e, _ in candidates]
-    assert "expr_pop" in exprs
-    assert "expr_hof" in exprs
+    _write_population(tmp_path, [_EXPR_A])
+    _write_hof(tmp_path, _EXPR_B, index=0)
+    exprs = [e for e, _ in _load_candidates(tmp_path)]
+    assert _EXPR_A in exprs
+    assert _EXPR_B in exprs
 
 
 def test_load_candidates_hof_without_population(tmp_path):
-    _write_hof(tmp_path, "expr_hof", _const_func, index=0)
-    candidates = _load_candidates(tmp_path)
-    assert len(candidates) == 1
+    _write_hof(tmp_path, _EXPR_A, index=0)
+    assert len(_load_candidates(tmp_path)) == 1
 
 
 def test_load_candidates_raises_when_directory_is_empty(tmp_path):
-    with pytest.raises(SystemExit):
-        _load_candidates(tmp_path)
-
-
-def test_load_candidates_skips_hof_dill_without_expr_file(tmp_path):
-    with open(tmp_path / "hof_0.dill", "wb") as f:
-        dill.dump(_const_func, f)
     with pytest.raises(SystemExit):
         _load_candidates(tmp_path)
 
@@ -104,7 +79,6 @@ def test_find_valid_ignition_returns_node_in_graph():
 
 
 def test_find_valid_ignition_falls_back_when_min_burned_impossible(caplog):
-    # min_burned set impossibly high so no ignition can satisfy it; should warn and return best
     g = create_grid(10, 10, seed=0)
     set_wind(g, speed=20.0, direction=0.0)
     set_fuel_moisture(g, moisture=0.2)
@@ -124,7 +98,7 @@ def test_find_valid_ignition_falls_back_when_min_burned_impossible(caplog):
 
 
 def test_main_runs_and_prints_table(tmp_path, capsys):
-    _write_population(tmp_path / "final_population.dill", [("constant", _const_func)])
+    _write_population(tmp_path, [_EXPR_A])
     main(
         [
             "--results-dir",
@@ -144,11 +118,11 @@ def test_main_runs_and_prints_table(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "rank" in out
     assert "mean" in out
-    assert "constant" in out
+    assert "fuel_level" in out
 
 
 def test_main_saves_csv_when_output_flag_given(tmp_path):
-    _write_population(tmp_path / "final_population.dill", [("constant", _const_func)])
+    _write_population(tmp_path, [_EXPR_A])
     csv_path = tmp_path / "results.csv"
     main(
         [
@@ -171,11 +145,11 @@ def test_main_saves_csv_when_output_flag_given(tmp_path):
     assert csv_path.exists()
     lines = csv_path.read_text().splitlines()
     assert lines[0] == "rank,mean,std,expr"
-    assert "constant" in lines[1]
+    assert "fuel_level" in lines[1]
 
 
 def test_main_no_csv_without_output_flag(tmp_path):
-    _write_population(tmp_path / "final_population.dill", [("constant", _const_func)])
+    _write_population(tmp_path, [_EXPR_A])
     main(
         [
             "--results-dir",

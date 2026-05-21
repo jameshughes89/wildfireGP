@@ -1,4 +1,3 @@
-import dill
 import numpy as np
 import pytest
 
@@ -11,14 +10,10 @@ from wildfireGP.network import (
 )
 from wildfireGP.strategies import ALL_STRATEGIES, random_score
 
-
-def _write_population(path, entries):
-    with open(path, "wb") as f:
-        dill.dump(entries, f)
+_EXPR = "fuel_level(graph, node)"
 
 
 def _make_landscapes(n: int = 1, rows: int = 10, cols: int = 10) -> tuple[list, list[list]]:
-    """Return (landscapes, run_seed_matrix) for n landscapes on a rows×cols grid."""
     landscapes = []
     run_seed_matrix = []
     for i in range(n):
@@ -32,16 +27,10 @@ def _make_landscapes(n: int = 1, rows: int = 10, cols: int = 10) -> tuple[list, 
     return landscapes, run_seed_matrix
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture()
-def dill_file(tmp_path):
-    path = tmp_path / "hof_0.dill"
-    with open(path, "wb") as f:
-        dill.dump(random_score, f)
+def hof_file(tmp_path):
+    path = tmp_path / "hof_0.expr"
+    path.write_text(_EXPR)
     return path
 
 
@@ -53,7 +42,7 @@ def dill_file(tmp_path):
 def test_run_strategy_returns_arrays_of_correct_length():
     landscapes, run_seed_matrix = _make_landscapes(n=2)
     burned, peak = _run_strategy(random_score, landscapes, 2, 10, 10, 20.0, 0.0, 0.2, 20, run_seed_matrix)
-    assert len(burned) == 10  # 2 landscapes × 5 runs
+    assert len(burned) == 10
     assert len(peak) == 10
 
 
@@ -71,7 +60,6 @@ def test_run_strategy_peak_values_are_non_negative():
 
 def test_run_strategy_different_seeds_produce_variation():
     landscapes, run_seed_matrix = _make_landscapes(n=2)
-    # Use 10 distinct run seeds across 2 landscapes
     run_seed_matrix = [[i * 7 + j for j in range(5)] for i in range(2)]
     burned, _ = _run_strategy(random_score, landscapes, 0, 10, 10, 20.0, 0.0, 0.2, 20, run_seed_matrix)
     assert burned.std() > 0
@@ -118,44 +106,37 @@ def test_main_includes_no_treatment_baseline(capsys):
     assert "no_treatment" in output
 
 
-def test_load_strategies_dill_file_loaded(dill_file):
-    strategies = _load_strategies(_FakeArgs(hof=[dill_file]))
+def test_load_strategies_hof_file_loaded(hof_file):
+    strategies = _load_strategies(_FakeArgs(hof=[hof_file]))
     names = [n for n, _ in strategies]
     assert "hof_0" in names
 
 
-def test_load_strategies_results_dir_loads_dill_files(tmp_path, dill_file):
+def test_load_strategies_results_dir_loads_hof_files(tmp_path, hof_file):
     strategies = _load_strategies(_FakeArgs(results_dir=tmp_path))
     names = [n for n, _ in strategies]
     assert "hof_0" in names
-
-
-def test_load_strategies_results_dir_does_not_load_final_population_dill(tmp_path):
-    _write_population(tmp_path / "final_population.dill", [("expr_a", random_score)])
-    strategies = _load_strategies(_FakeArgs(results_dir=tmp_path))
-    names = [n for n, _ in strategies]
-    assert "final_population" not in names
 
 
 def test_load_strategies_expr_loads_candidate(tmp_path):
-    _write_population(tmp_path / "final_population.dill", [("my_expr", random_score)])
-    strategies = _load_strategies(_FakeArgs(results_dir=tmp_path, expr="my_expr"))
+    (tmp_path / "final_population.expr").write_text(_EXPR + "\n")
+    strategies = _load_strategies(_FakeArgs(results_dir=tmp_path, expr=_EXPR))
     names = [n for n, _ in strategies]
-    assert any("my_expr" in n for n in names)
+    assert any(_EXPR in n for n in names)
 
 
 def test_load_strategies_expr_without_results_dir_raises():
     with pytest.raises(SystemExit):
-        _load_strategies(_FakeArgs(expr="my_expr"))
+        _load_strategies(_FakeArgs(expr=_EXPR))
 
 
-def test_load_strategies_deduplicates_dill_paths(dill_file):
-    strategies = _load_strategies(_FakeArgs(hof=[dill_file, dill_file]))
+def test_load_strategies_deduplicates_hof_paths(hof_file):
+    strategies = _load_strategies(_FakeArgs(hof=[hof_file, hof_file]))
     names = [n for n, _ in strategies]
     assert names.count("hof_0") == 1
 
 
-def test_load_strategies_dill_callable_is_callable(dill_file):
-    strategies = _load_strategies(_FakeArgs(hof=[dill_file]))
+def test_load_strategies_hof_callable_is_callable(hof_file):
+    strategies = _load_strategies(_FakeArgs(hof=[hof_file]))
     func = next(f for n, f in strategies if n == "hof_0")
     assert callable(func)

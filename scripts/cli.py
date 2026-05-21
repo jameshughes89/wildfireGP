@@ -11,45 +11,67 @@ Use this for evaluation scripts that average results across N independent landsc
 find_valid_ignition() probes candidate ignition points on a landscape and returns one where fire spreads meaningfully
 without treatment, filtering out locations where the fire would naturally extinguish regardless of strategy.
 
-load_candidate_by_expr() loads a compiled GP callable from a results directory by its expression string. Use this to
-load a specific candidate identified from batch_evaluate.py output (--output CSV) rather than loading HOF .dill files
-by index.
+load_expr() compiles a single GP expression string against the current PRIMITIVE_SET. Used everywhere a saved candidate
+is loaded back from disk --- nothing is pickled.
+
+read_population_exprs() and read_hof_exprs() return expression strings (not compiled callables) from a results
+directory. Pass each through load_expr() to get a callable. Splitting the read and compile steps keeps the load
+diagnostics simple when an old expression references a primitive that has since been renamed or removed.
+
+load_candidate_by_expr() finds a candidate in a results directory by its expression string and returns a compiled
+callable. Use this to load a specific candidate identified from batch_evaluate.py output (--output CSV).
 """
 
 import argparse
 import logging
 import pathlib
 
-import dill
 import numpy as np
+from deap import gp
 
 from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, evaluate
+from wildfireGP.language import PRIMITIVE_SET
 from wildfireGP.network import select_ignition_node
 
 log = logging.getLogger(__name__)
 
 
+def load_expr(expr: str) -> object:
+    """
+    Compile a single GP expression string into a callable ``func(state, node) -> float``.
+
+    Raises ValueError if the expression references a primitive that no longer exists in PRIMITIVE_SET.
+    """
+    tree = gp.PrimitiveTree.from_string(expr, PRIMITIVE_SET)
+    return gp.compile(tree, pset=PRIMITIVE_SET)
+
+
+def read_population_exprs(results_dir: pathlib.Path) -> list[str]:
+    """Return the list of expression strings saved in ``final_population.expr``, or [] if absent."""
+    path = results_dir / "final_population.expr"
+    if not path.exists():
+        return []
+    return [line.strip() for line in path.read_text().splitlines() if line.strip()]
+
+
+def read_hof_exprs(results_dir: pathlib.Path) -> list[tuple[pathlib.Path, str]]:
+    """Return ``(path, expression)`` pairs for every ``hof_*.expr`` file in results_dir."""
+    return [(p, p.read_text().strip()) for p in sorted(results_dir.glob("hof_*.expr"))]
+
+
 def load_candidate_by_expr(results_dir: pathlib.Path, expr: str) -> object:
     """
-    Load a compiled GP candidate from results_dir by its expression string.
+    Find a candidate in ``results_dir`` by its expression string and return the compiled callable.
 
-    Searches final_population.dill first, then falls back to hof_*.expr files. Raises SystemExit if the expression
-    is not found in either source.
+    Searches ``final_population.expr`` first, then ``hof_*.expr``. Raises SystemExit if no match.
     """
-    pop_path = results_dir / "final_population.dill"
-    if pop_path.exists():
-        with open(pop_path, "rb") as f:
-            population = dill.load(f)
-        for pop_expr, func in population:
-            if pop_expr == expr:
-                return func
+    for pop_expr in read_population_exprs(results_dir):
+        if pop_expr == expr:
+            return load_expr(pop_expr)
 
-    for hof_expr_path in sorted(results_dir.glob("hof_*.expr")):
-        if hof_expr_path.read_text().strip() == expr:
-            hof_dill_path = hof_expr_path.with_suffix(".dill")
-            if hof_dill_path.exists():
-                with open(hof_dill_path, "rb") as f:
-                    return dill.load(f)
+    for _, hof_expr in read_hof_exprs(results_dir):
+        if hof_expr == expr:
+            return load_expr(hof_expr)
 
     raise SystemExit(f"Expression not found in {results_dir}:\n  {expr[:120]}")
 

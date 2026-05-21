@@ -231,13 +231,6 @@ def _gen_grow(pset, min_: int, max_: int, type_=None):
     return expr
 
 
-def compile_individual(individual) -> object:
-    """
-    Compile a GP individual to a callable (graph, node) -> float.
-    """
-    return gp.compile(individual, pset=PRIMITIVE_SET)
-
-
 def _register_types() -> None:
     if not hasattr(creator, "FitnessWildfire"):
         creator.create("FitnessWildfire", base.Fitness, weights=(-1.0,))

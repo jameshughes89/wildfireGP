@@ -1,6 +1,5 @@
 import math
 
-import dill
 import numpy as np
 import pytest
 
@@ -27,11 +26,13 @@ def state():
     return s
 
 
+_EXPR = "fuel_level(graph, node)"
+
+
 @pytest.fixture()
-def dill_file(tmp_path):
-    path = tmp_path / "hof_0.dill"
-    with open(path, "wb") as f:
-        dill.dump(random_score, f)
+def hof_file(tmp_path):
+    path = tmp_path / "hof_0.expr"
+    path.write_text(_EXPR)
     return path
 
 
@@ -58,37 +59,31 @@ def test_load_strategy_unknown_name_raises():
         _load_strategy(_FakeArgs(strategy="does_not_exist"))
 
 
-def test_load_strategy_dill_returns_callable(dill_file):
-    func, _ = _load_strategy(_FakeArgs(hof=dill_file))
+def test_load_strategy_hof_returns_callable(hof_file):
+    func, _ = _load_strategy(_FakeArgs(hof=hof_file))
     assert callable(func)
 
 
-def test_load_strategy_dill_label_is_stem(dill_file):
-    _, label = _load_strategy(_FakeArgs(hof=dill_file))
+def test_load_strategy_hof_label_is_stem(hof_file):
+    _, label = _load_strategy(_FakeArgs(hof=hof_file))
     assert label == "hof_0"
 
 
 def test_load_strategy_expr_returns_callable(tmp_path):
-    expr = "my_expr"
-    pop = [(expr, random_score)]
-    with open(tmp_path / "final_population.dill", "wb") as f:
-        dill.dump(pop, f)
-    func, _ = _load_strategy(_FakeArgs(expr=expr, results_dir=tmp_path))
+    (tmp_path / "final_population.expr").write_text(_EXPR + "\n")
+    func, _ = _load_strategy(_FakeArgs(expr=_EXPR, results_dir=tmp_path))
     assert callable(func)
 
 
 def test_load_strategy_expr_label_is_truncated_expr(tmp_path):
-    expr = "my_expr"
-    pop = [(expr, random_score)]
-    with open(tmp_path / "final_population.dill", "wb") as f:
-        dill.dump(pop, f)
-    _, label = _load_strategy(_FakeArgs(expr=expr, results_dir=tmp_path))
-    assert expr in label
+    (tmp_path / "final_population.expr").write_text(_EXPR + "\n")
+    _, label = _load_strategy(_FakeArgs(expr=_EXPR, results_dir=tmp_path))
+    assert _EXPR in label
 
 
 def test_load_strategy_expr_without_results_dir_raises():
     with pytest.raises(SystemExit):
-        _load_strategy(_FakeArgs(expr="my_expr"))
+        _load_strategy(_FakeArgs(expr=_EXPR))
 
 
 def test_run_simulation_snapshot_count_within_bounds(state):

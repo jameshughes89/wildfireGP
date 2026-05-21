@@ -1,9 +1,9 @@
 """
 Batch-evaluate GP candidates from a results directory across N landscapes and M runs per landscape.
 
-Loads the final population (final_population.dill) and HOF individuals (hof_*.dill + hof_*.expr) from a results
-directory, deduplicates by expression string, evaluates each candidate across --landscapes independent landscapes with
---runs simulations per landscape, and prints a ranked table of mean ± std burned nodes.
+Loads the final population (final_population.expr) and HOF individuals (hof_*.expr) from a results directory,
+deduplicates by expression string, evaluates each candidate across --landscapes independent landscapes with --runs
+simulations per landscape, and prints a ranked table of mean ± std burned nodes.
 
 All candidates are evaluated on the same set of landscapes for a fair comparison. The evaluation landscapes are
 independent of the training landscape by default (seed=None). Pass --seed for a reproducible comparison.
@@ -19,8 +19,7 @@ tries attempts). Only ignition points where fire spreads meaningfully are used f
 Deduplication
 -------------
 Candidates are identified by their expression string. If the same expression appears in both the final population and
-the HOF, it is evaluated once. HOF individuals from runs predating the final_population.dill save (i.e. runs before this
-feature was added) can still be evaluated via the hof_*.dill + hof_*.expr files alone.
+the HOF, it is evaluated once.
 
 Usage
 -----
@@ -55,13 +54,15 @@ import logging
 import pathlib
 import sys
 
-import dill
 import numpy as np
 
 from scripts.cli import (
     add_landscape_args,
     add_multi_landscape_args,
     find_valid_ignition,
+    load_expr,
+    read_hof_exprs,
+    read_population_exprs,
 )
 from wildfireGP.evaluate import evaluate
 from wildfireGP.network import (
@@ -140,35 +141,27 @@ def main(argv: list[str] | None = None) -> None:
 
 def _load_candidates(results_dir: pathlib.Path) -> list[tuple[str, object]]:
     """
-    Load and deduplicate candidates from final_population.dill and hof_*.dill files.
+    Load and deduplicate candidates from final_population.expr and hof_*.expr files.
 
-    final_population.dill takes precedence for deduplication: if the same expression appears in
-    both the population and the HOF, the population's compiled callable is used. HOF-only entries
-    (expressions not present in the population) are appended after the population.
+    Each expression string is compiled once against the current PRIMITIVE_SET via load_expr. Duplicate expressions
+    across the population and HOF are evaluated once.
     """
     candidates: dict[str, object] = {}
 
-    pop_path = results_dir / "final_population.dill"
-    if pop_path.exists():
-        with open(pop_path, "rb") as f:
-            population = dill.load(f)
-        for expr, func in population:
-            candidates[expr] = func
-        log.info("Loaded %d individuals from final_population.dill", len(population))
-
-    for hof_path in sorted(results_dir.glob("hof_*.dill")):
-        expr_path = hof_path.with_suffix(".expr")
-        if not expr_path.exists():
-            continue
-        expr = expr_path.read_text().strip()
+    pop_exprs = read_population_exprs(results_dir)
+    for expr in pop_exprs:
         if expr not in candidates:
-            with open(hof_path, "rb") as f:
-                candidates[expr] = dill.load(f)
+            candidates[expr] = load_expr(expr)
+    if pop_exprs:
+        log.info("Loaded %d individuals from final_population.expr", len(pop_exprs))
+
+    for _, expr in read_hof_exprs(results_dir):
+        if expr not in candidates:
+            candidates[expr] = load_expr(expr)
 
     if not candidates:
         raise SystemExit(
-            f"No candidates found in {results_dir}. "
-            "Expected final_population.dill and/or hof_*.dill + hof_*.expr files."
+            f"No candidates found in {results_dir}. Expected final_population.expr and/or hof_*.expr files."
         )
 
     return list(candidates.items())

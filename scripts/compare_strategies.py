@@ -12,8 +12,8 @@ Usage
                                          [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
                                          [--landscapes INT] [--runs INT] [--hof PATH [PATH ...]] [--expr STRING]
 
-    --hof accepts one or more paths to .dill files produced by run_gp.py. If omitted only the builtin baselines are
-    compared. If --results-dir is given without --expr, all hof_*.dill files found directly inside that directory are
+    --hof accepts one or more paths to .expr files produced by run_gp.py. If omitted only the builtin baselines are
+    compared. If --results-dir is given without --expr, all hof_*.expr files found directly inside that directory are
     loaded automatically.
 
     --expr STRING  Expression string of a specific GP candidate to load from --results-dir (required alongside --expr).
@@ -27,8 +27,8 @@ Examples
     # load every HOF individual from a specific run directory
     python -m scripts.compare_strategies --results-dir results/2026-05-06_14-32-00
 
-    # load specific dill files
-    python -m scripts.compare_strategies --hof results/2026-05-06_14-32-00/hof_0.dill
+    # load specific expr files
+    python -m scripts.compare_strategies --hof results/2026-05-06_14-32-00/hof_0.expr
 
     # load a candidate by expression string from batch_evaluate CSV
     python -m scripts.compare_strategies --results-dir results/2026-05-06_14-32-00 --expr "min(fuel_level, ...)"
@@ -39,7 +39,6 @@ import logging
 import pathlib
 import sys
 
-import dill
 import numpy as np
 
 from scripts.cli import (
@@ -47,6 +46,7 @@ from scripts.cli import (
     add_multi_landscape_args,
     find_valid_ignition,
     load_candidate_by_expr,
+    load_expr,
 )
 from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, evaluate
 from wildfireGP.network import (
@@ -180,19 +180,18 @@ def _load_strategies(args: argparse.Namespace) -> list[tuple[str, object]]:
         strategies.append((args.expr[:60], func))
         return strategies
 
-    dill_paths: list[pathlib.Path] = list(args.hof) if args.hof else []
+    expr_paths: list[pathlib.Path] = list(args.hof) if args.hof else []
     if args.results_dir:
-        dill_paths += sorted(args.results_dir.glob("hof_*.dill"))
+        expr_paths += sorted(args.results_dir.glob("hof_*.expr"))
 
     seen: set[pathlib.Path] = set()
-    for path in dill_paths:
+    for path in expr_paths:
         path = pathlib.Path(path).resolve()
         if path in seen:
             continue
         seen.add(path)
-        with open(path, "rb") as f:
-            func = dill.load(f)
-        strategies.append((path.stem, func))
+        expr = path.read_text().strip()
+        strategies.append((path.stem, load_expr(expr)))
 
     return strategies
 

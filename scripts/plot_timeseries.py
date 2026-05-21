@@ -21,7 +21,7 @@ Usage
 Examples
 --------
     python -m scripts.plot_timeseries --strategy random_score score_by_fire_proximity
-    python -m scripts.plot_timeseries --hof results/run/hof_0.dill --strategy random_score --runs 30
+    python -m scripts.plot_timeseries --hof results/run/hof_0.expr --strategy random_score --runs 30
     python -m scripts.plot_timeseries --results-dir results/run --expr "min(fuel_level, ...)" --strategy random_score
 """
 
@@ -30,11 +30,10 @@ import logging
 import pathlib
 import sys
 
-import dill
 import matplotlib.pyplot as plt
 import numpy as np
 
-from scripts.cli import add_landscape_args, load_candidate_by_expr
+from scripts.cli import add_landscape_args, load_candidate_by_expr, load_expr
 from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, init_ignition, simulate
 from wildfireGP.network import (
     NodeState,
@@ -169,9 +168,7 @@ def _load_strategies(args: argparse.Namespace) -> list[tuple[str, object]]:
     else:
         for path in args.hof or []:
             path = pathlib.Path(path)
-            with open(path, "rb") as f:
-                func = dill.load(f)
-            strategies.append((path.stem, func))
+            strategies.append((path.stem, load_expr(path.read_text().strip())))
 
     if not strategies:
         strategies = [(f.__name__, f) for f in ALL_STRATEGIES]
@@ -183,7 +180,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Plot simulation state time-series for strategies.")
     parser.add_argument("--strategy", type=str, nargs="+", help="Builtin strategy names.")
     gp_source = parser.add_mutually_exclusive_group()
-    gp_source.add_argument("--hof", type=pathlib.Path, nargs="+", help="Paths to .dill HOF files.")
+    gp_source.add_argument("--hof", type=pathlib.Path, nargs="+", help="Paths to .expr HOF files.")
     gp_source.add_argument("--expr", type=str, default=None, help="Load a candidate by expression string.")
     parser.add_argument("--results-dir", type=pathlib.Path, default=None)
     add_landscape_args(parser)

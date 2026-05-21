@@ -1,7 +1,8 @@
-import dill
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+
+_EXPR = "fuel_level(graph, node)"
 
 from scripts.plot_timeseries import _plot, collect_series, main
 from wildfireGP.network import (
@@ -118,14 +119,12 @@ def test_main_no_strategies_uses_all_builtins(tmp_path):
 
 
 def test_main_expr_loads_candidate(tmp_path):
-    expr = "test_expr"
-    with open(tmp_path / "final_population.dill", "wb") as f:
-        dill.dump([(expr, random_score)], f)
+    (tmp_path / "final_population.expr").write_text(_EXPR + "\n")
     out = tmp_path / "ts.png"
     main(
         [
             "--expr",
-            expr,
+            _EXPR,
             "--results-dir",
             str(tmp_path),
             "--rows",

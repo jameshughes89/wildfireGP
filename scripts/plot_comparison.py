@@ -12,7 +12,7 @@ Usage
                                       [--wind-speed FLOAT] [--wind-direction FLOAT] [--moisture FLOAT]
                                       [--landscapes INT] [--runs INT] [--output PATH]
 
-    If --results-dir is given without --expr, all hof_*.dill files in that directory are loaded automatically alongside
+    If --results-dir is given without --expr, all hof_*.expr files in that directory are loaded automatically alongside
     the builtin baselines. If neither --hof nor --results-dir is given, only baselines are compared.
 
     --expr STRING  Expression string of a specific GP candidate to load from --results-dir. Copy the expr value from
@@ -22,7 +22,7 @@ Examples
 --------
     python -m scripts.plot_comparison
     python -m scripts.plot_comparison --results-dir results/2026-05-08_10-00-00
-    python -m scripts.plot_comparison --hof results/run/hof_0.dill --runs 20 --landscapes 5
+    python -m scripts.plot_comparison --hof results/run/hof_0.expr --runs 20 --landscapes 5
     python -m scripts.plot_comparison --results-dir results/2026-05-08_10-00-00 --expr "min(fuel_level, ...)"
 """
 
