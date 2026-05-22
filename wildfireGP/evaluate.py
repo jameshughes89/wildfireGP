@@ -38,6 +38,7 @@ import numpy as np
 from wildfireGP.features import (
     precompute_burnable_fire_map,
     precompute_burning_two_hop_map,
+    precompute_fire_distance_map,
     precompute_fire_map,
     precompute_neighbourhood_maps,
     precompute_reachable_unburned_area,
@@ -52,6 +53,7 @@ DEFAULT_INTERVENTION_DELAY = 3
 ALL_PRECOMPUTES = frozenset(
     {
         "fire_map",
+        "fire_distance_map",
         "burnable_fire_map",
         "reachable_unburned_area",
         "state_counts",
@@ -69,7 +71,7 @@ _FEATURE_PRECOMPUTE_MAP = {
     "unburnable_neighbour_count": {"neighbourhood_maps"},
     "has_treated_neighbour": {"neighbourhood_maps"},
     "treated_neighbour_count": {"neighbourhood_maps"},
-    "distance_to_fire": {"fire_map"},
+    "distance_to_fire": {"fire_distance_map"},
     "elevation_delta_to_fire": {"fire_map"},
     "wind_fire_alignment": {"fire_map"},
     "burnable_distance_to_fire": {"burnable_fire_map"},
@@ -107,18 +109,7 @@ def simulate(
         if not (state.state == NodeState.BURNING).any():
             break
         if step >= intervention_delay:
-            if "fire_map" in required_precomputes:
-                precompute_fire_map(state)
-            if "burnable_fire_map" in required_precomputes:
-                precompute_burnable_fire_map(state)
-            if "reachable_unburned_area" in required_precomputes:
-                precompute_reachable_unburned_area(state)
-            if "state_counts" in required_precomputes:
-                precompute_state_counts(state)
-            if "neighbourhood_maps" in required_precomputes:
-                precompute_neighbourhood_maps(state)
-            if "burning_two_hop_map" in required_precomputes:
-                precompute_burning_two_hop_map(state)
+            _run_required_precomputes(state, required_precomputes)
             _apply_treatments(state, func, treatments_per_step, rng)
         spread_step(state, rng)
         yield step, state
@@ -191,6 +182,23 @@ def _apply_treatments(
 def _safe_score(func: Callable[[GraphState, tuple], float], state: GraphState, node: tuple) -> float:
     score = func(state, node)
     return score if math.isfinite(score) else float("-inf")
+
+
+def _run_required_precomputes(state: GraphState, required_precomputes: frozenset[str]) -> None:
+    if "fire_map" in required_precomputes:
+        precompute_fire_map(state)
+    elif "fire_distance_map" in required_precomputes:
+        precompute_fire_distance_map(state)
+    if "burnable_fire_map" in required_precomputes:
+        precompute_burnable_fire_map(state)
+    if "reachable_unburned_area" in required_precomputes:
+        precompute_reachable_unburned_area(state)
+    if "state_counts" in required_precomputes:
+        precompute_state_counts(state)
+    if "neighbourhood_maps" in required_precomputes:
+        precompute_neighbourhood_maps(state)
+    if "burning_two_hop_map" in required_precomputes:
+        precompute_burning_two_hop_map(state)
 
 
 def annotate_required_precomputes(func, feature_names: set[str] | list[str] | tuple[str, ...]):

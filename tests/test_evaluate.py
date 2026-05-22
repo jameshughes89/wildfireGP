@@ -227,4 +227,4 @@ def test_annotate_required_precomputes_marks_neighbourhood_and_fire_dependencies
         return 0.0
 
     annotate_required_precomputes(func, {"burning_neighbour_count", "burning_two_hop_count", "distance_to_fire"})
-    assert func._required_precomputes == frozenset({"fire_map", "neighbourhood_maps", "burning_two_hop_map"})
+    assert func._required_precomputes == frozenset({"fire_distance_map", "neighbourhood_maps", "burning_two_hop_map"})

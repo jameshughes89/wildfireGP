@@ -18,7 +18,7 @@ import math
 from collections import deque
 
 import numpy as np
-from scipy.ndimage import convolve, label
+from scipy.ndimage import convolve, distance_transform_cdt, label
 
 from wildfireGP.network import GraphState, NodeState, TerrainType
 
@@ -141,7 +141,8 @@ def update_neighbourhood_maps_after_treatment(state: GraphState, node: tuple) ->
 
 
 # ---------------------------------------------------------------------------
-# Spatial --- requires precompute_fire_map / precompute_burnable_fire_map each simulation step
+# Spatial --- requires precompute_fire_map / precompute_fire_distance_map /
+# precompute_burnable_fire_map each simulation step
 # ---------------------------------------------------------------------------
 
 
@@ -160,13 +161,21 @@ def precompute_fire_map(state: GraphState) -> None:
                 nearest[neighbour] = nearest[current]
                 queue.append(neighbour)
     state.nearest_fire = nearest
+    precompute_fire_distance_map(state)
+
+
+def precompute_fire_distance_map(state: GraphState) -> None:
+    burning = state.state == NodeState.BURNING
+    if not burning.any():
+        state.fire_distance_map = np.full(state.state.shape, np.inf, dtype=np.float32)
+        return
+    state.fire_distance_map = distance_transform_cdt(~burning, metric="chessboard").astype(np.float32)
 
 
 def distance_to_fire(state: GraphState, node: tuple) -> float:
-    fire = state.nearest_fire.get(node)
-    if fire is None:
+    if state.fire_distance_map is None:
         return float("inf")
-    return max(abs(node[0] - fire[0]), abs(node[1] - fire[1]))
+    return float(state.fire_distance_map[node])
 
 
 def precompute_burnable_fire_map(state: GraphState) -> None:

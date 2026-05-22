@@ -11,6 +11,7 @@ from wildfireGP.features import (
     mean_neighbour_fuel,
     precompute_burnable_fire_map,
     precompute_burning_two_hop_map,
+    precompute_fire_distance_map,
     precompute_fire_map,
     precompute_neighbourhood_maps,
     precompute_reachable_unburned_area,
@@ -318,21 +319,21 @@ def test_precompute_fire_map_leaves_unreachable_cells_absent_when_no_fire():
 
 def test_distance_to_fire_returns_inf_with_no_fire():
     s = _state()
-    precompute_fire_map(s)
+    precompute_fire_distance_map(s)
     assert distance_to_fire(s, _NODE) == float("inf")
 
 
 def test_distance_to_fire_zero_when_cell_is_burning():
     s = _state()
     s.state[_NODE] = NodeState.BURNING
-    precompute_fire_map(s)
+    precompute_fire_distance_map(s)
     assert distance_to_fire(s, _NODE) == 0
 
 
 def test_distance_to_fire_hop_count():
     s = create_grid(5, 5, seed=0)
     s.state[4, 4] = NodeState.BURNING
-    precompute_fire_map(s)
+    precompute_fire_distance_map(s)
     assert distance_to_fire(s, (0, 0)) == 4
 
 
@@ -341,8 +342,15 @@ def test_distance_to_fire_nearest_when_multiple_burning():
     s.state[0, 4] = NodeState.BURNING
     s.state[2, 2] = NodeState.BURNING
     s.state[0, 1] = NodeState.BURNING
-    precompute_fire_map(s)
+    precompute_fire_distance_map(s)
     assert distance_to_fire(s, (0, 0)) == 1
+
+
+def test_precompute_fire_map_also_populates_distance_map():
+    s = _state()
+    s.state[_NODE] = NodeState.BURNING
+    precompute_fire_map(s)
+    assert distance_to_fire(s, _NODE) == 0.0
 
 
 def test_wind_fire_alignment_zero_with_no_fire():

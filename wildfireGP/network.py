@@ -95,6 +95,7 @@ class GraphState:
     fuel_moisture: float = 0.0
     cell_size_m: float = 100.0
     nearest_fire: dict = field(default_factory=dict)
+    fire_distance_map: np.ndarray | None = None
     burnable_fire_distance: dict = field(default_factory=dict)
     reachable_unburned_area_map: np.ndarray | None = None
     mean_neighbour_elevation_map: np.ndarray | None = None
