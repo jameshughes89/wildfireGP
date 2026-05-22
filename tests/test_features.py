@@ -10,6 +10,7 @@ from wildfireGP.features import (
     mean_neighbour_elevation,
     mean_neighbour_fuel,
     precompute_burnable_fire_map,
+    precompute_burning_two_hop_map,
     precompute_fire_map,
     precompute_neighbourhood_maps,
     precompute_reachable_unburned_area,
@@ -148,6 +149,22 @@ def test_burning_two_hop_count_uses_available_two_hop_cells_for_edge_node():
     s.state[0, 2] = NodeState.BURNING
     s.state[2, 0] = NodeState.BURNING
     assert burning_two_hop_count(s, (0, 0)) == 2
+
+
+def test_precompute_burning_two_hop_map_matches_direct_feature_reads():
+    s = create_grid(5, 5, seed=0)
+    s.state[0, 2] = NodeState.BURNING
+    s.state[2, 0] = NodeState.BURNING
+    s.state[2, 2] = NodeState.BURNING
+    direct = {
+        (2, 2): burning_two_hop_count(s, (2, 2)),
+        (0, 0): burning_two_hop_count(s, (0, 0)),
+        (4, 4): burning_two_hop_count(s, (4, 4)),
+    }
+    precompute_burning_two_hop_map(s)
+    assert burning_two_hop_count(s, (2, 2)) == direct[(2, 2)]
+    assert burning_two_hop_count(s, (0, 0)) == direct[(0, 0)]
+    assert burning_two_hop_count(s, (4, 4)) == direct[(4, 4)]
 
 
 def test_unburned_neighbour_count_all_unburned_by_default():

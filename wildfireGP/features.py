@@ -18,7 +18,7 @@ import math
 from collections import deque
 
 import numpy as np
-from scipy.ndimage import label
+from scipy.ndimage import convolve, label
 
 from wildfireGP.network import GraphState, NodeState, TerrainType
 
@@ -65,6 +65,8 @@ def burning_neighbour_count(state: GraphState, node: tuple) -> int:
 
 
 def burning_two_hop_count(state: GraphState, node: tuple) -> int:
+    if state.burning_two_hop_count_map is not None:
+        return int(state.burning_two_hop_count_map[node])
     one_hop = set(state.neighbours(node))
     two_hop: set[tuple] = set()
     for neighbour in one_hop:
@@ -118,6 +120,11 @@ def precompute_neighbourhood_maps(state: GraphState) -> None:
         | (state.terrain == TerrainType.ROCK)
     )
     state.unburnable_neighbour_count_map = _moore_sum(unburnable_mask.astype(np.int16))
+
+
+def precompute_burning_two_hop_map(state: GraphState) -> None:
+    burning = (state.state == NodeState.BURNING).astype(np.int16)
+    state.burning_two_hop_count_map = convolve(burning, _TWO_HOP_RING_KERNEL, mode="constant", cval=0)
 
 
 def update_neighbourhood_maps_after_treatment(state: GraphState, node: tuple) -> None:
@@ -266,6 +273,16 @@ def total_treated(state: GraphState) -> int:
 
 
 _NEIGHBOUR_COUNT_CACHE: dict[tuple[int, int], np.ndarray] = {}
+_TWO_HOP_RING_KERNEL = np.array(
+    [
+        [1, 1, 1, 1, 1],
+        [1, 0, 0, 0, 1],
+        [1, 0, 0, 0, 1],
+        [1, 0, 0, 0, 1],
+        [1, 1, 1, 1, 1],
+    ],
+    dtype=np.int16,
+)
 
 
 def _moore_sum(array: np.ndarray) -> np.ndarray:

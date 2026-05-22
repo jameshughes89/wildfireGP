@@ -37,6 +37,7 @@ import numpy as np
 
 from wildfireGP.features import (
     precompute_burnable_fire_map,
+    precompute_burning_two_hop_map,
     precompute_fire_map,
     precompute_neighbourhood_maps,
     precompute_reachable_unburned_area,
@@ -49,13 +50,21 @@ from wildfireGP.spread import MAX_BURN_STEPS, spread_step
 DEFAULT_TREATMENTS_PER_STEP = 3
 DEFAULT_INTERVENTION_DELAY = 3
 ALL_PRECOMPUTES = frozenset(
-    {"fire_map", "burnable_fire_map", "reachable_unburned_area", "state_counts", "neighbourhood_maps"}
+    {
+        "fire_map",
+        "burnable_fire_map",
+        "reachable_unburned_area",
+        "state_counts",
+        "neighbourhood_maps",
+        "burning_two_hop_map",
+    }
 )
 
 _FEATURE_PRECOMPUTE_MAP = {
     "mean_neighbour_elevation": {"neighbourhood_maps"},
     "mean_neighbour_fuel": {"neighbourhood_maps"},
     "burning_neighbour_count": {"neighbourhood_maps"},
+    "burning_two_hop_count": {"burning_two_hop_map"},
     "unburned_neighbour_count": {"neighbourhood_maps"},
     "unburnable_neighbour_count": {"neighbourhood_maps"},
     "has_treated_neighbour": {"neighbourhood_maps"},
@@ -108,6 +117,8 @@ def simulate(
                 precompute_state_counts(state)
             if "neighbourhood_maps" in required_precomputes:
                 precompute_neighbourhood_maps(state)
+            if "burning_two_hop_map" in required_precomputes:
+                precompute_burning_two_hop_map(state)
             _apply_treatments(state, func, treatments_per_step, rng)
         spread_step(state, rng)
         yield step, state

@@ -100,6 +100,7 @@ class GraphState:
     mean_neighbour_elevation_map: np.ndarray | None = None
     mean_neighbour_fuel_map: np.ndarray | None = None
     burning_neighbour_count_map: np.ndarray | None = None
+    burning_two_hop_count_map: np.ndarray | None = None
     treated_neighbour_count_map: np.ndarray | None = None
     unburned_neighbour_count_map: np.ndarray | None = None
     unburnable_neighbour_count_map: np.ndarray | None = None
