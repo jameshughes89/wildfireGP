@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-_EXPR = "fuel_level(graph, node)"
-
 from scripts.plot_treatment_heatmap import (
     _load_strategy,
     _plot,
@@ -19,6 +17,8 @@ from wildfireGP.network import (
     set_wind,
 )
 from wildfireGP.strategies import random_score, score_by_fire_proximity
+
+_EXPR = "fuel_level(graph, node)"
 
 
 @pytest.fixture()

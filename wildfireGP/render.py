@@ -18,7 +18,7 @@ from wildfireGP.features import (
     precompute_reachable_unburned_area,
     precompute_state_counts,
 )
-from wildfireGP.network import NodeState, GraphState, TerrainType
+from wildfireGP.network import GraphState, NodeState, TerrainType
 
 _WIND_ARROWS = ["↓", "↙", "←", "↖", "↑", "↗", "→", "↘"]
 

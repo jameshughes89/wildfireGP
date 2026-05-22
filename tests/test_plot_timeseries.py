@@ -2,8 +2,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-_EXPR = "fuel_level(graph, node)"
-
 from scripts.plot_timeseries import _plot, collect_series, main
 from wildfireGP.network import (
     create_grid,
@@ -12,6 +10,8 @@ from wildfireGP.network import (
     set_wind,
 )
 from wildfireGP.strategies import random_score
+
+_EXPR = "fuel_level(graph, node)"
 
 
 @pytest.fixture()

@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 
 from wildfireGP.network import (
-    NodeState,
     GraphState,
+    NodeState,
     TerrainType,
     create_grid,
     reset_states,

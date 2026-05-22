@@ -118,8 +118,12 @@ def spread_step(state: GraphState, rng: np.random.Generator) -> None:
 
     survival = np.ones((rows, cols), dtype=np.float32)
     for dr, dc in _DIRECTIONS:
-        src_burning = burning_pad[1 - dr : 1 - dr + rows, 1 - dc : 1 - dc + cols]
-        src_elev = elevation_pad[1 - dr : 1 - dr + rows, 1 - dc : 1 - dc + cols]
+        row_start = 1 - dr
+        row_stop = row_start + rows
+        col_start = 1 - dc
+        col_stop = col_start + cols
+        src_burning = burning_pad[row_start:row_stop, col_start:col_stop]
+        src_elev = elevation_pad[row_start:row_stop, col_start:col_stop]
 
         spread_angle = math.atan2(dc, -dr)
         theta = wind_toward_rad - spread_angle
