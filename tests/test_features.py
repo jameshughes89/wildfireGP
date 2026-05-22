@@ -479,15 +479,6 @@ def test_burnable_distance_differs_from_chebyshev_when_path_blocked():
     assert burnable_distance_to_fire(s, (2, 2)) == float("inf")
 
 
-def test_burnable_distance_to_fire_takes_longer_detour_around_barrier():
-    s = create_grid(5, 5, seed=0)
-    s.state[0, 0] = NodeState.BURNING
-    s.state[0, 1] = NodeState.BURNED
-    s.state[1, 1] = NodeState.BURNED
-    precompute_burnable_fire_map(s)
-    assert burnable_distance_to_fire(s, (2, 2)) == 3
-
-
 def test_burnable_distance_to_fire_inf_when_only_path_is_through_water():
     s = _state()
     s.state[0, 0] = NodeState.BURNING

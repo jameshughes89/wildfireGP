@@ -18,7 +18,7 @@ import math
 from collections import deque
 
 import numpy as np
-from scipy.ndimage import binary_dilation, convolve, distance_transform_cdt, label
+from scipy.ndimage import convolve, distance_transform_cdt, label
 
 from wildfireGP.network import GraphState, NodeState, TerrainType
 
@@ -179,34 +179,28 @@ def distance_to_fire(state: GraphState, node: tuple) -> float:
 
 
 def precompute_burnable_fire_map(state: GraphState) -> None:
-    burning = state.state == NodeState.BURNING
-    distance_map = np.full(state.state.shape, np.inf, dtype=np.float32)
-    if not burning.any():
-        state.burnable_fire_distance_map = distance_map
-        return
-
-    traversable = (state.state == NodeState.UNBURNED) & (state.terrain == TerrainType.LAND)
-    allowed = traversable | burning
-    visited = burning.copy()
-    frontier = burning.copy()
-    distance_map[burning] = 0.0
-    distance = 0.0
-
-    while True:
-        frontier = binary_dilation(frontier, structure=_MOORE_STRUCTURE) & allowed & ~visited
-        if not frontier.any():
-            break
-        distance += 1.0
-        distance_map[frontier] = distance
-        visited |= frontier
-
-    state.burnable_fire_distance_map = distance_map
+    distance: dict[tuple, int] = {}
+    queue: deque[tuple] = deque()
+    burning = np.argwhere(state.state == NodeState.BURNING)
+    for r, c in burning:
+        node = (int(r), int(c))
+        distance[node] = 0
+        queue.append(node)
+    while queue:
+        current = queue.popleft()
+        for neighbour in state.neighbours(current):
+            if neighbour not in distance:
+                if state.state[neighbour] == NodeState.UNBURNED and state.terrain[neighbour] == TerrainType.LAND:
+                    distance[neighbour] = distance[current] + 1
+                    queue.append(neighbour)
+    state.burnable_fire_distance = distance
 
 
 def burnable_distance_to_fire(state: GraphState, node: tuple) -> float:
-    if state.burnable_fire_distance_map is None:
+    dist = state.burnable_fire_distance.get(node)
+    if dist is None:
         return float("inf")
-    return float(state.burnable_fire_distance_map[node])
+    return float(dist)
 
 
 def precompute_reachable_unburned_area(state: GraphState) -> None:
@@ -288,7 +282,6 @@ def total_treated(state: GraphState) -> int:
 
 
 _NEIGHBOUR_COUNT_CACHE: dict[tuple[int, int], np.ndarray] = {}
-_MOORE_STRUCTURE = np.ones((3, 3), dtype=bool)
 _TWO_HOP_RING_KERNEL = np.array(
     [
         [1, 1, 1, 1, 1],
