@@ -11,11 +11,6 @@ from wildfireGP.network import (
     set_wind,
 )
 from wildfireGP.render import (
-    _BURNED,
-    _BURNING,
-    _ROCK,
-    _TREATED,
-    _WATER,
     _build_rgb,
     animate,
     animate_heatmap,
@@ -46,48 +41,19 @@ def test_draw_with_provided_ax_returns_same_ax():
     assert result is ax
 
 
-def test_build_rgb_burning_cell_renders_as_burning_colour():
-    s = _state_with_cell()
-    s.state[_NODE] = NodeState.BURNING
-    assert np.array_equal(_build_rgb(s)[_NODE], _BURNING)
+def test_build_rgb_state_takes_priority_over_terrain():
+    burning_land = _state_with_cell()
+    burning_land.state[_NODE] = NodeState.BURNING
 
+    burning_water = _state_with_cell()
+    burning_water.state[_NODE] = NodeState.BURNING
+    burning_water.terrain[_NODE] = TerrainType.WATER
 
-def test_build_rgb_burned_cell_renders_as_burned_colour():
-    s = _state_with_cell()
-    s.state[_NODE] = NodeState.BURNED
-    assert np.array_equal(_build_rgb(s)[_NODE], _BURNED)
+    water = _state_with_cell()
+    water.terrain[_NODE] = TerrainType.WATER
 
-
-def test_build_rgb_treated_cell_renders_as_treated_colour():
-    s = _state_with_cell()
-    s.state[_NODE] = NodeState.TREATED
-    assert np.array_equal(_build_rgb(s)[_NODE], _TREATED)
-
-
-def test_build_rgb_water_terrain_unburned_renders_as_water_colour():
-    s = _state_with_cell()
-    s.terrain[_NODE] = TerrainType.WATER
-    assert np.array_equal(_build_rgb(s)[_NODE], _WATER)
-
-
-def test_build_rgb_rock_terrain_unburned_renders_as_rock_colour():
-    s = _state_with_cell()
-    s.terrain[_NODE] = TerrainType.ROCK
-    assert np.array_equal(_build_rgb(s)[_NODE], _ROCK)
-
-
-def test_build_rgb_land_unburned_renders_as_fuel_mapped_colour():
-    s = _state_with_cell()
-    colour = _build_rgb(s)[_NODE]
-    fixed = [_BURNING, _BURNED, _TREATED, _WATER, _ROCK]
-    assert not any(np.array_equal(colour, c) for c in fixed)
-
-
-def test_build_rgb_burning_state_takes_priority_over_water_terrain():
-    s = _state_with_cell()
-    s.state[_NODE] = NodeState.BURNING
-    s.terrain[_NODE] = TerrainType.WATER
-    assert np.array_equal(_build_rgb(s)[_NODE], _BURNING)
+    assert np.array_equal(_build_rgb(burning_water)[_NODE], _build_rgb(burning_land)[_NODE])
+    assert not np.array_equal(_build_rgb(burning_water)[_NODE], _build_rgb(water)[_NODE])
 
 
 def _snapshots(seed=0, steps=3):

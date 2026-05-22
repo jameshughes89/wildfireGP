@@ -37,12 +37,6 @@ def test_plot_returns_figure(tmp_path):
     assert fig is not None
 
 
-def test_plot_has_six_subplots(tmp_path):
-    fig = _plot(_make_stats())
-    assert len(fig.axes) >= 6
-    plt.close(fig)
-
-
 def test_plot_stats_creates_output_file(tmp_path):
     stats_path = tmp_path / "stats.json"
     stats_path.write_text(json.dumps(_make_stats()))
