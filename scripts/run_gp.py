@@ -146,9 +146,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--landscapes",
         type=int,
-        default=3,
+        default=5,
         help="Number of landscapes to evaluate each candidate on per generation. Fitness is mean total_burned "
-        "across landscapes. Default 3.",
+        "across landscapes. Default 5.",
     )
     parser.add_argument("--pop", type=int, default=GPConfig.population_size)
     parser.add_argument("--gens", type=int, default=GPConfig.generations)
