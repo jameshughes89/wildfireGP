@@ -52,6 +52,16 @@ timestep.
 
 Wind and moisture must be set on the GraphState before calling :func:`spread_step`.
 
+Vectorisation note
+------------------
+:func:`spread_step` evaluates all 8 spread directions as whole-array operations rather than iterating burning cells in
+Python. For each direction it builds shifted views of the burning and elevation arrays, computes per-cell ignition
+probabilities, and accumulates a survival probability per destination cell. A single :func:`Generator.random` draw per
+cell decides the outcome.
+
+This is statistically equivalent to the per-source-pair draws the previous implementation made, but not bit-identical:
+the same seed produces different specific fire trajectories. The probability that any given cell ignites is unchanged.
+
 References
 ----------
 Alexandridis, A., Vakalis, D., Siettos, C.I., & Bafas, G.V. (2008). A cellular automata model for forest fire spread
@@ -65,7 +75,7 @@ import math
 
 import numpy as np
 
-from wildfireGP.network import NodeState, GraphState, TerrainType
+from wildfireGP.network import GraphState, NodeState, TerrainType
 
 MAX_BURN_STEPS = 5
 
@@ -74,110 +84,87 @@ _C2 = 0.131
 _A_S = 0.078
 _KMH_TO_MS = 1.0 / 3.6
 
+_DIRECTIONS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+
 
 def spread_step(state: GraphState, rng: np.random.Generator) -> None:
     """
     Advance the fire simulation by one timestep.
 
-    Each BURNING cell attempts to ignite each UNBURNED Moore-neighbour, then decrements its burn timer. When the timer
-    reaches zero the cell transitions to BURNED.
+    For each of the 8 spread directions, build a shifted view of the burning/elevation arrays and compute per-cell
+    ignition contributions as a whole-array operation. Survival across all directions is accumulated multiplicatively,
+    then a single per-cell random draw decides ignition. Burning cells decrement their burn timer and transition to
+    BURNED when it reaches zero.
     """
+    rows, cols = state.rows, state.cols
     wind_speed_ms = state.wind_speed * _KMH_TO_MS
-    wind_dir_rad = math.radians(state.wind_direction)
+    wind_toward_rad = math.radians(state.wind_direction) + math.pi
     moisture = state.fuel_moisture
 
-    to_ignite: list[tuple] = []
-    to_burn_out: list[tuple] = []
+    burning = state.state == NodeState.BURNING
+    ignitable = (
+        (state.state == NodeState.UNBURNED)
+        & (state.terrain != TerrainType.WATER)
+        & (state.terrain != TerrainType.ROCK)
+        & (state.fuel > 0.0)
+    )
 
-    burning_nodes = np.argwhere(state.state == NodeState.BURNING)
-    for r, c in burning_nodes:
-        node = (int(r), int(c))
-        to_ignite.extend(_ignition_targets(state, node, rng, wind_speed_ms, wind_dir_rad, moisture))
-        if _decrement_burn_timer(state, node):
-            to_burn_out.append(node)
+    if not burning.any():
+        return
 
-    _ignite_nodes(state, to_ignite)
-    _burn_out_nodes(state, to_burn_out)
+    burning_pad = np.pad(burning, 1, constant_values=False)
+    elevation_pad = np.pad(state.elevation.astype(np.float32), 1, constant_values=0.0)
+    fuel = state.fuel.astype(np.float32)
+
+    survival = np.ones((rows, cols), dtype=np.float32)
+    for dr, dc in _DIRECTIONS:
+        src_burning = burning_pad[1 - dr : 1 - dr + rows, 1 - dc : 1 - dc + cols]
+        src_elev = elevation_pad[1 - dr : 1 - dr + rows, 1 - dc : 1 - dc + cols]
+
+        spread_angle = math.atan2(dc, -dr)
+        theta = wind_toward_rad - spread_angle
+        p_wind = math.exp(_C1 * wind_speed_ms) * math.exp(_C2 * wind_speed_ms * (math.cos(theta) - 1))
+
+        dist_cells = math.sqrt(2) if (dr != 0 and dc != 0) else 1.0
+        slope_angle = np.arctan((state.elevation - src_elev) / dist_cells)
+        p_slope = np.exp(_A_S * slope_angle)
+
+        p = fuel * (1.0 - moisture) * p_wind * p_slope
+        contribution = np.where(src_burning & ignitable, np.clip(p, 0.0, 1.0), 0.0)
+        survival *= 1.0 - contribution
+
+    ignition_prob = 1.0 - survival
+    newly_ignited = (rng.random((rows, cols)) < ignition_prob) & ignitable
+
+    state.state[newly_ignited] = NodeState.BURNING
+    new_timers = np.maximum(1, np.ceil(fuel[newly_ignited] * MAX_BURN_STEPS)).astype(np.int8)
+    state.burn_timer[newly_ignited] = new_timers
+
+    state.burn_timer[burning] -= 1
+    burned_out = burning & (state.burn_timer <= 0)
+    state.state[burned_out] = NodeState.BURNED
+    state.fuel[burned_out] = 0.0
 
 
 def ignition_probability(state: GraphState, src: tuple, dst: tuple) -> float:
     """
     Compute the ignition probability from BURNING node ``src`` to UNBURNED node ``dst``.
 
-    Returns 0.0 for non-burnable destination terrain.
+    Returns 0.0 for non-burnable destination terrain. Retained as a single-pair helper for tests and for
+    :func:`wildfireGP.render` overlays; the per-step simulation uses the vectorised path in :func:`spread_step`.
     """
-    if not _is_burnable(state, dst):
+    if state.terrain[dst] == TerrainType.WATER or state.terrain[dst] == TerrainType.ROCK:
         return 0.0
-    wind_speed_ms = state.wind_speed * _KMH_TO_MS
-    wind_dir_rad = math.radians(state.wind_direction)
-    moisture = state.fuel_moisture
-    return _ignition_probability(state, src, dst, wind_speed_ms, wind_dir_rad, moisture)
-
-
-def _is_burnable(state: GraphState, node: tuple) -> bool:
-    terrain = state.terrain[node]
-    return terrain != TerrainType.WATER and terrain != TerrainType.ROCK
-
-
-def _can_ignite(state: GraphState, node: tuple) -> bool:
-    return state.state[node] == NodeState.UNBURNED and _is_burnable(state, node)
-
-
-def _ignition_targets(
-    state: GraphState,
-    node: tuple,
-    rng: np.random.Generator,
-    wind_speed_ms: float,
-    wind_dir_rad: float,
-    moisture: float,
-) -> list[tuple]:
-    targets: list[tuple] = []
-    for neighbour in state.neighbours(node):
-        if not _can_ignite(state, neighbour):
-            continue
-        p = _ignition_probability(state, node, neighbour, wind_speed_ms, wind_dir_rad, moisture)
-        if rng.random() < p:
-            targets.append(neighbour)
-    return targets
-
-
-def _decrement_burn_timer(state: GraphState, node: tuple) -> bool:
-    state.burn_timer[node] -= 1
-    return state.burn_timer[node] <= 0
-
-
-def _ignite_nodes(state: GraphState, nodes: list[tuple]) -> None:
-    for node in nodes:
-        if state.state[node] != NodeState.UNBURNED:
-            continue
-        state.state[node] = NodeState.BURNING
-        fuel = float(state.fuel[node])
-        state.burn_timer[node] = max(1, math.ceil(fuel * MAX_BURN_STEPS))
-
-
-def _burn_out_nodes(state: GraphState, nodes: list[tuple]) -> None:
-    for node in nodes:
-        state.state[node] = NodeState.BURNED
-        state.fuel[node] = 0.0
-
-
-def _ignition_probability(
-    state: GraphState,
-    src: tuple,
-    dst: tuple,
-    wind_speed_ms: float,
-    wind_dir_rad: float,
-    moisture: float,
-) -> float:
     fuel = float(state.fuel[dst])
     if fuel == 0.0:
         return 0.0
 
+    wind_speed_ms = state.wind_speed * _KMH_TO_MS
+    wind_toward_rad = math.radians(state.wind_direction) + math.pi
+
     si, sj = src
     di, dj = dst
     spread_angle = math.atan2(dj - sj, -(di - si))
-
-    wind_toward_rad = wind_dir_rad + math.pi
     theta = wind_toward_rad - spread_angle
     p_wind = math.exp(_C1 * wind_speed_ms) * math.exp(_C2 * wind_speed_ms * (math.cos(theta) - 1))
 
@@ -186,7 +173,7 @@ def _ignition_probability(
     slope_angle_rad = math.atan(elev_diff / dist_cells)
     p_slope = math.exp(_A_S * slope_angle_rad)
 
-    p = fuel * (1.0 - moisture) * p_wind * p_slope
+    p = fuel * (1.0 - state.fuel_moisture) * p_wind * p_slope
     if p < 0.0:
         return 0.0
     if p > 1.0:
