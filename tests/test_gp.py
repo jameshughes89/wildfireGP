@@ -4,7 +4,14 @@ import numpy as np
 import pytest
 from deap import creator, gp
 
-from wildfireGP.gp import GPConfig, _gen_grow, _register_types, build_toolbox, run
+from wildfireGP.gp import (
+    GPConfig,
+    _eval_individual,
+    _gen_grow,
+    _register_types,
+    build_toolbox,
+    run,
+)
 from wildfireGP.language import PRIMITIVE_SET
 from wildfireGP.network import create_grid, set_fuel_moisture, set_wind
 
@@ -103,3 +110,10 @@ def test_gen_grow_terminal_only_types_use_argument_terminals():
     assert isinstance(expr_node[0], gp.Terminal)
     assert expr_node[0].name == "ARG1"
     assert expr_node[0].ret is tuple
+
+
+def test_eval_individual_annotates_compiled_precompute_requirements():
+    expr = gp.PrimitiveTree.from_string("add(distance_to_fire(graph, node), total_burning(graph))", PRIMITIVE_SET)
+    individual = creator.Individual(expr)
+    result = _eval_individual(individual, [(_graph(), [(2, 2)])], 2, 5, _rng())
+    assert result[0] >= 0.0

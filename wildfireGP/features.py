@@ -18,8 +18,9 @@ import math
 from collections import deque
 
 import numpy as np
+from scipy.ndimage import label
 
-from wildfireGP.network import NodeState, GraphState, TerrainType
+from wildfireGP.network import GraphState, NodeState, TerrainType
 
 # ---------------------------------------------------------------------------
 # Terrain
@@ -39,6 +40,8 @@ def slope(state: GraphState, node: tuple) -> float:
 
 
 def mean_neighbour_elevation(state: GraphState, node: tuple) -> float:
+    if state.mean_neighbour_elevation_map is not None:
+        return float(state.mean_neighbour_elevation_map[node])
     neighbours = state.neighbours(node)
     return sum(float(state.elevation[n]) for n in neighbours) / len(neighbours)
 
@@ -49,11 +52,15 @@ def mean_neighbour_elevation(state: GraphState, node: tuple) -> float:
 
 
 def mean_neighbour_fuel(state: GraphState, node: tuple) -> float:
+    if state.mean_neighbour_fuel_map is not None:
+        return float(state.mean_neighbour_fuel_map[node])
     neighbours = state.neighbours(node)
     return sum(float(state.fuel[n]) for n in neighbours) / len(neighbours)
 
 
 def burning_neighbour_count(state: GraphState, node: tuple) -> int:
+    if state.burning_neighbour_count_map is not None:
+        return int(state.burning_neighbour_count_map[node])
     return sum(1 for n in state.neighbours(node) if state.state[n] == NodeState.BURNING)
 
 
@@ -68,10 +75,14 @@ def burning_two_hop_count(state: GraphState, node: tuple) -> int:
 
 
 def unburned_neighbour_count(state: GraphState, node: tuple) -> int:
+    if state.unburned_neighbour_count_map is not None:
+        return int(state.unburned_neighbour_count_map[node])
     return sum(1 for n in state.neighbours(node) if state.state[n] == NodeState.UNBURNED)
 
 
 def unburnable_neighbour_count(state: GraphState, node: tuple) -> int:
+    if state.unburnable_neighbour_count_map is not None:
+        return int(state.unburnable_neighbour_count_map[node])
     count = 0
     for n in state.neighbours(node):
         s = state.state[n]
@@ -82,11 +93,44 @@ def unburnable_neighbour_count(state: GraphState, node: tuple) -> int:
 
 
 def has_treated_neighbour(state: GraphState, node: tuple) -> float:
+    if state.treated_neighbour_count_map is not None:
+        return 1.0 if state.treated_neighbour_count_map[node] > 0 else 0.0
     return 1.0 if any(state.state[n] == NodeState.TREATED for n in state.neighbours(node)) else 0.0
 
 
 def treated_neighbour_count(state: GraphState, node: tuple) -> int:
+    if state.treated_neighbour_count_map is not None:
+        return int(state.treated_neighbour_count_map[node])
     return sum(1 for n in state.neighbours(node) if state.state[n] == NodeState.TREATED)
+
+
+def precompute_neighbourhood_maps(state: GraphState) -> None:
+    neighbour_count = _neighbour_count_map(state.rows, state.cols)
+    state.mean_neighbour_elevation_map = _moore_sum(state.elevation) / neighbour_count
+    state.mean_neighbour_fuel_map = _moore_sum(state.fuel) / neighbour_count
+    state.burning_neighbour_count_map = _moore_sum((state.state == NodeState.BURNING).astype(np.int16))
+    state.treated_neighbour_count_map = _moore_sum((state.state == NodeState.TREATED).astype(np.int16))
+    state.unburned_neighbour_count_map = _moore_sum((state.state == NodeState.UNBURNED).astype(np.int16))
+    unburnable_mask = (
+        (state.state == NodeState.BURNED)
+        | (state.state == NodeState.TREATED)
+        | (state.terrain == TerrainType.WATER)
+        | (state.terrain == TerrainType.ROCK)
+    )
+    state.unburnable_neighbour_count_map = _moore_sum(unburnable_mask.astype(np.int16))
+
+
+def update_neighbourhood_maps_after_treatment(state: GraphState, node: tuple) -> None:
+    neighbours = state.neighbours(node)
+    if state.treated_neighbour_count_map is not None:
+        for neighbour in neighbours:
+            state.treated_neighbour_count_map[neighbour] += 1
+    if state.unburned_neighbour_count_map is not None:
+        for neighbour in neighbours:
+            state.unburned_neighbour_count_map[neighbour] -= 1
+    if state.unburnable_neighbour_count_map is not None:
+        for neighbour in neighbours:
+            state.unburnable_neighbour_count_map[neighbour] += 1
 
 
 # ---------------------------------------------------------------------------
@@ -144,37 +188,18 @@ def burnable_distance_to_fire(state: GraphState, node: tuple) -> float:
 
 
 def precompute_reachable_unburned_area(state: GraphState) -> None:
-    """Compute the connected-component size of the unburned-land subgraph for each node.
-
-    All nodes in the same connected component of UNBURNED LAND cells share the same reachable area value, so only one
-    BFS per component is needed. Nodes outside the unburned-land subgraph (burning, burned, treated, water, rock) are
-    absent from the map and read as 0 via :func:`reachable_unburned_area`.
-    """
-    area: dict[tuple, int] = {}
-    for start in state.nodes():
-        if start in area:
-            continue
-        if state.state[start] != NodeState.UNBURNED or state.terrain[start] != TerrainType.LAND:
-            continue
-        component: list[tuple] = []
-        queue: deque[tuple] = deque([start])
-        area[start] = -1
-        while queue:
-            current = queue.popleft()
-            component.append(current)
-            for neighbour in state.neighbours(current):
-                if neighbour not in area:
-                    if state.state[neighbour] == NodeState.UNBURNED and state.terrain[neighbour] == TerrainType.LAND:
-                        area[neighbour] = -1
-                        queue.append(neighbour)
-        size = len(component)
-        for n in component:
-            area[n] = size
-    state.reachable_unburned_area_map = area
+    """Compute the connected-component size of the unburned-land subgraph for each node."""
+    unburned_land = (state.state == NodeState.UNBURNED) & (state.terrain == TerrainType.LAND)
+    labels, _ = label(unburned_land, structure=np.ones((3, 3), dtype=np.int8))
+    component_sizes = np.bincount(labels.ravel())
+    component_sizes[0] = 0
+    state.reachable_unburned_area_map = component_sizes[labels]
 
 
 def reachable_unburned_area(state: GraphState, node: tuple) -> float:
-    return float(state.reachable_unburned_area_map.get(node, 0))
+    if state.reachable_unburned_area_map is None:
+        return 0.0
+    return float(state.reachable_unburned_area_map[node])
 
 
 def elevation_delta_to_fire(state: GraphState, node: tuple) -> float:
@@ -238,3 +263,29 @@ def total_unburned(state: GraphState) -> int:
 
 def total_treated(state: GraphState) -> int:
     return state.step_treated
+
+
+_NEIGHBOUR_COUNT_CACHE: dict[tuple[int, int], np.ndarray] = {}
+
+
+def _moore_sum(array: np.ndarray) -> np.ndarray:
+    padded = np.pad(array, 1)
+    return (
+        padded[:-2, :-2]
+        + padded[:-2, 1:-1]
+        + padded[:-2, 2:]
+        + padded[1:-1, :-2]
+        + padded[1:-1, 2:]
+        + padded[2:, :-2]
+        + padded[2:, 1:-1]
+        + padded[2:, 2:]
+    )
+
+
+def _neighbour_count_map(rows: int, cols: int) -> np.ndarray:
+    cached = _NEIGHBOUR_COUNT_CACHE.get((rows, cols))
+    if cached is not None:
+        return cached
+    counts = _moore_sum(np.ones((rows, cols), dtype=np.int16)).astype(np.float32)
+    _NEIGHBOUR_COUNT_CACHE[(rows, cols)] = counts
+    return counts

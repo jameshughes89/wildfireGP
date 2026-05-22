@@ -45,7 +45,10 @@ import numpy as np
 from deap import algorithms, base, creator, gp, tools
 from deap.gp import MetaEphemeral
 
-from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY
+from wildfireGP.evaluate import (
+    DEFAULT_INTERVENTION_DELAY,
+    annotate_required_precomputes,
+)
 from wildfireGP.evaluate import evaluate as _sim_evaluate
 from wildfireGP.language import PRIMITIVE_SET
 from wildfireGP.network import GraphState
@@ -247,6 +250,7 @@ def _eval_individual(
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> tuple[float]:
     func = gp.compile(individual, pset=PRIMITIVE_SET)
+    annotate_required_precomputes(func, {node.name for node in individual if getattr(node, "name", None) is not None})
     burns = []
     peaks = []
     for graph, ignition_nodes in scenarios:

@@ -11,6 +11,7 @@ from wildfireGP.features import (
     mean_neighbour_fuel,
     precompute_burnable_fire_map,
     precompute_fire_map,
+    precompute_neighbourhood_maps,
     precompute_reachable_unburned_area,
     precompute_state_counts,
     reachable_unburned_area,
@@ -22,6 +23,7 @@ from wildfireGP.features import (
     treated_neighbour_count,
     unburnable_neighbour_count,
     unburned_neighbour_count,
+    update_neighbourhood_maps_after_treatment,
     wind_fire_alignment,
 )
 from wildfireGP.network import (
@@ -233,6 +235,43 @@ def test_treated_neighbour_count_excludes_burning():
     s = _state()
     s.state[0, 1] = NodeState.BURNING
     assert treated_neighbour_count(s, _NODE) == 0
+
+
+def test_precompute_neighbourhood_maps_matches_direct_feature_reads():
+    s = _state()
+    s.state[0, 0] = NodeState.BURNING
+    s.state[0, 1] = NodeState.TREATED
+    s.state[1, 0] = NodeState.BURNED
+    s.terrain[1, 2] = TerrainType.WATER
+    direct = {
+        "mean_elevation": mean_neighbour_elevation(s, _NODE),
+        "mean_fuel": mean_neighbour_fuel(s, _NODE),
+        "burning": burning_neighbour_count(s, _NODE),
+        "unburned": unburned_neighbour_count(s, _NODE),
+        "unburnable": unburnable_neighbour_count(s, _NODE),
+        "treated_count": treated_neighbour_count(s, _NODE),
+        "has_treated": has_treated_neighbour(s, _NODE),
+    }
+    precompute_neighbourhood_maps(s)
+    assert abs(mean_neighbour_elevation(s, _NODE) - direct["mean_elevation"]) < 1e-6
+    assert abs(mean_neighbour_fuel(s, _NODE) - direct["mean_fuel"]) < 1e-6
+    assert burning_neighbour_count(s, _NODE) == direct["burning"]
+    assert unburned_neighbour_count(s, _NODE) == direct["unburned"]
+    assert unburnable_neighbour_count(s, _NODE) == direct["unburnable"]
+    assert treated_neighbour_count(s, _NODE) == direct["treated_count"]
+    assert has_treated_neighbour(s, _NODE) == direct["has_treated"]
+
+
+def test_update_neighbourhood_maps_after_treatment_keeps_counts_in_sync():
+    s = _state()
+    precompute_neighbourhood_maps(s)
+    treated_node = (0, 1)
+    s.state[treated_node] = NodeState.TREATED
+    update_neighbourhood_maps_after_treatment(s, treated_node)
+    assert treated_neighbour_count(s, _NODE) == 1
+    assert has_treated_neighbour(s, _NODE) == 1.0
+    assert unburned_neighbour_count(s, _NODE) == 7
+    assert unburnable_neighbour_count(s, _NODE) == 1
 
 
 # ---------------------------------------------------------------------------

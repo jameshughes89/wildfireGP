@@ -96,7 +96,13 @@ class GraphState:
     cell_size_m: float = 100.0
     nearest_fire: dict = field(default_factory=dict)
     burnable_fire_distance: dict = field(default_factory=dict)
-    reachable_unburned_area_map: dict = field(default_factory=dict)
+    reachable_unburned_area_map: np.ndarray | None = None
+    mean_neighbour_elevation_map: np.ndarray | None = None
+    mean_neighbour_fuel_map: np.ndarray | None = None
+    burning_neighbour_count_map: np.ndarray | None = None
+    treated_neighbour_count_map: np.ndarray | None = None
+    unburned_neighbour_count_map: np.ndarray | None = None
+    unburnable_neighbour_count_map: np.ndarray | None = None
     step_burning: int = 0
     step_burned: int = 0
     step_unburned: int = 0

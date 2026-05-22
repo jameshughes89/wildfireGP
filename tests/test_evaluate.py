@@ -3,6 +3,7 @@ import numpy as np
 from wildfireGP.evaluate import (
     _apply_treatments,
     _safe_score,
+    annotate_required_precomputes,
     evaluate,
     init_ignition,
     simulate,
@@ -10,6 +11,7 @@ from wildfireGP.evaluate import (
 from wildfireGP.features import (
     distance_to_fire,
     precompute_fire_map,
+    precompute_state_counts,
     treated_neighbour_count,
 )
 from wildfireGP.network import (
@@ -185,6 +187,26 @@ def test_apply_treatments_second_pick_not_adjacent_when_adjacency_penalised():
     assert treated[1] not in s.neighbours(treated[0]) and treated[0] not in s.neighbours(treated[1])
 
 
+def test_apply_treatments_updates_state_count_cache_during_intra_step_rescoring():
+    s = create_grid(5, 5, seed=0)
+    set_wind(s, speed=0.0, direction=0.0)
+    set_fuel_moisture(s, moisture=0.1)
+    precompute_state_counts(s)
+
+    seen_counts: list[tuple[int, int]] = []
+
+    def score_with_counts(state, node):
+        seen_counts.append((state.step_treated, state.step_unburned))
+        return float(state.step_treated)
+
+    annotate_required_precomputes(score_with_counts, {"total_treated", "total_unburned"})
+    _apply_treatments(s, score_with_counts, budget=2, rng=np.random.default_rng(0))
+
+    initial_unburned = s.rows * s.cols
+    assert seen_counts[0] == (0, initial_unburned)
+    assert (1, initial_unburned - 1) in seen_counts
+
+
 def test_safe_score_clamps_positive_inf():
     s = _setup()
     assert _safe_score(lambda state, node: float("inf"), s, (0, 0)) == float("-inf")
@@ -198,3 +220,11 @@ def test_safe_score_clamps_nan():
 def test_safe_score_preserves_finite():
     s = _setup()
     assert _safe_score(lambda state, node: 3.14, s, (0, 0)) == 3.14
+
+
+def test_annotate_required_precomputes_marks_neighbourhood_and_fire_dependencies():
+    def func(state, node):
+        return 0.0
+
+    annotate_required_precomputes(func, {"burning_neighbour_count", "distance_to_fire"})
+    assert func._required_precomputes == frozenset({"fire_map", "neighbourhood_maps"})

@@ -38,14 +38,38 @@ import numpy as np
 from wildfireGP.features import (
     precompute_burnable_fire_map,
     precompute_fire_map,
+    precompute_neighbourhood_maps,
     precompute_reachable_unburned_area,
     precompute_state_counts,
+    update_neighbourhood_maps_after_treatment,
 )
-from wildfireGP.network import NodeState, GraphState
+from wildfireGP.network import GraphState, NodeState
 from wildfireGP.spread import MAX_BURN_STEPS, spread_step
 
 DEFAULT_TREATMENTS_PER_STEP = 3
 DEFAULT_INTERVENTION_DELAY = 3
+ALL_PRECOMPUTES = frozenset(
+    {"fire_map", "burnable_fire_map", "reachable_unburned_area", "state_counts", "neighbourhood_maps"}
+)
+
+_FEATURE_PRECOMPUTE_MAP = {
+    "mean_neighbour_elevation": {"neighbourhood_maps"},
+    "mean_neighbour_fuel": {"neighbourhood_maps"},
+    "burning_neighbour_count": {"neighbourhood_maps"},
+    "unburned_neighbour_count": {"neighbourhood_maps"},
+    "unburnable_neighbour_count": {"neighbourhood_maps"},
+    "has_treated_neighbour": {"neighbourhood_maps"},
+    "treated_neighbour_count": {"neighbourhood_maps"},
+    "distance_to_fire": {"fire_map"},
+    "elevation_delta_to_fire": {"fire_map"},
+    "wind_fire_alignment": {"fire_map"},
+    "burnable_distance_to_fire": {"burnable_fire_map"},
+    "reachable_unburned_area": {"reachable_unburned_area"},
+    "total_burning": {"state_counts"},
+    "total_burned": {"state_counts"},
+    "total_unburned": {"state_counts"},
+    "total_treated": {"state_counts"},
+}
 
 
 def init_ignition(state: GraphState, ignition_nodes: list[tuple]) -> None:
@@ -69,14 +93,21 @@ def simulate(
     Assumes :func:`init_ignition` has already been called. Modifies state in place. The yielded state is the same
     object mutated each step --- callers that need a snapshot must copy it themselves.
     """
+    required_precomputes = getattr(func, "_required_precomputes", ALL_PRECOMPUTES)
     for step in range(max_steps):
         if not (state.state == NodeState.BURNING).any():
             break
         if step >= intervention_delay:
-            precompute_fire_map(state)
-            precompute_burnable_fire_map(state)
-            precompute_reachable_unburned_area(state)
-            precompute_state_counts(state)
+            if "fire_map" in required_precomputes:
+                precompute_fire_map(state)
+            if "burnable_fire_map" in required_precomputes:
+                precompute_burnable_fire_map(state)
+            if "reachable_unburned_area" in required_precomputes:
+                precompute_reachable_unburned_area(state)
+            if "state_counts" in required_precomputes:
+                precompute_state_counts(state)
+            if "neighbourhood_maps" in required_precomputes:
+                precompute_neighbourhood_maps(state)
             _apply_treatments(state, func, treatments_per_step, rng)
         spread_step(state, rng)
         yield step, state
@@ -128,12 +159,17 @@ def _apply_treatments(
     candidates = [(int(r), int(c)) for r, c in candidate_arr]
     rng.shuffle(candidates)
     scores = {n: _safe_score(func, state, n) for n in candidates}
+    required_precomputes = getattr(func, "_required_precomputes", ALL_PRECOMPUTES)
     candidate_set = set(candidates)
     candidates.sort(key=lambda n: scores[n], reverse=True)
     for _ in range(min(budget, len(candidates))):
         node = candidates.pop(0)
         candidate_set.discard(node)
         state.state[node] = NodeState.TREATED
+        if "state_counts" in required_precomputes:
+            state.step_treated += 1
+            state.step_unburned -= 1
+        update_neighbourhood_maps_after_treatment(state, node)
         to_rescore = [n for n in state.neighbours(node) if n in candidate_set]
         if to_rescore:
             for n in to_rescore:
@@ -144,3 +180,11 @@ def _apply_treatments(
 def _safe_score(func: Callable[[GraphState, tuple], float], state: GraphState, node: tuple) -> float:
     score = func(state, node)
     return score if math.isfinite(score) else float("-inf")
+
+
+def annotate_required_precomputes(func, feature_names: set[str] | list[str] | tuple[str, ...]):
+    required = set()
+    for feature_name in feature_names:
+        required.update(_FEATURE_PRECOMPUTE_MAP.get(feature_name, ()))
+    func._required_precomputes = frozenset(required)
+    return func

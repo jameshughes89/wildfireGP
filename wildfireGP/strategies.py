@@ -27,6 +27,7 @@ Rothermel, R.C. (1972). A mathematical model for predicting fire spread in wildl
 
 import random
 
+from wildfireGP.evaluate import annotate_required_precomputes
 from wildfireGP.features import (
     burning_neighbour_count,
     distance_to_fire,
@@ -106,3 +107,14 @@ ALL_STRATEGIES = [
     score_head_fire,
     score_fire_run,
 ]
+
+annotate_required_precomputes(random_score, [])
+annotate_required_precomputes(score_by_fuel, ["has_treated_neighbour"])
+annotate_required_precomputes(score_by_fire_proximity, ["distance_to_fire", "has_treated_neighbour"])
+annotate_required_precomputes(score_by_burning_neighbors, ["burning_neighbour_count", "has_treated_neighbour"])
+annotate_required_precomputes(
+    score_indirect_attack, ["distance_to_fire", "mean_neighbour_fuel", "has_treated_neighbour"]
+)
+annotate_required_precomputes(score_ridgeline, ["distance_to_fire", "has_treated_neighbour"])
+annotate_required_precomputes(score_fire_run, ["distance_to_fire", "wind_fire_alignment", "has_treated_neighbour"])
+annotate_required_precomputes(score_head_fire, ["distance_to_fire", "wind_fire_alignment", "has_treated_neighbour"])
