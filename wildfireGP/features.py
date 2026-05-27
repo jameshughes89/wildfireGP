@@ -1,5 +1,4 @@
-"""
-Per-node and graph-level feature functions for the GP language.
+"""Per-node and graph-level feature functions for the GP language.
 
 These are the sole building blocks wired into the DEAP primitive set in :mod:`wildfireGP.language` --- every value the
 GP language can read about the world comes through one of these functions.

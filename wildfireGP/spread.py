@@ -1,5 +1,4 @@
-"""
-Probabilistic wildfire spread model as a cellular automaton on a numpy-backed grid.
+"""Probabilistic wildfire spread model as a cellular automaton on a numpy-backed grid.
 
 Each timestep, every BURNING cell attempts to ignite each UNBURNED Moore-neighbour, then decrements its burn timer.
 When the timer reaches zero the cell transitions to BURNED. WATER, ROCK, and TREATED cells are non-burnable and never
@@ -88,8 +87,7 @@ _DIRECTIONS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1,
 
 
 def spread_step(state: GraphState, rng: np.random.Generator) -> None:
-    """
-    Advance the fire simulation by one timestep.
+    """Advance the fire simulation by one timestep.
 
     For each of the 8 spread directions, build a shifted view of the burning/elevation arrays and compute per-cell
     ignition contributions as a whole-array operation. Survival across all directions is accumulated multiplicatively,
@@ -151,8 +149,7 @@ def spread_step(state: GraphState, rng: np.random.Generator) -> None:
 
 
 def ignition_probability(state: GraphState, src: tuple, dst: tuple) -> float:
-    """
-    Compute the ignition probability from BURNING node ``src`` to UNBURNED node ``dst``.
+    """Compute the ignition probability from BURNING node ``src`` to UNBURNED node ``dst``.
 
     Returns 0.0 for non-burnable destination terrain. Retained as a single-pair helper for tests and for
     :func:`wildfireGP.render` overlays; the per-step simulation uses the vectorised path in :func:`spread_step`.

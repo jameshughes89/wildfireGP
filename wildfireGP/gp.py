@@ -1,5 +1,4 @@
-"""
-DEAP GP engine for wildfire suppression strategy evolution.
+"""DEAP GP engine for wildfire suppression strategy evolution.
 
 Fitness is total_burned only (weights=(-1,)). Each individual is a GP tree compiled from PRIMITIVE_SET to a callable
 (graph, node) -> float that scores nodes for treatment allocation. peak_burning and tree height are recorded in the
@@ -58,9 +57,7 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class GPConfig:
-    """
-    Hyperparameters for the GP evolutionary loop.
-    """
+    """Hyperparameters for the GP evolutionary loop."""
 
     population_size: int = 500
     generations: int = 100
@@ -84,8 +81,7 @@ def build_toolbox(
     config: GPConfig,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> base.Toolbox:
-    """
-    Build and return a DEAP Toolbox wired to the given simulation scenarios.
+    """Build and return a DEAP Toolbox wired to the given simulation scenarios.
 
     :param scenarios: List of (graph, ignition_nodes) pairs. Each individual is evaluated on all scenarios
         and the mean total_burned is reported as its fitness. Graphs are deepcopied internally per evaluation.
@@ -136,8 +132,7 @@ def run(
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
     hof_size: int = 5,
 ) -> tuple[list, tools.Logbook, tools.HallOfFame]:
-    """
-    Run the GP evolutionary loop and return the final population, statistics logbook, and hall of fame.
+    """Run the GP evolutionary loop and return the final population, statistics logbook, and hall of fame.
 
     The HOF tracks the best hof_size individuals seen across all generations, not just the final population. This
     prevents losing a good individual that was selected out due to evaluation noise in later generations.
@@ -196,8 +191,7 @@ def _log_gen(gen: int, total_gens: int, pop: list) -> None:
 
 
 def _gen_grow(pset, min_: int, max_: int, type_=None):
-    """
-    Type-aware grow generator for typed primitive sets with input-threading types.
+    """Type-aware grow generator for typed primitive sets with input-threading types.
 
     Identical to DEAP's genGrow except the terminal condition also fires when the current type has no
     primitives, preventing IndexError on types like GraphState and tuple that are terminals-only.

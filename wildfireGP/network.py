@@ -1,5 +1,4 @@
-"""
-Wildfire landscape state representation backed by numpy arrays.
+"""Wildfire landscape state representation backed by numpy arrays.
 
 A landscape is represented as a :class:`GraphState` dataclass holding per-cell attribute arrays and scalar weather. The
 grid is implicitly Moore-connected: each cell has up to 8 neighbours (cardinal + diagonal), matching the Alexandridis et
@@ -73,8 +72,7 @@ class TerrainType(enum.IntEnum):
 
 @dataclass
 class GraphState:
-    """
-    Numpy-backed wildfire landscape state.
+    """Numpy-backed wildfire landscape state.
 
     Attribute arrays are stored as (rows, cols) numpy arrays. The (row, col) tuple is the canonical node identifier and
     is used everywhere a "node" appears in spread, features, evaluate, and strategies.
@@ -152,8 +150,7 @@ def create_grid(
     cell_size_m: float = 100.0,
     seed: int | None = None,
 ) -> GraphState:
-    """
-    Create a synthetic landscape GraphState with spatially correlated fuel and slope.
+    """Create a synthetic landscape GraphState with spatially correlated fuel and slope.
 
     :param rows: Number of rows in the grid.
     :param cols: Number of columns in the grid.
@@ -205,8 +202,7 @@ def create_grid(
 
 
 def set_wind(state: GraphState, speed: float, direction: float) -> None:
-    """
-    Set wind speed (km/h) and direction (degrees clockwise from north).
+    """Set wind speed (km/h) and direction (degrees clockwise from north).
 
     :raises ValueError: If speed is negative or direction is outside [0, 360).
     """
@@ -219,8 +215,7 @@ def set_wind(state: GraphState, speed: float, direction: float) -> None:
 
 
 def set_fuel_moisture(state: GraphState, moisture: float) -> None:
-    """
-    Set fuel moisture as a fraction in [0, 1].
+    """Set fuel moisture as a fraction in [0, 1].
 
     :raises ValueError: If moisture is outside [0, 1].
     """
@@ -236,8 +231,7 @@ def reset_states(state: GraphState) -> None:
 
 
 def select_ignition_node(state: GraphState, rng: np.random.Generator, centre_fraction: float = 0.5) -> tuple:
-    """
-    Return a randomly selected burnable node from the central region of the landscape.
+    """Return a randomly selected burnable node from the central region of the landscape.
 
     Falls back to any burnable node on the full grid if no burnable nodes exist within the central region.
 
@@ -278,8 +272,7 @@ def select_ignition_node(state: GraphState, rng: np.random.Generator, centre_fra
 
 
 def select_ignition_cluster(state: GraphState, rng: np.random.Generator, size: int = 3) -> list[tuple]:
-    """
-    Return a cluster of burnable nodes to ignite simultaneously at t=0.
+    """Return a cluster of burnable nodes to ignite simultaneously at t=0.
 
     Selects one centre via :func:`select_ignition_node`, then expands to up to ``size - 1`` randomly chosen burnable
     LAND neighbours. Multi-node ignition prevents fire self-extinction on the first spread step.

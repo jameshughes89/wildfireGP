@@ -1,5 +1,4 @@
-"""
-Tests for scripts/run_gp.py save helpers.
+"""Tests for scripts/run_gp.py save helpers.
 
 The GP evolutionary loop itself is integration-tested by running the full script end-to-end via
 main(); the unit tests here cover the output serialisation helpers in isolation.

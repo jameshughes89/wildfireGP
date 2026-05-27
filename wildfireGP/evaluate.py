@@ -1,5 +1,4 @@
-"""
-Fitness evaluation for GP individuals and comparison strategies.
+"""Fitness evaluation for GP individuals and comparison strategies.
 
 :func:`evaluate` runs one simulation scenario and returns ``(total_burned, peak_burning)`` --- both to be minimised. The
 landscape state passed in is copied internally so the same template can be reused across many evaluations without
@@ -98,8 +97,7 @@ def simulate(
     rng: np.random.Generator,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> Iterator[tuple[int, GraphState]]:
-    """
-    Run one fire simulation, yielding ``(step, state)`` after each spread step.
+    """Run one fire simulation, yielding ``(step, state)`` after each spread step.
 
     Assumes :func:`init_ignition` has already been called. Modifies state in place. The yielded state is the same
     object mutated each step --- callers that need a snapshot must copy it themselves.
@@ -124,8 +122,7 @@ def evaluate(
     rng: np.random.Generator,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
 ) -> tuple[int, int]:
-    """
-    Run one simulation scenario and return ``(total_burned, peak_burning)``.
+    """Run one simulation scenario and return ``(total_burned, peak_burning)``.
 
     :param func: Compiled GP tree or strategy callable ``(state, node) -> float``. Higher score = higher priority.
     :param state: Landscape template. Copied internally; the original is never modified. Wind and moisture must be set
@@ -149,8 +146,7 @@ def evaluate(
 def _apply_treatments(
     state: GraphState, func: Callable[[GraphState, tuple], float], budget: int, rng: np.random.Generator
 ) -> None:
-    """
-    Apply up to ``budget`` treatments to the highest-scoring UNBURNED burnable nodes.
+    """Apply up to ``budget`` treatments to the highest-scoring UNBURNED burnable nodes.
 
     Candidates are scored once up front, then selected one at a time. After each placement only the Moore-neighbours of
     the just-treated node are rescored --- they are the only nodes whose treated-neighbour features can have changed.
