@@ -1,15 +1,25 @@
-"""
-Baseline heuristic strategies for wildfire suppression resource allocation.
+"""Baseline heuristic strategies for wildfire suppression resource allocation.
 
 Each strategy is a callable ``(state, node) -> float`` compatible with :func:`wildfireGP.evaluate.evaluate`. Higher
 score means higher treatment priority.
 
-Strategy ladder (weakest to strongest expected performance):
-    random_score < score_by_fuel / score_by_burning_neighbors
-        < score_by_fire_proximity < score_indirect_attack / score_ridgeline / score_head_fire
-        < score_fire_run
+Two tiers
+---------
+**Naive comparators** --- intentionally weak; included as the "what a non-specialist would propose first" baseline
+for a GP audience:
 
-If GP cannot outperform :func:`score_by_fire_proximity` it is not producing useful strategies.
+    random_score, score_by_fuel, score_by_burning_neighbors
+
+**Doctrine baselines** --- operationally grounded in real wildfire suppression tactics:
+
+    score_by_fire_proximity      (direct attack)
+    score_indirect_attack        (indirect attack on fuel ahead of the front)
+    score_ridgeline              (topographic defence)
+    score_head_fire              (wind-aligned interception)
+    score_fire_run               (wind-aligned interception, fuel-weighted)
+
+If GP cannot outperform :func:`score_by_fire_proximity` --- the strongest single-feature doctrine baseline --- it is not
+producing useful strategies.
 
 True no-treatment baseline
 --------------------------
@@ -44,12 +54,19 @@ ANCHOR_WEIGHT = 0.1
 
 
 def random_score(state: GraphState, node: tuple) -> float:
-    """Assign a random priority score --- treatment order is arbitrary."""
+    """Assign a random priority score --- treatment order is arbitrary.
+
+    Naive comparator: the noise floor. Anything that fails to beat this is not learning.
+    """
     return random.random()
 
 
 def score_by_fuel(state: GraphState, node: tuple) -> float:
-    """Prioritise nodes with the highest fuel load."""
+    """Prioritise nodes with the highest fuel load.
+
+    Naive comparator: a layperson's first instinct ("treat the heavy fuel"). Ignores fire location, so it spends budget
+    on remote high-fuel ground rather than the front. Not an active-suppression heuristic.
+    """
     return fuel_level(state, node) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
 
 
@@ -59,7 +76,11 @@ def score_by_fire_proximity(state: GraphState, node: tuple) -> float:
 
 
 def score_by_burning_neighbors(state: GraphState, node: tuple) -> float:
-    """Prioritise nodes already surrounded by burning neighbours (direct defence)."""
+    """Prioritise nodes already surrounded by burning neighbours.
+
+    Naive comparator: targets cells about to be overrun --- a last-ditch defensive action rather than active firebreak
+    placement. Included as a weak doctrine-shaped floor.
+    """
     return float(burning_neighbour_count(state, node)) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
 
 

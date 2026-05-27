@@ -1,5 +1,4 @@
-"""
-DEAP typed primitive set for the wildfire GP language.
+"""DEAP typed primitive set for the wildfire GP language.
 
 The GP tree is a function ``(state, node) -> float``, compiled and evaluated per node to produce a priority score for
 treatment allocation. Higher score means higher priority.

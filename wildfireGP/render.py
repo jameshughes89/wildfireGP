@@ -1,5 +1,4 @@
-"""
-Landscape and simulation state rendering.
+"""Landscape and simulation state rendering.
 
 Node colours encode both the underlying terrain and the current fire state, with state taking priority over terrain
 for non-UNBURNED nodes. Elevation contour lines are overlaid to give terrain context without a separate view.
@@ -31,9 +30,7 @@ _FUEL_CMAP = plt.cm.YlGn
 
 
 def draw(state: GraphState, ax: plt.Axes | None = None) -> plt.Axes:
-    """
-    Render the landscape state as a static image with elevation contour lines overlaid.
-    """
+    """Render the landscape state as a static image with elevation contour lines overlaid."""
     elevation = state.elevation
 
     if ax is None:
@@ -47,9 +44,7 @@ def draw(state: GraphState, ax: plt.Axes | None = None) -> plt.Axes:
 
 
 def animate(states: list[GraphState], path: str, fps: int = 4) -> None:
-    """
-    Save an animation from a sequence of landscape state snapshots.
-    """
+    """Save an animation from a sequence of landscape state snapshots."""
     if not path.endswith(".gif"):
         raise ValueError(f"Only GIF output is supported; got: {path}")
 
@@ -74,8 +69,7 @@ def render_heatmap(
     path: str | None = None,
     title: str | None = None,
 ) -> plt.Axes:
-    """
-    Render per-node priority scores of a strategy as a spatial heatmap.
+    """Render per-node priority scores of a strategy as a spatial heatmap.
 
     All four precomputes are called internally so any strategy that depends on graph-level precomputed features works
     correctly without the caller needing to do setup.
@@ -130,8 +124,7 @@ def animate_heatmap(
     fps: int = 4,
     title: str | None = None,
 ) -> None:
-    """
-    Save an animated heatmap from a sequence of landscape state snapshots.
+    """Save an animated heatmap from a sequence of landscape state snapshots.
 
     The score colormap is normalised globally across all frames so colours are comparable between timesteps.
     """
