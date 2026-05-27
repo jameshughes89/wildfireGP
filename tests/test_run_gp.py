@@ -4,6 +4,7 @@ The GP evolutionary loop itself is integration-tested by running the full script
 main(); the unit tests here cover the output serialisation helpers in isolation.
 """
 
+import argparse
 import json
 import pathlib
 import pickle
@@ -14,6 +15,7 @@ from deap import tools
 
 from scripts.run_gp import (
     _make_output_dir,
+    _resolve_landscape_count,
     _save_config,
     _save_final_population_expr,
     _save_hof,
@@ -251,6 +253,136 @@ def test_main_run_name_creates_named_dir(tmp_path):
         ]
     )
     assert (tmp_path / "experiment_A").is_dir()
+
+
+def _ns(**kwargs) -> argparse.Namespace:
+    defaults = {"landscapes": None, "wind_speeds": None, "wind_directions": None}
+    defaults.update(kwargs)
+    return argparse.Namespace(**defaults)
+
+
+def test_resolve_landscape_count_default_when_no_args():
+    assert _resolve_landscape_count(_ns()) == 5
+
+
+def test_resolve_landscape_count_uses_landscapes_when_given():
+    assert _resolve_landscape_count(_ns(landscapes=3)) == 3
+
+
+def test_resolve_landscape_count_infers_from_wind_speeds():
+    assert _resolve_landscape_count(_ns(wind_speeds=[10.0, 20.0, 30.0])) == 3
+
+
+def test_resolve_landscape_count_infers_from_wind_directions():
+    assert _resolve_landscape_count(_ns(wind_directions=[0.0, 90.0, 180.0, 270.0])) == 4
+
+
+def test_resolve_landscape_count_both_wind_args_matching_lengths_ok():
+    assert _resolve_landscape_count(_ns(wind_speeds=[10.0, 20.0], wind_directions=[0.0, 90.0])) == 2
+
+
+def test_resolve_landscape_count_wind_arg_length_mismatch_exits():
+    with pytest.raises(SystemExit):
+        _resolve_landscape_count(_ns(wind_speeds=[10.0, 20.0], wind_directions=[0.0]))
+
+
+def test_resolve_landscape_count_landscapes_matching_wind_arg_ok():
+    assert _resolve_landscape_count(_ns(landscapes=3, wind_speeds=[10.0, 20.0, 30.0])) == 3
+
+
+def test_resolve_landscape_count_landscapes_conflicting_with_wind_arg_exits():
+    with pytest.raises(SystemExit):
+        _resolve_landscape_count(_ns(landscapes=4, wind_speeds=[10.0, 20.0, 30.0]))
+
+
+def test_main_wind_speeds_recorded_in_config(tmp_path):
+    main(
+        [
+            "--pop",
+            "4",
+            "--gens",
+            "2",
+            "--hof",
+            "1",
+            "--seed",
+            "0",
+            "--rows",
+            "5",
+            "--cols",
+            "5",
+            "--results-dir",
+            str(tmp_path),
+            "--run-name",
+            "wind_speeds_test",
+            "--wind-speeds",
+            "12",
+            "18",
+            "32",
+        ]
+    )
+    data = json.loads((tmp_path / "wind_speeds_test" / "config.json").read_text())
+    speeds = [w["speed"] for w in data["scenario"]["wind_per_landscape"]]
+    assert speeds == [12.0, 18.0, 32.0]
+
+
+def test_main_wind_directions_recorded_in_config(tmp_path):
+    main(
+        [
+            "--pop",
+            "4",
+            "--gens",
+            "2",
+            "--hof",
+            "1",
+            "--seed",
+            "0",
+            "--rows",
+            "5",
+            "--cols",
+            "5",
+            "--results-dir",
+            str(tmp_path),
+            "--run-name",
+            "wind_dirs_test",
+            "--wind-directions",
+            "0",
+            "90",
+            "180",
+        ]
+    )
+    data = json.loads((tmp_path / "wind_dirs_test" / "config.json").read_text())
+    directions = [w["direction"] for w in data["scenario"]["wind_per_landscape"]]
+    assert directions == [0.0, 90.0, 180.0]
+
+
+def test_main_wind_speeds_infers_landscapes_count(tmp_path):
+    main(
+        [
+            "--pop",
+            "4",
+            "--gens",
+            "2",
+            "--hof",
+            "1",
+            "--seed",
+            "0",
+            "--rows",
+            "5",
+            "--cols",
+            "5",
+            "--results-dir",
+            str(tmp_path),
+            "--run-name",
+            "infer_test",
+            "--wind-speeds",
+            "12",
+            "18",
+            "32",
+            "40",
+        ]
+    )
+    data = json.loads((tmp_path / "infer_test" / "config.json").read_text())
+    assert data["scenario"]["landscapes"] == 4
 
 
 def test_main_max_tree_height_and_nodes_in_config(tmp_path):

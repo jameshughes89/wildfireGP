@@ -63,17 +63,25 @@ def main(argv: list[str] | None = None) -> None:
     rng = np.random.default_rng(args.seed)
     random.seed(args.seed)
 
+    landscapes_count = _resolve_landscape_count(args)
+
     scenarios = []
     land_ignitions: list[list[tuple]] = []
     wind_per_landscape: list[dict[str, float]] = []
-    for i in range(args.landscapes):
+    for i in range(landscapes_count):
         land_seed = None if args.seed is None else args.seed + i
-        wind_speed = float(rng.uniform(5.0, 50.0))
-        wind_direction = float(rng.uniform(0.0, 360.0))
+        if args.wind_speeds is not None:
+            wind_speed = float(args.wind_speeds[i])
+        else:
+            wind_speed = float(rng.uniform(5.0, 50.0))
+        if args.wind_directions is not None:
+            wind_direction = float(args.wind_directions[i])
+        else:
+            wind_direction = float(rng.uniform(0.0, 360.0))
         log.info(
             "Building landscape %d/%d (%dx%d, seed=%s, wind=%.1f km/h @ %.1f°)",
             i + 1,
-            args.landscapes,
+            landscapes_count,
             args.rows,
             args.cols,
             land_seed,
@@ -107,7 +115,7 @@ def main(argv: list[str] | None = None) -> None:
         "rows": args.rows,
         "cols": args.cols,
         "seed": args.seed,
-        "landscapes": args.landscapes,
+        "landscapes": landscapes_count,
         "ignition_nodes_per_landscape": [[list(n) for n in cluster] for cluster in land_ignitions],
         "treatments_per_step": args.treatments,
         "max_steps": args.max_steps,
@@ -120,7 +128,7 @@ def main(argv: list[str] | None = None) -> None:
         "Starting GP: %d individuals, %d generations, %d landscape(s)",
         config.population_size,
         config.generations,
-        args.landscapes,
+        landscapes_count,
     )
     population, logbook, hof = run(
         config, scenarios, args.treatments, args.max_steps, rng, args.intervention_delay, hof_size=args.hof
@@ -138,6 +146,37 @@ def main(argv: list[str] | None = None) -> None:
     log.info("Done. Results in %s", out_dir)
 
 
+def _resolve_landscape_count(args: argparse.Namespace) -> int:
+    """Resolve the effective landscape count from --landscapes / --wind-speeds / --wind-directions.
+
+    Rules:
+      - If both --wind-speeds and --wind-directions are given, their lengths must match.
+      - If --landscapes is also given, it must match any wind-arg length.
+      - If --landscapes is omitted, it is inferred from wind-arg length when present, else 5.
+    """
+    wind_lengths: dict[str, int] = {}
+    if args.wind_speeds is not None:
+        wind_lengths["--wind-speeds"] = len(args.wind_speeds)
+    if args.wind_directions is not None:
+        wind_lengths["--wind-directions"] = len(args.wind_directions)
+
+    if len(wind_lengths) == 2:
+        keys = list(wind_lengths.keys())
+        a, b = wind_lengths[keys[0]], wind_lengths[keys[1]]
+        if a != b:
+            raise SystemExit(f"{keys[0]} has {a} values but {keys[1]} has {b}; lengths must match.")
+
+    inferred = next(iter(wind_lengths.values()), None)
+
+    if args.landscapes is None:
+        return inferred if inferred is not None else 5
+
+    if inferred is not None and inferred != args.landscapes:
+        key = next(iter(wind_lengths))
+        raise SystemExit(f"--landscapes={args.landscapes} conflicts with {key} length {inferred}; lengths must match.")
+    return args.landscapes
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run wildfire GP and save results.")
     add_landscape_args(parser)
@@ -146,9 +185,28 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--landscapes",
         type=int,
-        default=5,
+        default=None,
         help="Number of landscapes to evaluate each candidate on per generation. Fitness is mean total_burned "
-        "across landscapes. Default 5.",
+        "across landscapes. If omitted, inferred from --wind-speeds / --wind-directions length when those are "
+        "provided, else defaults to 5.",
+    )
+    parser.add_argument(
+        "--wind-speeds",
+        nargs="+",
+        type=float,
+        default=None,
+        metavar="KMH",
+        help="Explicit wind speed (km/h) per landscape. Count must equal --landscapes (or implicitly defines it). "
+        "If omitted, samples uniform [5, 50] per landscape.",
+    )
+    parser.add_argument(
+        "--wind-directions",
+        nargs="+",
+        type=float,
+        default=None,
+        metavar="DEG",
+        help="Explicit wind direction (degrees, 0=N, clockwise) per landscape. Count must equal --landscapes "
+        "(or implicitly defines it). If omitted, samples uniform [0, 360) per landscape.",
     )
     parser.add_argument("--pop", type=int, default=GPConfig.population_size)
     parser.add_argument("--gens", type=int, default=GPConfig.generations)
