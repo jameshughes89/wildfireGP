@@ -1,6 +1,10 @@
 import math
 
-from wildfireGP.features import precompute_burnable_fire_map, precompute_fire_map
+from wildfireGP.features import (
+    precompute_burnable_fire_map,
+    precompute_fire_map,
+    precompute_reachable_unburned_area,
+)
 from wildfireGP.network import (
     NodeState,
     create_grid,
@@ -10,13 +14,18 @@ from wildfireGP.network import (
 from wildfireGP.spread import MAX_BURN_STEPS
 from wildfireGP.strategies import (
     random_score,
+    score_anchor_flank,
+    score_bottleneck,
     score_by_burning_neighbors,
     score_by_fire_proximity,
     score_by_fuel,
+    score_composite_threat,
     score_fire_run,
+    score_flank_attack,
     score_head_fire,
     score_indirect_attack,
     score_ridgeline,
+    score_uphill_interception,
 )
 
 
@@ -188,3 +197,116 @@ def test_score_fire_run_higher_fuel_scores_higher():
     s.fuel[high_fuel] = 0.9
     s.fuel[low_fuel] = 0.1
     assert score_fire_run(s, high_fuel) > score_fire_run(s, low_fuel)
+
+
+def test_score_anchor_flank_zero_when_no_fire():
+    assert score_anchor_flank(_state_no_fire(), (5, 5)) == 0.0
+
+
+def test_score_anchor_flank_zero_below_min_distance():
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_anchor_flank(s, (5, 4)) == 0.0
+
+
+def test_score_anchor_flank_zero_above_max_distance():
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_anchor_flank(s, (0, 0), max_distance=3) == 0.0
+
+
+def test_score_anchor_flank_adjacent_to_barrier_scores_higher():
+    s = _state_with_fire(ignition=(5, 5))
+    s.state[2, 5] = NodeState.TREATED
+    anchored, isolated = (3, 5), (5, 3)
+    s.fuel[anchored] = s.fuel[isolated] = 0.5
+    assert score_anchor_flank(s, anchored) > score_anchor_flank(s, isolated)
+
+
+def test_score_bottleneck_zero_when_no_fire():
+    s = _state_no_fire()
+    precompute_reachable_unburned_area(s)
+    assert score_bottleneck(s, (5, 5)) == 0.0
+
+
+def test_score_bottleneck_zero_below_min_distance():
+    s = _state_with_fire(ignition=(5, 5))
+    precompute_reachable_unburned_area(s)
+    assert score_bottleneck(s, (5, 4)) == 0.0
+
+
+def test_score_bottleneck_zero_above_max_distance():
+    s = _state_with_fire(ignition=(5, 5))
+    precompute_reachable_unburned_area(s)
+    assert score_bottleneck(s, (0, 0), max_distance=3) == 0.0
+
+
+def test_score_bottleneck_positive_within_window():
+    s = _state_with_fire(ignition=(5, 5))
+    precompute_reachable_unburned_area(s)
+    s.fuel[5, 3] = 0.9
+    assert score_bottleneck(s, (5, 3)) > 0.0
+
+
+def test_score_uphill_interception_zero_when_no_fire():
+    assert score_uphill_interception(_state_no_fire(), (5, 5)) == 0.0
+
+
+def test_score_uphill_interception_zero_below_min_distance():
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_uphill_interception(s, (5, 4)) == 0.0
+
+
+def test_score_uphill_interception_zero_above_max_distance():
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_uphill_interception(s, (0, 0), max_distance=3) == 0.0
+
+
+def test_score_uphill_interception_uphill_scores_higher_than_downhill():
+    s = _state_with_fire(ignition=(5, 5))
+    s.elevation[5, 5] = 0.5
+    uphill, downhill = (3, 5), (7, 5)
+    s.elevation[uphill] = 1.0
+    s.elevation[downhill] = 0.0
+    assert score_uphill_interception(s, uphill) > score_uphill_interception(s, downhill)
+
+
+def test_score_flank_attack_zero_when_no_fire():
+    assert score_flank_attack(_state_no_fire(), (5, 5)) == 0.0
+
+
+def test_score_flank_attack_zero_below_min_distance():
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_flank_attack(s, (5, 4)) == 0.0
+
+
+def test_score_flank_attack_zero_above_max_distance():
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_flank_attack(s, (0, 0), max_distance=3) == 0.0
+
+
+def test_score_flank_attack_crosswind_scores_higher_than_downwind():
+    s = _state_with_fire(ignition=(5, 5))
+    crosswind, downwind = (5, 3), (7, 5)
+    s.fuel[crosswind] = s.fuel[downwind] = 0.9
+    assert score_flank_attack(s, crosswind) > score_flank_attack(s, downwind)
+
+
+def test_score_composite_threat_zero_when_no_fire():
+    assert score_composite_threat(_state_no_fire(), (5, 5)) == 0.0
+
+
+def test_score_composite_threat_zero_below_min_distance():
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_composite_threat(s, (5, 4)) == 0.0
+
+
+def test_score_composite_threat_zero_above_max_distance():
+    s = _state_with_fire(ignition=(5, 5))
+    assert score_composite_threat(s, (0, 0), max_distance=3) == 0.0
+
+
+def test_score_composite_threat_downwind_scores_higher_than_upwind():
+    s = _state_with_fire(ignition=(5, 5))
+    downwind, upwind = (7, 5), (3, 5)
+    s.fuel[downwind] = s.fuel[upwind] = 0.9
+    s.slope[downwind] = s.slope[upwind] = 0.5
+    assert score_composite_threat(s, downwind) > score_composite_threat(s, upwind)
