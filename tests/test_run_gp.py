@@ -13,9 +13,9 @@ import numpy as np
 import pytest
 from deap import tools
 
+from scripts.cli import resolve_landscape_count as _resolve_landscape_count
 from scripts.run_gp import (
     _make_output_dir,
-    _resolve_landscape_count,
     _save_config,
     _save_final_population_expr,
     _save_hof,

@@ -125,15 +125,16 @@ def add_multi_landscape_args(parser: argparse.ArgumentParser) -> None:
 
     Added arguments
     ---------------
-    --landscapes INT          Number of independent landscapes to evaluate on. Default 5.
     --min-burned INT          Minimum burned nodes in a no-treatment probe for an ignition to be
                               considered valid. Ignitions below this threshold are resampled.
                               Default 50 (2% of a 50x50 grid). Prevents natural fire extinction
                               from being mistaken for strategy effectiveness.
     --max-ignition-tries INT  Maximum attempts to find a valid ignition per landscape before
                               falling back to the best seen. Default 20.
+
+    Note: --landscapes / --wind-speeds / --wind-directions are registered by
+    add_wind_per_landscape_args(), which scripts using this function should also call.
     """
-    parser.add_argument("--landscapes", type=int, default=5, help="Number of independent landscapes (default 5).")
     parser.add_argument(
         "--min-burned",
         type=int,
@@ -146,6 +147,95 @@ def add_multi_landscape_args(parser: argparse.ArgumentParser) -> None:
         default=20,
         help="Max attempts to find a valid ignition per landscape (default 20).",
     )
+
+
+def add_wind_per_landscape_args(parser: argparse.ArgumentParser) -> None:
+    """
+    Register per-landscape wind sampling arguments on parser.
+
+    Default behaviour: wind is randomised per landscape (uniform [5, 50] km/h speed, uniform
+    [0, 360) degrees direction). Pass --wind-speeds or --wind-directions to override.
+
+    Added arguments
+    ---------------
+    --landscapes INT      Number of independent landscapes. If omitted, inferred from
+                          --wind-speeds / --wind-directions length when given, else 5.
+    --wind-speeds K1 ...  Explicit per-landscape wind speeds in km/h. Count must equal
+                          --landscapes (or implicitly defines it).
+    --wind-directions D1  Explicit per-landscape wind directions in degrees (0=N, clockwise).
+                          Count must equal --landscapes.
+    """
+    parser.add_argument(
+        "--landscapes",
+        type=int,
+        default=None,
+        help="Number of landscapes. If omitted, inferred from --wind-speeds/--wind-directions, else 5.",
+    )
+    parser.add_argument(
+        "--wind-speeds",
+        nargs="+",
+        type=float,
+        default=None,
+        metavar="KMH",
+        help="Explicit wind speeds per landscape (km/h). Count must equal --landscapes.",
+    )
+    parser.add_argument(
+        "--wind-directions",
+        nargs="+",
+        type=float,
+        default=None,
+        metavar="DEG",
+        help="Explicit wind directions per landscape (degrees, 0=N). Count must equal --landscapes.",
+    )
+
+
+def resolve_landscape_count(args: argparse.Namespace) -> int:
+    """Resolve the effective landscape count from --landscapes / --wind-speeds / --wind-directions.
+
+    Rules:
+      - If both --wind-speeds and --wind-directions are given, their lengths must match.
+      - If --landscapes is also given, it must match any wind-arg length.
+      - If --landscapes is omitted, it is inferred from wind-arg length when present, else 5.
+    """
+    wind_lengths: dict[str, int] = {}
+    if args.wind_speeds is not None:
+        wind_lengths["--wind-speeds"] = len(args.wind_speeds)
+    if args.wind_directions is not None:
+        wind_lengths["--wind-directions"] = len(args.wind_directions)
+
+    if len(wind_lengths) == 2:
+        keys = list(wind_lengths.keys())
+        a, b = wind_lengths[keys[0]], wind_lengths[keys[1]]
+        if a != b:
+            raise SystemExit(f"{keys[0]} has {a} values but {keys[1]} has {b}; lengths must match.")
+
+    inferred = next(iter(wind_lengths.values()), None)
+
+    if args.landscapes is None:
+        return inferred if inferred is not None else 5
+
+    if inferred is not None and inferred != args.landscapes:
+        key = next(iter(wind_lengths))
+        raise SystemExit(f"--landscapes={args.landscapes} conflicts with {key} length {inferred}; lengths must match.")
+    return args.landscapes
+
+
+def resolve_wind_for_landscape(args: argparse.Namespace, index: int, rng: np.random.Generator) -> tuple[float, float]:
+    """Return (wind_speed, wind_direction) for landscape index, drawing from rng when not set.
+
+    Always draws from rng for unspecified axes so RNG consumption is deterministic regardless of
+    which wind arg combination the caller supplied. This keeps cross-script reproducibility under
+    the same seed predictable.
+    """
+    if args.wind_speeds is not None:
+        wind_speed = float(args.wind_speeds[index])
+    else:
+        wind_speed = float(rng.uniform(5.0, 50.0))
+    if args.wind_directions is not None:
+        wind_direction = float(args.wind_directions[index])
+    else:
+        wind_direction = float(rng.uniform(0.0, 360.0))
+    return wind_speed, wind_direction
 
 
 def find_valid_ignition(

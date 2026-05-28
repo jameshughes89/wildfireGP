@@ -37,7 +37,10 @@ import numpy as np
 from scripts.cli import (
     add_landscape_args,
     add_multi_landscape_args,
+    add_wind_per_landscape_args,
     find_valid_ignition,
+    resolve_landscape_count,
+    resolve_wind_for_landscape,
 )
 from scripts.compare_strategies import _load_strategies, _run_strategy
 from wildfireGP.network import (
@@ -54,18 +57,20 @@ def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
 
     root_rng = np.random.default_rng(args.seed)
+    landscapes_count = resolve_landscape_count(args)
 
-    land_seeds = [int(root_rng.integers(2**31)) if args.seed is not None else None for _ in range(args.landscapes)]
+    land_seeds = [int(root_rng.integers(2**31)) if args.seed is not None else None for _ in range(landscapes_count)]
+    wind_per_landscape = [resolve_wind_for_landscape(args, i, root_rng) for i in range(landscapes_count)]
     run_seed_matrix = [
         [int(root_rng.integers(2**31)) if args.seed is not None else None for _ in range(args.runs)]
-        for _ in range(args.landscapes)
+        for _ in range(landscapes_count)
     ]
 
-    log.info("Validating ignitions across %d landscapes", args.landscapes)
+    log.info("Validating ignitions across %d landscapes", landscapes_count)
     landscapes = []
-    for land_seed in land_seeds:
+    for land_seed, (wind_speed, wind_direction) in zip(land_seeds, wind_per_landscape):
         graph = create_grid(args.rows, args.cols, seed=land_seed)
-        set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
+        set_wind(graph, speed=wind_speed, direction=wind_direction)
         set_fuel_moisture(graph, moisture=args.moisture)
         ignition = find_valid_ignition(
             graph,
@@ -75,10 +80,10 @@ def main(argv: list[str] | None = None) -> None:
             args.min_burned,
             args.max_ignition_tries,
         )
-        landscapes.append((land_seed, ignition))
+        landscapes.append((land_seed, wind_speed, wind_direction, ignition))
 
     strategies = _load_strategies(args)
-    log.info("Evaluating %d strategies over %d landscapes x %d runs", len(strategies), args.landscapes, args.runs)
+    log.info("Evaluating %d strategies over %d landscapes x %d runs", len(strategies), landscapes_count, args.runs)
 
     results = {}
     for name, func in strategies:
@@ -89,8 +94,6 @@ def main(argv: list[str] | None = None) -> None:
             args.treatments,
             args.rows,
             args.cols,
-            args.wind_speed,
-            args.wind_direction,
             args.moisture,
             args.max_steps,
             run_seed_matrix,
@@ -135,6 +138,7 @@ def _plot(results: dict[str, tuple[np.ndarray, np.ndarray]]) -> plt.Figure:
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Box-plot comparison of strategy outcomes.")
     add_landscape_args(parser)
+    add_wind_per_landscape_args(parser)
     add_multi_landscape_args(parser)
     parser.add_argument("--runs", type=int, default=5, help="Simulations per landscape (default 5).")
     parser.add_argument("--results-dir", type=pathlib.Path, default=None)
