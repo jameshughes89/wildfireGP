@@ -64,7 +64,9 @@ def main(argv: list[str] | None = None) -> None:
     log.info("Ignition cluster (%d nodes): %s  strategy: %s", len(ignition_nodes), ignition_nodes, label)
 
     init_ignition(graph, ignition_nodes)
-    snapshots = _run_simulation(graph, func, args.treatments, args.max_steps, rng, args.intervention_delay)
+    snapshots = _run_simulation(
+        graph, func, args.treatments, args.max_steps, rng, args.intervention_delay, args.min_treatment_distance
+    )
     log.info("Simulation complete: %d frames", len(snapshots))
 
     output = pathlib.Path(args.output)
@@ -80,10 +82,11 @@ def _run_simulation(
     max_steps: int,
     rng: np.random.Generator,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
+    min_treatment_distance: int = 0,
 ) -> list:
     s = state.copy()
     snapshots = [s.copy()]
-    for _step, _ in simulate(s, func, treatments_per_step, max_steps, rng, intervention_delay):
+    for _step, _ in simulate(s, func, treatments_per_step, max_steps, rng, intervention_delay, min_treatment_distance):
         snapshots.append(s.copy())
     return snapshots
 

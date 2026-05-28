@@ -80,6 +80,7 @@ def build_toolbox(
     rng: np.random.Generator,
     config: GPConfig,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
+    min_treatment_distance: int = 0,
 ) -> base.Toolbox:
     """Build and return a DEAP Toolbox wired to the given simulation scenarios.
 
@@ -90,6 +91,7 @@ def build_toolbox(
     :param rng: NumPy random generator for spread stochasticity.
     :param config: GP hyperparameters.
     :param intervention_delay: Steps before treatments begin. See evaluate() for full documentation.
+    :param min_treatment_distance: Hard exclusion zone around active fire. See evaluate() for full documentation.
     :return: Configured DEAP Toolbox.
     """
     _register_types()
@@ -109,6 +111,7 @@ def build_toolbox(
         max_steps=max_steps,
         rng=rng,
         intervention_delay=intervention_delay,
+        min_treatment_distance=min_treatment_distance,
     )
     toolbox.register("select", tools.selTournament, tournsize=config.tournament_size)
     toolbox.register("mate", gp.cxOnePoint)
@@ -131,6 +134,7 @@ def run(
     rng: np.random.Generator,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
     hof_size: int = 5,
+    min_treatment_distance: int = 0,
 ) -> tuple[list, tools.Logbook, tools.HallOfFame]:
     """Run the GP evolutionary loop and return the final population, statistics logbook, and hall of fame.
 
@@ -151,7 +155,9 @@ def run(
     :return: (population, logbook, hof). Logbook records gen, fitness (mean total_burned), size, peak_burning, and
         tree height stats for every generation. hof contains the best hof_size individuals seen during evolution.
     """
-    toolbox = build_toolbox(scenarios, treatments_per_step, max_steps, rng, config, intervention_delay)
+    toolbox = build_toolbox(
+        scenarios, treatments_per_step, max_steps, rng, config, intervention_delay, min_treatment_distance
+    )
     mstats = _build_stats()
     logbook = tools.Logbook()
     logbook.header = ["gen", "fitness", "size", "peak", "height"]
@@ -242,6 +248,7 @@ def _eval_individual(
     max_steps: int,
     rng: np.random.Generator,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
+    min_treatment_distance: int = 0,
 ) -> tuple[float]:
     func = gp.compile(individual, pset=PRIMITIVE_SET)
     annotate_required_precomputes(func, {node.name for node in individual if getattr(node, "name", None) is not None})
@@ -249,7 +256,14 @@ def _eval_individual(
     peaks = []
     for graph, ignition_nodes in scenarios:
         total_burned, peak_burning = _sim_evaluate(
-            func, graph, ignition_nodes, treatments_per_step, max_steps, rng, intervention_delay
+            func,
+            graph,
+            ignition_nodes,
+            treatments_per_step,
+            max_steps,
+            rng,
+            intervention_delay,
+            min_treatment_distance,
         )
         burns.append(total_burned)
         peaks.append(peak_burning)

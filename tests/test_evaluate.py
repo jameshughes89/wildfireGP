@@ -187,6 +187,24 @@ def test_apply_treatments_second_pick_not_adjacent_when_adjacency_penalised():
     assert treated[1] not in s.neighbours(treated[0]) and treated[0] not in s.neighbours(treated[1])
 
 
+def test_apply_treatments_respects_min_treatment_distance():
+    s = create_grid(11, 11, seed=0)
+    set_wind(s, speed=0.0, direction=0.0)
+    set_fuel_moisture(s, moisture=0.1)
+    s.state[5, 5] = NodeState.BURNING
+    precompute_fire_map(s)
+    _apply_treatments(
+        s,
+        lambda state, node: 1.0,
+        budget=s.rows * s.cols,
+        rng=np.random.default_rng(0),
+        min_treatment_distance=3,
+    )
+    treated = np.argwhere(s.state == NodeState.TREATED)
+    closest = min(max(abs(int(r) - 5), abs(int(c) - 5)) for r, c in treated)
+    assert closest >= 3
+
+
 def test_apply_treatments_updates_state_count_cache_during_intra_step_rescoring():
     s = create_grid(5, 5, seed=0)
     set_wind(s, speed=0.0, direction=0.0)

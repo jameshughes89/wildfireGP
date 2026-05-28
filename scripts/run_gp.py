@@ -118,6 +118,7 @@ def main(argv: list[str] | None = None) -> None:
         "treatments_per_step": args.treatments,
         "max_steps": args.max_steps,
         "intervention_delay": args.intervention_delay,
+        "min_treatment_distance": args.min_treatment_distance,
         "wind_per_landscape": wind_per_landscape,
         "fuel_moisture": args.moisture,
     }
@@ -129,7 +130,14 @@ def main(argv: list[str] | None = None) -> None:
         landscapes_count,
     )
     population, logbook, hof = run(
-        config, scenarios, args.treatments, args.max_steps, rng, args.intervention_delay, hof_size=args.hof
+        config,
+        scenarios,
+        args.treatments,
+        args.max_steps,
+        rng,
+        args.intervention_delay,
+        hof_size=args.hof,
+        min_treatment_distance=args.min_treatment_distance,
     )
 
     out_dir = _make_output_dir(args.results_dir, args.run_name)
