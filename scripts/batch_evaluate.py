@@ -59,10 +59,13 @@ import numpy as np
 from scripts.cli import (
     add_landscape_args,
     add_multi_landscape_args,
+    add_wind_per_landscape_args,
     find_valid_ignition,
     load_expr,
     read_hof_exprs,
     read_population_exprs,
+    resolve_landscape_count,
+    resolve_wind_for_landscape,
 )
 from wildfireGP.evaluate import evaluate
 from wildfireGP.network import (
@@ -79,19 +82,21 @@ def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
 
     root_rng = np.random.default_rng(args.seed)
+    landscapes_count = resolve_landscape_count(args)
 
-    # Pre-generate all seeds so every candidate sees the same landscapes and spread sequences.
-    land_seeds = [int(root_rng.integers(2**31)) if args.seed is not None else None for _ in range(args.landscapes)]
+    # Pre-generate all seeds and wind specs so every candidate sees the same landscapes and spreads.
+    land_seeds = [int(root_rng.integers(2**31)) if args.seed is not None else None for _ in range(landscapes_count)]
+    wind_per_landscape = [resolve_wind_for_landscape(args, i, root_rng) for i in range(landscapes_count)]
     run_seed_matrix = [
         [int(root_rng.integers(2**31)) if args.seed is not None else None for _ in range(args.runs)]
-        for _ in range(args.landscapes)
+        for _ in range(landscapes_count)
     ]
 
     # Validate ignitions upfront — shared across all candidates for a fair comparison.
     ignitions = []
-    for land_seed in land_seeds:
+    for land_seed, (wind_speed, wind_direction) in zip(land_seeds, wind_per_landscape):
         graph = create_grid(args.rows, args.cols, seed=land_seed)
-        set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
+        set_wind(graph, speed=wind_speed, direction=wind_direction)
         set_fuel_moisture(graph, moisture=args.moisture)
         ignition = find_valid_ignition(
             graph,
@@ -107,7 +112,7 @@ def main(argv: list[str] | None = None) -> None:
     log.info(
         "Evaluating %d unique candidates across %d landscapes x %d runs",
         len(candidates),
-        args.landscapes,
+        landscapes_count,
         args.runs,
     )
 
@@ -115,9 +120,11 @@ def main(argv: list[str] | None = None) -> None:
     for i, (expr, func) in enumerate(candidates, 1):
         log.info("  %d/%d  %s", i, len(candidates), expr[:80])
         burned_counts = []
-        for land_seed, ignition, run_seeds in zip(land_seeds, ignitions, run_seed_matrix):
+        for land_seed, (wind_speed, wind_direction), ignition, run_seeds in zip(
+            land_seeds, wind_per_landscape, ignitions, run_seed_matrix
+        ):
             graph = create_grid(args.rows, args.cols, seed=land_seed)
-            set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
+            set_wind(graph, speed=wind_speed, direction=wind_direction)
             set_fuel_moisture(graph, moisture=args.moisture)
             for run_seed in run_seeds:
                 b, _ = evaluate(
@@ -190,6 +197,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--runs", type=int, default=5, help="Simulations per landscape (default 5).")
     parser.add_argument("--output", type=str, default=None, help="Save ranked results as a CSV file.")
     add_landscape_args(parser)
+    add_wind_per_landscape_args(parser)
     add_multi_landscape_args(parser)
     return parser.parse_args(argv)
 
