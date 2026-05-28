@@ -72,7 +72,15 @@ def main(argv: list[str] | None = None) -> None:
 
     log.info("Running %d simulations ...", args.runs)
     treatment_freq, burn_freq = collect_spatial_data(
-        func, state, ignition_nodes, args.treatments, args.max_steps, args.runs, args.seed, args.intervention_delay
+        func,
+        state,
+        ignition_nodes,
+        args.treatments,
+        args.max_steps,
+        args.runs,
+        args.seed,
+        args.intervention_delay,
+        args.min_treatment_distance,
     )
 
     output = pathlib.Path(args.output) if args.output else pathlib.Path("treatment_heatmap.png")
@@ -91,6 +99,7 @@ def collect_spatial_data(
     runs: int,
     base_seed: int | None,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
+    min_treatment_distance: int = 0,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Run `runs` simulations and return per-node treatment and burn frequency arrays.
@@ -105,7 +114,14 @@ def collect_spatial_data(
     for i in range(runs):
         seed = None if base_seed is None else base_seed + i
         treated_mask, burned_mask = _run_and_collect(
-            state, ignition_nodes, func, treatments_per_step, max_steps, np.random.default_rng(seed), intervention_delay
+            state,
+            ignition_nodes,
+            func,
+            treatments_per_step,
+            max_steps,
+            np.random.default_rng(seed),
+            intervention_delay,
+            min_treatment_distance,
         )
         treatment_count += treated_mask.astype(int)
         burn_count += burned_mask.astype(int)
@@ -121,10 +137,11 @@ def _run_and_collect(
     max_steps: int,
     rng,
     intervention_delay: int,
+    min_treatment_distance: int = 0,
 ) -> tuple[np.ndarray, np.ndarray]:
     s = state.copy()
     init_ignition(s, ignition_nodes)
-    for _step, _ in simulate(s, func, treatments_per_step, max_steps, rng, intervention_delay):
+    for _step, _ in simulate(s, func, treatments_per_step, max_steps, rng, intervention_delay, min_treatment_distance):
         pass
     treated_mask = s.state == NodeState.TREATED
     burned_mask = (s.state == NodeState.BURNED) | (s.state == NodeState.BURNING)

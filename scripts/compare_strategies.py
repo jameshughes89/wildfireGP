@@ -115,6 +115,7 @@ def main(argv: list[str] | None = None) -> None:
         args.max_steps,
         run_seed_matrix,
         args.intervention_delay,
+        args.min_treatment_distance,
     )
     results.append(("no_treatment", burned.mean(), burned.std(), peak.mean(), peak.std()))
 
@@ -130,6 +131,7 @@ def main(argv: list[str] | None = None) -> None:
             args.max_steps,
             run_seed_matrix,
             args.intervention_delay,
+            args.min_treatment_distance,
         )
         results.append((name, burned.mean(), burned.std(), peak.mean(), peak.std()))
 
@@ -147,6 +149,7 @@ def _run_strategy(
     max_steps: int,
     run_seed_matrix: list[list],
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
+    min_treatment_distance: int = 0,
 ) -> tuple[np.ndarray, np.ndarray]:
     burned_all = []
     peak_all = []
@@ -163,6 +166,7 @@ def _run_strategy(
                 max_steps,
                 np.random.default_rng(run_seed),
                 intervention_delay,
+                min_treatment_distance,
             )
             burned_all.append(b)
             peak_all.append(p)

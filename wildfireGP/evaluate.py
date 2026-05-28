@@ -49,6 +49,7 @@ from wildfireGP.spread import MAX_BURN_STEPS, spread_step
 
 DEFAULT_TREATMENTS_PER_STEP = 3
 DEFAULT_INTERVENTION_DELAY = 3
+DEFAULT_MIN_TREATMENT_DISTANCE = 0
 ALL_PRECOMPUTES = frozenset(
     {
         "fire_map",
@@ -96,19 +97,26 @@ def simulate(
     max_steps: int,
     rng: np.random.Generator,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
+    min_treatment_distance: int = DEFAULT_MIN_TREATMENT_DISTANCE,
 ) -> Iterator[tuple[int, GraphState]]:
     """Run one fire simulation, yielding ``(step, state)`` after each spread step.
 
     Assumes :func:`init_ignition` has already been called. Modifies state in place. The yielded state is the same
     object mutated each step --- callers that need a snapshot must copy it themselves.
+
+    ``min_treatment_distance`` enforces a hard exclusion zone around active fire: candidate cells whose chessboard
+    distance to the nearest burning cell is less than this value are removed from the treatment pool. Default 0 models
+    aerial retardant (adjacent treatment allowed); positive values model ground-crew safety zones.
     """
     required_precomputes = getattr(func, "_required_precomputes", ALL_PRECOMPUTES)
+    if min_treatment_distance > 0:
+        required_precomputes = required_precomputes | {"fire_distance_map"}
     for step in range(max_steps):
         if not (state.state == NodeState.BURNING).any():
             break
         if step >= intervention_delay:
             _run_required_precomputes(state, required_precomputes)
-            _apply_treatments(state, func, treatments_per_step, rng)
+            _apply_treatments(state, func, treatments_per_step, rng, min_treatment_distance)
         spread_step(state, rng)
         yield step, state
 
@@ -121,6 +129,7 @@ def evaluate(
     max_steps: int,
     rng: np.random.Generator,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
+    min_treatment_distance: int = DEFAULT_MIN_TREATMENT_DISTANCE,
 ) -> tuple[int, int]:
     """Run one simulation scenario and return ``(total_burned, peak_burning)``.
 
@@ -132,19 +141,28 @@ def evaluate(
     :param max_steps: Maximum simulation steps before terminating regardless of fire state.
     :param rng: NumPy random generator for stochastic spread.
     :param intervention_delay: Number of steps before any treatments are applied.
+    :param min_treatment_distance: Hard exclusion zone around active fire. Default 0 = adjacent treatment allowed
+        (aerial retardant). Positive values exclude cells within that chessboard distance of any burning cell from
+        the treatment candidate pool (ground-crew safety zone).
     :return: ``(total_burned, peak_burning)``. Both should be minimised.
     """
     state = state.copy()
     init_ignition(state, ignition_nodes)
     peak_burning = int((state.state == NodeState.BURNING).sum())
-    for _step, _ in simulate(state, func, treatments_per_step, max_steps, rng, intervention_delay):
+    for _step, _ in simulate(
+        state, func, treatments_per_step, max_steps, rng, intervention_delay, min_treatment_distance
+    ):
         peak_burning = max(peak_burning, int((state.state == NodeState.BURNING).sum()))
     total_burned = int((state.state == NodeState.BURNED).sum())
     return total_burned, peak_burning
 
 
 def _apply_treatments(
-    state: GraphState, func: Callable[[GraphState, tuple], float], budget: int, rng: np.random.Generator
+    state: GraphState,
+    func: Callable[[GraphState, tuple], float],
+    budget: int,
+    rng: np.random.Generator,
+    min_treatment_distance: int = DEFAULT_MIN_TREATMENT_DISTANCE,
 ) -> None:
     """Apply up to ``budget`` treatments to the highest-scoring UNBURNED burnable nodes.
 
@@ -152,8 +170,15 @@ def _apply_treatments(
     the just-treated node are rescored --- they are the only nodes whose treated-neighbour features can have changed.
     Candidates are shuffled before the initial sort so equal-scoring nodes are broken randomly; timsort's stability
     preserves that order on re-sorts.
+
+    When ``min_treatment_distance > 0``, cells within that chessboard distance of any active fire cell are excluded
+    from the candidate pool. The GP/strategy score for those cells is computed normally but never translates into a
+    placement: the filter is a hard constraint enforced at the placement step, not a penalty on the score.
     """
-    candidate_arr = np.argwhere((state.state == NodeState.UNBURNED) & (state.fuel > 0.0))
+    mask = (state.state == NodeState.UNBURNED) & (state.fuel > 0.0)
+    if min_treatment_distance > 0 and state.fire_distance_map is not None:
+        mask = mask & (state.fire_distance_map >= min_treatment_distance)
+    candidate_arr = np.argwhere(mask)
     candidates = [(int(r), int(c)) for r, c in candidate_arr]
     rng.shuffle(candidates)
     scores = {n: _safe_score(func, state, n) for n in candidates}

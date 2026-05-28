@@ -68,7 +68,15 @@ def main(argv: list[str] | None = None) -> None:
     for name, func in strategies:
         log.info("  %s ...", name)
         series_data[name] = collect_series(
-            func, state, ignition_nodes, args.treatments, args.max_steps, args.runs, args.seed, args.intervention_delay
+            func,
+            state,
+            ignition_nodes,
+            args.treatments,
+            args.max_steps,
+            args.runs,
+            args.seed,
+            args.intervention_delay,
+            args.min_treatment_distance,
         )
 
     output = pathlib.Path(args.output) if args.output else pathlib.Path("sim_timeseries.png")
@@ -87,6 +95,7 @@ def collect_series(
     runs: int,
     base_seed: int | None,
     intervention_delay: int = DEFAULT_INTERVENTION_DELAY,
+    min_treatment_distance: int = 0,
 ) -> dict[str, np.ndarray]:
     """
     Run `runs` simulations and return per-step count arrays.
@@ -100,7 +109,14 @@ def collect_series(
     for i in range(runs):
         seed = None if base_seed is None else base_seed + i
         burning, burned = _run_simulation(
-            state, ignition_nodes, func, treatments_per_step, max_steps, np.random.default_rng(seed), intervention_delay
+            state,
+            ignition_nodes,
+            func,
+            treatments_per_step,
+            max_steps,
+            np.random.default_rng(seed),
+            intervention_delay,
+            min_treatment_distance,
         )
         all_burning.append(burning)
         all_burned.append(burned)
@@ -114,13 +130,20 @@ def collect_series(
 
 
 def _run_simulation(
-    state, ignition_nodes: list[tuple], func, treatments_per_step: int, max_steps: int, rng, intervention_delay: int
+    state,
+    ignition_nodes: list[tuple],
+    func,
+    treatments_per_step: int,
+    max_steps: int,
+    rng,
+    intervention_delay: int,
+    min_treatment_distance: int = 0,
 ) -> tuple[list[int], list[int]]:
     s = state.copy()
     init_ignition(s, ignition_nodes)
     burning = [int((s.state == NodeState.BURNING).sum())]
     burned = [int((s.state == NodeState.BURNED).sum())]
-    for _step, _ in simulate(s, func, treatments_per_step, max_steps, rng, intervention_delay):
+    for _step, _ in simulate(s, func, treatments_per_step, max_steps, rng, intervention_delay, min_treatment_distance):
         burning.append(int((s.state == NodeState.BURNING).sum()))
         burned.append(int((s.state == NodeState.BURNED).sum()))
     return burning, burned

@@ -115,6 +115,14 @@ def add_landscape_args(parser: argparse.ArgumentParser) -> None:
         "--wind-direction", type=float, default=0.0, help="Wind direction in degrees (0=north, 90=east)."
     )
     parser.add_argument("--moisture", type=float, default=0.2, help="Fuel moisture fraction [0, 1].")
+    parser.add_argument(
+        "--min-treatment-distance",
+        type=int,
+        default=0,
+        help="Minimum chessboard distance from an active fire cell at which treatments may be placed. "
+        "Default 0 = adjacent treatment allowed (models aerial retardant). Set 2-3 (200-300m at 100m/cell) "
+        "to model a ground-crew safety zone.",
+    )
 
 
 def add_multi_landscape_args(parser: argparse.ArgumentParser) -> None:

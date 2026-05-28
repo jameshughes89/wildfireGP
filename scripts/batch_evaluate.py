@@ -135,6 +135,7 @@ def main(argv: list[str] | None = None) -> None:
                     args.max_steps,
                     np.random.default_rng(run_seed),
                     args.intervention_delay,
+                    args.min_treatment_distance,
                 )
                 burned_counts.append(b)
         results.append((expr, float(np.mean(burned_counts)), float(np.std(burned_counts))))

@@ -98,6 +98,7 @@ def main(argv: list[str] | None = None) -> None:
             args.max_steps,
             run_seed_matrix,
             args.intervention_delay,
+            args.min_treatment_distance,
         )
         results[name] = (burned, peak)
 
