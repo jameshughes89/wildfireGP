@@ -46,6 +46,7 @@ from scripts.cli import (
     add_multi_landscape_args,
     add_wind_per_landscape_args,
     find_valid_ignition,
+    landscape_kwargs,
     load_candidate_by_expr,
     load_expr,
     resolve_landscape_count,
@@ -79,10 +80,12 @@ def main(argv: list[str] | None = None) -> None:
         for _ in range(landscapes_count)
     ]
 
+    grid_kwargs = landscape_kwargs(args)
+
     log.info("Validating ignitions across %d landscapes", landscapes_count)
     landscapes = []
     for land_seed, (wind_speed, wind_direction) in zip(land_seeds, wind_per_landscape):
-        graph = create_grid(args.rows, args.cols, seed=land_seed)
+        graph = create_grid(**grid_kwargs, seed=land_seed)
         set_wind(graph, speed=wind_speed, direction=wind_direction)
         set_fuel_moisture(graph, moisture=args.moisture)
         ignition = find_valid_ignition(
@@ -109,8 +112,7 @@ def main(argv: list[str] | None = None) -> None:
         lambda g, n: 0.0,
         landscapes,
         0,
-        args.rows,
-        args.cols,
+        grid_kwargs,
         args.moisture,
         args.max_steps,
         run_seed_matrix,
@@ -125,8 +127,7 @@ def main(argv: list[str] | None = None) -> None:
             func,
             landscapes,
             args.treatments,
-            args.rows,
-            args.cols,
+            grid_kwargs,
             args.moisture,
             args.max_steps,
             run_seed_matrix,
@@ -143,8 +144,7 @@ def _run_strategy(
     func,
     landscapes: list[tuple],
     treatments_per_step: int,
-    rows: int,
-    cols: int,
+    grid_kwargs: dict,
     moisture: float,
     max_steps: int,
     run_seed_matrix: list[list],
@@ -154,7 +154,7 @@ def _run_strategy(
     burned_all = []
     peak_all = []
     for (land_seed, wind_speed, wind_direction, ignition), run_seeds in zip(landscapes, run_seed_matrix):
-        graph = create_grid(rows, cols, seed=land_seed)
+        graph = create_grid(**grid_kwargs, seed=land_seed)
         set_wind(graph, speed=wind_speed, direction=wind_direction)
         set_fuel_moisture(graph, moisture=moisture)
         for run_seed in run_seeds:

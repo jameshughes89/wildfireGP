@@ -39,6 +39,7 @@ from scripts.cli import (
     add_multi_landscape_args,
     add_wind_per_landscape_args,
     find_valid_ignition,
+    landscape_kwargs,
     resolve_landscape_count,
     resolve_wind_for_landscape,
 )
@@ -69,7 +70,7 @@ def main(argv: list[str] | None = None) -> None:
     log.info("Validating ignitions across %d landscapes", landscapes_count)
     landscapes = []
     for land_seed, (wind_speed, wind_direction) in zip(land_seeds, wind_per_landscape):
-        graph = create_grid(args.rows, args.cols, seed=land_seed)
+        graph = create_grid(**landscape_kwargs(args), seed=land_seed)
         set_wind(graph, speed=wind_speed, direction=wind_direction)
         set_fuel_moisture(graph, moisture=args.moisture)
         ignition = find_valid_ignition(
@@ -92,8 +93,7 @@ def main(argv: list[str] | None = None) -> None:
             func,
             landscapes,
             args.treatments,
-            args.rows,
-            args.cols,
+            landscape_kwargs(args),
             args.moisture,
             args.max_steps,
             run_seed_matrix,

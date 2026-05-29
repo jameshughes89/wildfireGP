@@ -46,6 +46,7 @@ from deap import tools
 from scripts.cli import (
     add_landscape_args,
     add_wind_per_landscape_args,
+    landscape_kwargs,
     resolve_landscape_count,
     resolve_wind_for_landscape,
 )
@@ -86,7 +87,7 @@ def main(argv: list[str] | None = None) -> None:
             wind_speed,
             wind_direction,
         )
-        graph = create_grid(args.rows, args.cols, seed=land_seed)
+        graph = create_grid(**landscape_kwargs(args), seed=land_seed)
         set_wind(graph, speed=wind_speed, direction=wind_direction)
         set_fuel_moisture(graph, moisture=args.moisture)
         ignition_nodes = select_ignition_cluster(graph, rng, size=args.ignition_cluster_size)
@@ -119,6 +120,10 @@ def main(argv: list[str] | None = None) -> None:
         "max_steps": args.max_steps,
         "intervention_delay": args.intervention_delay,
         "min_treatment_distance": args.min_treatment_distance,
+        "terrain_smoothing": args.terrain_smoothing,
+        "fuel_smoothing": args.fuel_smoothing,
+        "water_fraction": args.water_fraction,
+        "rock_fraction": args.rock_fraction,
         "wind_per_landscape": wind_per_landscape,
         "fuel_moisture": args.moisture,
     }
