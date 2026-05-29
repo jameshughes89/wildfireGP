@@ -41,27 +41,27 @@ def hof_file(tmp_path):
 
 def test_run_strategy_returns_arrays_of_correct_length():
     landscapes, run_seed_matrix = _make_landscapes(n=2)
-    burned, peak = _run_strategy(random_score, landscapes, 2, 10, 10, 0.2, 20, run_seed_matrix)
+    burned, peak = _run_strategy(random_score, landscapes, 2, {"rows": 10, "cols": 10}, 0.2, 20, run_seed_matrix)
     assert len(burned) == 10
     assert len(peak) == 10
 
 
 def test_run_strategy_burned_values_are_non_negative():
     landscapes, run_seed_matrix = _make_landscapes()
-    burned, _ = _run_strategy(random_score, landscapes, 2, 10, 10, 0.2, 20, run_seed_matrix)
+    burned, _ = _run_strategy(random_score, landscapes, 2, {"rows": 10, "cols": 10}, 0.2, 20, run_seed_matrix)
     assert all(b >= 0 for b in burned)
 
 
 def test_run_strategy_peak_values_are_non_negative():
     landscapes, run_seed_matrix = _make_landscapes()
-    _, peak = _run_strategy(random_score, landscapes, 2, 10, 10, 0.2, 20, run_seed_matrix)
+    _, peak = _run_strategy(random_score, landscapes, 2, {"rows": 10, "cols": 10}, 0.2, 20, run_seed_matrix)
     assert all(p >= 0 for p in peak)
 
 
 def test_run_strategy_different_seeds_produce_variation():
     landscapes, run_seed_matrix = _make_landscapes(n=2)
     run_seed_matrix = [[i * 7 + j for j in range(5)] for i in range(2)]
-    burned, _ = _run_strategy(random_score, landscapes, 0, 10, 10, 0.2, 20, run_seed_matrix)
+    burned, _ = _run_strategy(random_score, landscapes, 0, {"rows": 10, "cols": 10}, 0.2, 20, run_seed_matrix)
     assert burned.std() > 0
 
 

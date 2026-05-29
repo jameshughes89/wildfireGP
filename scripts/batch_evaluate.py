@@ -61,6 +61,7 @@ from scripts.cli import (
     add_multi_landscape_args,
     add_wind_per_landscape_args,
     find_valid_ignition,
+    landscape_kwargs,
     load_expr,
     read_hof_exprs,
     read_population_exprs,
@@ -95,7 +96,7 @@ def main(argv: list[str] | None = None) -> None:
     # Validate ignitions upfront — shared across all candidates for a fair comparison.
     ignitions = []
     for land_seed, (wind_speed, wind_direction) in zip(land_seeds, wind_per_landscape):
-        graph = create_grid(args.rows, args.cols, seed=land_seed)
+        graph = create_grid(**landscape_kwargs(args), seed=land_seed)
         set_wind(graph, speed=wind_speed, direction=wind_direction)
         set_fuel_moisture(graph, moisture=args.moisture)
         ignition = find_valid_ignition(
@@ -123,7 +124,7 @@ def main(argv: list[str] | None = None) -> None:
         for land_seed, (wind_speed, wind_direction), ignition, run_seeds in zip(
             land_seeds, wind_per_landscape, ignitions, run_seed_matrix
         ):
-            graph = create_grid(args.rows, args.cols, seed=land_seed)
+            graph = create_grid(**landscape_kwargs(args), seed=land_seed)
             set_wind(graph, speed=wind_speed, direction=wind_direction)
             set_fuel_moisture(graph, moisture=args.moisture)
             for run_seed in run_seeds:

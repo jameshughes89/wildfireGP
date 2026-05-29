@@ -33,7 +33,7 @@ import sys
 
 import numpy as np
 
-from scripts.cli import add_landscape_args, load_candidate_by_expr, load_expr
+from scripts.cli import add_landscape_args, landscape_kwargs, load_candidate_by_expr, load_expr
 from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, init_ignition, simulate
 from wildfireGP.network import (
     create_grid,
@@ -56,7 +56,7 @@ def main(argv: list[str] | None = None) -> None:
 
     rng = np.random.default_rng(args.seed)
     log.info("Building landscape (%dx%d, seed=%s)", args.rows, args.cols, args.seed)
-    graph = create_grid(args.rows, args.cols, seed=args.seed)
+    graph = create_grid(**landscape_kwargs(args), seed=args.seed)
     set_wind(graph, speed=args.wind_speed, direction=args.wind_direction)
     set_fuel_moisture(graph, moisture=args.moisture)
 

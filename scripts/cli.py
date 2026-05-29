@@ -116,6 +116,30 @@ def add_landscape_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--moisture", type=float, default=0.2, help="Fuel moisture fraction [0, 1].")
     parser.add_argument(
+        "--terrain-smoothing",
+        type=float,
+        default=3.0,
+        help="Gaussian sigma for the terrain heightmap. Lower = more rugged (more hills). Default 3.0.",
+    )
+    parser.add_argument(
+        "--fuel-smoothing",
+        type=float,
+        default=3.0,
+        help="Gaussian sigma for the fuel field. Lower = patchier fuel. Default 3.0.",
+    )
+    parser.add_argument(
+        "--water-fraction",
+        type=float,
+        default=0.0,
+        help="Fraction of cells marked as water (non-burnable), drawn from the lowest-elevation cells. Default 0.0.",
+    )
+    parser.add_argument(
+        "--rock-fraction",
+        type=float,
+        default=0.0,
+        help="Fraction of cells marked as rock (non-burnable), drawn from the steepest cells. Default 0.0.",
+    )
+    parser.add_argument(
         "--min-treatment-distance",
         type=int,
         default=0,
@@ -226,6 +250,22 @@ def resolve_landscape_count(args: argparse.Namespace) -> int:
         key = next(iter(wind_lengths))
         raise SystemExit(f"--landscapes={args.landscapes} conflicts with {key} length {inferred}; lengths must match.")
     return args.landscapes
+
+
+def landscape_kwargs(args: argparse.Namespace) -> dict:
+    """Return the per-landscape create_grid kwargs sourced from args.
+
+    Use as ``create_grid(**landscape_kwargs(args), seed=land_seed)``. Centralises the threading of
+    terrain_smoothing / fuel_smoothing / water_fraction / rock_fraction across scripts.
+    """
+    return {
+        "rows": args.rows,
+        "cols": args.cols,
+        "terrain_smoothing": args.terrain_smoothing,
+        "fuel_smoothing": args.fuel_smoothing,
+        "water_fraction": args.water_fraction,
+        "rock_fraction": args.rock_fraction,
+    }
 
 
 def resolve_wind_for_landscape(args: argparse.Namespace, index: int, rng: np.random.Generator) -> tuple[float, float]:
