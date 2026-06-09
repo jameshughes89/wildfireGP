@@ -18,9 +18,12 @@ from collections import deque
 
 import networkx as nx
 import numpy as np
+import scipy.sparse
+import scipy.sparse.csgraph
 from scipy.ndimage import convolve, distance_transform_cdt, label
 
 from wildfireGP.network import GraphState, NodeState, TerrainType
+from wildfireGP.spread import _A_S, _C1, _C2, _DIRECTIONS, _KMH_TO_MS
 
 # ---------------------------------------------------------------------------
 # Terrain
@@ -286,36 +289,140 @@ def precompute_betweenness_dynamic(state: GraphState) -> None:
     state.betweenness_dynamic_map = arr
 
 
+def _build_directed_spread_graph(state: GraphState) -> scipy.sparse.csr_matrix:
+    """Build the directed spread graph as a sparse adjacency matrix.
+
+    For each directed Moore-edge u -> v between two active cells, weight = -log(P(ignite u -> v)) using the exact
+    Alexandridis (2008) per-edge ignition probability from :func:`wildfireGP.spread.spread_step`. Includes the wind- and
+    slope-direction asymmetries: P(u -> v) and P(v -> u) are different whenever wind speed > 0 or there is any
+    elevation difference between u and v.
+
+    Active = LAND, not BURNED, not TREATED, fuel > 0. Cells outside this mask have no incoming or outgoing edges.
+    """
+    rows, cols = state.rows, state.cols
+    n = rows * cols
+    active = (
+        (state.terrain == TerrainType.LAND)
+        & (state.state != NodeState.BURNED)
+        & (state.state != NodeState.TREATED)
+        & (state.fuel > 0)
+    )
+    if not active.any():
+        return scipy.sparse.csr_matrix((n, n), dtype=np.float64)
+
+    wind_speed_ms = float(state.wind_speed) * _KMH_TO_MS
+    wind_toward_rad = math.radians(float(state.wind_direction)) + math.pi
+    moisture = float(state.fuel_moisture)
+    fuel = state.fuel.astype(np.float64)
+    elevation = state.elevation.astype(np.float64)
+
+    src_list: list[np.ndarray] = []
+    dst_list: list[np.ndarray] = []
+    w_list: list[np.ndarray] = []
+    p_floor = 1e-30
+
+    for dr, dc in _DIRECTIONS:
+        spread_angle = math.atan2(dc, -dr)
+        theta = wind_toward_rad - spread_angle
+        p_wind = math.exp(_C1 * wind_speed_ms) * math.exp(_C2 * wind_speed_ms * (math.cos(theta) - 1))
+        dist_cells = math.sqrt(2) if (dr != 0 and dc != 0) else 1.0
+
+        r_lo, r_hi = max(0, -dr), rows - max(0, dr)
+        c_lo, c_hi = max(0, -dc), cols - max(0, dc)
+        if r_lo >= r_hi or c_lo >= c_hi:
+            continue
+
+        src_slice = (slice(r_lo, r_hi), slice(c_lo, c_hi))
+        dst_slice = (slice(r_lo + dr, r_hi + dr), slice(c_lo + dc, c_hi + dc))
+        valid = active[src_slice] & active[dst_slice]
+        if not valid.any():
+            continue
+
+        elev_diff = elevation[dst_slice] - elevation[src_slice]
+        slope_angle = np.arctan(elev_diff / dist_cells)
+        p_slope = np.exp(_A_S * slope_angle)
+        p = fuel[dst_slice] * (1.0 - moisture) * p_wind * p_slope
+        p = np.clip(p, p_floor, 1.0)
+        w = -np.log(p)
+
+        r_grid, c_grid = np.meshgrid(np.arange(r_lo, r_hi), np.arange(c_lo, c_hi), indexing="ij")
+        src_flat = r_grid * cols + c_grid
+        dst_flat = (r_grid + dr) * cols + (c_grid + dc)
+        flat_mask = valid.ravel()
+        src_list.append(src_flat.ravel()[flat_mask])
+        dst_list.append(dst_flat.ravel()[flat_mask])
+        w_list.append(w.ravel()[flat_mask])
+
+    if not src_list:
+        return scipy.sparse.csr_matrix((n, n), dtype=np.float64)
+    src_idx = np.concatenate(src_list)
+    dst_idx = np.concatenate(dst_list)
+    weights = np.concatenate(w_list)
+    return scipy.sparse.csr_matrix((weights, (src_idx, dst_idx)), shape=(n, n))
+
+
 def precompute_mtt_pathway_count(state: GraphState) -> None:
     """Count minimum-travel-time fire-arrival pathways through each cell.
 
-    From the current BURNING set, run multi-source Dijkstra on the LAND subgraph (BURNED and TREATED cells excluded)
-    with edge weights = inverse mean fuel. For each perimeter LAND cell, count how often each interior cell appears on
-    the shortest fire-arrival path to that perimeter cell. Implements Finney's (2001) MTT pathway-density logic.
+    Build a directed graph whose edge weights are derived from the simulator's own per-edge ignition probability
+    (Alexandridis 2008 -- fuel, moisture, wind speed, wind direction, slope and slope direction). The edge weight for
+    u -> v is -log(P(ignite u -> v)), so a shortest path from the burning set to any cell is the most-likely fire
+    propagation route. For every perimeter LAND cell reachable from the burning set, every node along its single
+    shortest path is credited one count.
+
+    Compared to the earlier networkx-undirected fuel-only formulation, this version captures the directional
+    asymmetries from wind and slope and stays consistent with the simulator's own physics. Computed via scipy
+    sparse Dijkstra.
+
+    Reference: Finney (2001) MTT method (PNW-GTR-610), adapted to use the simulator's own ignition probabilities.
     """
-    counts = np.zeros((state.rows, state.cols), dtype=np.float32)
-    mask = (state.terrain == TerrainType.LAND) & (state.state != NodeState.BURNED) & (state.state != NodeState.TREATED)
-    g = _build_landscape_graph(state, mask)
-    burning = [
-        (int(r), int(c)) for r, c in np.argwhere(state.state == NodeState.BURNING) if g.has_node((int(r), int(c)))
-    ]
-    if not burning or len(g) == 0:
+    rows, cols = state.rows, state.cols
+    counts = np.zeros((rows, cols), dtype=np.float32)
+
+    burning_mask = state.state == NodeState.BURNING
+    if not burning_mask.any():
         state.mtt_pathway_count_map = counts
         return
-    rows, cols = state.rows, state.cols
-    boundary = [
-        (r, c)
-        for r in range(rows)
-        for c in range(cols)
-        if (r == 0 or r == rows - 1 or c == 0 or c == cols - 1) and g.has_node((r, c))
-    ]
-    _, paths = nx.multi_source_dijkstra(g, burning, weight="weight")
-    for target in boundary:
-        path = paths.get(target)
-        if path is None:
+
+    graph = _build_directed_spread_graph(state)
+    if graph.nnz == 0:
+        state.mtt_pathway_count_map = counts
+        return
+
+    burnable = (
+        (state.terrain == TerrainType.LAND)
+        & (state.state != NodeState.BURNED)
+        & (state.state != NodeState.TREATED)
+        & (state.fuel > 0)
+    )
+    perim = np.zeros((rows, cols), dtype=bool)
+    perim[0, :] = True
+    perim[-1, :] = True
+    perim[:, 0] = True
+    perim[:, -1] = True
+    perim &= burnable
+    boundary_indices = np.flatnonzero(perim.ravel())
+    if len(boundary_indices) == 0:
+        state.mtt_pathway_count_map = counts
+        return
+
+    burning_indices = np.flatnonzero(burning_mask.ravel())
+    distances, predecessors, _sources = scipy.sparse.csgraph.dijkstra(
+        graph,
+        indices=burning_indices,
+        return_predecessors=True,
+        directed=True,
+        min_only=True,
+    )
+
+    for target_flat in boundary_indices:
+        if not np.isfinite(distances[target_flat]):
             continue
-        for node in path:
-            counts[node] += 1
+        cur = int(target_flat)
+        while cur >= 0:
+            counts[cur // cols, cur % cols] += 1
+            cur = int(predecessors[cur])
+
     state.mtt_pathway_count_map = counts
 
 

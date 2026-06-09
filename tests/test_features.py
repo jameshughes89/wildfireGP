@@ -1,3 +1,5 @@
+import numpy as np
+
 from wildfireGP.features import (
     betweenness_dynamic,
     betweenness_static,
@@ -655,3 +657,19 @@ def test_mtt_pathway_count_zero_when_no_burning_set():
     set_fuel_moisture(s, moisture=0.2)
     precompute_mtt_pathway_count(s)
     assert mtt_pathway_count(s, (3, 3)) == 0.0
+
+
+def test_mtt_pathway_count_wind_affects_map():
+    """With wind, the spread asymmetry must affect the resulting pathway map."""
+
+    def _build(wind_speed):
+        s = create_grid(7, 7, seed=0)
+        set_wind(s, speed=wind_speed, direction=0.0)
+        set_fuel_moisture(s, moisture=0.2)
+        s.state[3, 3] = NodeState.BURNING
+        precompute_mtt_pathway_count(s)
+        return s.mtt_pathway_count_map
+
+    calm = _build(0.0)
+    windy = _build(40.0)
+    assert not np.array_equal(calm, windy)
