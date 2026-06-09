@@ -1,4 +1,6 @@
 from wildfireGP.features import (
+    betweenness_dynamic,
+    betweenness_static,
     burnable_distance_to_fire,
     burning_neighbour_count,
     burning_two_hop_count,
@@ -9,10 +11,14 @@ from wildfireGP.features import (
     has_treated_neighbour,
     mean_neighbour_elevation,
     mean_neighbour_fuel,
+    mtt_pathway_count,
+    precompute_betweenness_dynamic,
+    precompute_betweenness_static,
     precompute_burnable_fire_map,
     precompute_burning_two_hop_map,
     precompute_fire_distance_map,
     precompute_fire_map,
+    precompute_mtt_pathway_count,
     precompute_neighbourhood_maps,
     precompute_reachable_unburned_area,
     precompute_state_counts,
@@ -595,3 +601,57 @@ def test_totals_sum_to_cell_count():
     precompute_state_counts(s)
     total = total_burning(s) + total_burned(s) + total_unburned(s) + total_treated(s)
     assert total == s.rows * s.cols
+
+
+def _state_with_burning_centre(rows: int = 6, cols: int = 6):
+    s = create_grid(rows, cols, seed=0)
+    set_wind(s, speed=20.0, direction=0.0)
+    set_fuel_moisture(s, moisture=0.2)
+    s.state[rows // 2, cols // 2] = NodeState.BURNING
+    return s
+
+
+def test_precompute_betweenness_static_populates_map():
+    s = _state_with_burning_centre()
+    precompute_betweenness_static(s)
+    assert s.betweenness_static_map is not None
+
+
+def test_betweenness_static_returns_nonzero_for_interior_node():
+    s = _state_with_burning_centre()
+    precompute_betweenness_static(s)
+    assert betweenness_static(s, (3, 3)) > 0.0
+
+
+def test_precompute_betweenness_static_is_idempotent():
+    s = _state_with_burning_centre()
+    precompute_betweenness_static(s)
+    original = s.betweenness_static_map
+    precompute_betweenness_static(s)
+    assert s.betweenness_static_map is original
+
+
+def test_betweenness_dynamic_zero_for_burning_cell():
+    s = _state_with_burning_centre()
+    precompute_betweenness_dynamic(s)
+    assert betweenness_dynamic(s, (3, 3)) == 0.0
+
+
+def test_precompute_mtt_pathway_count_populates_map():
+    s = _state_with_burning_centre()
+    precompute_mtt_pathway_count(s)
+    assert s.mtt_pathway_count_map is not None
+
+
+def test_mtt_pathway_count_nonnegative():
+    s = _state_with_burning_centre()
+    precompute_mtt_pathway_count(s)
+    assert mtt_pathway_count(s, (1, 1)) >= 0.0
+
+
+def test_mtt_pathway_count_zero_when_no_burning_set():
+    s = create_grid(6, 6, seed=0)
+    set_wind(s, speed=20.0, direction=0.0)
+    set_fuel_moisture(s, moisture=0.2)
+    precompute_mtt_pathway_count(s)
+    assert mtt_pathway_count(s, (3, 3)) == 0.0

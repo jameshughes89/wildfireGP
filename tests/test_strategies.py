@@ -1,8 +1,12 @@
 import math
 
 from wildfireGP.features import (
+    precompute_betweenness_dynamic,
+    precompute_betweenness_static,
     precompute_burnable_fire_map,
     precompute_fire_map,
+    precompute_mtt_pathway_count,
+    precompute_neighbourhood_maps,
     precompute_reachable_unburned_area,
 )
 from wildfireGP.network import (
@@ -15,6 +19,10 @@ from wildfireGP.spread import MAX_BURN_STEPS
 from wildfireGP.strategies import (
     random_score,
     score_anchor_flank,
+    score_betweenness_dynamic,
+    score_betweenness_dynamic_anchored,
+    score_betweenness_static,
+    score_betweenness_static_anchored,
     score_bottleneck,
     score_by_burning_neighbors,
     score_by_fire_proximity,
@@ -22,8 +30,12 @@ from wildfireGP.strategies import (
     score_composite_threat,
     score_fire_run,
     score_flank_attack,
+    score_frontier_protect,
+    score_frontier_protect_anchored,
     score_head_fire,
     score_indirect_attack,
+    score_mtt_pathway,
+    score_mtt_pathway_anchored,
     score_ridgeline,
     score_uphill_interception,
 )
@@ -310,3 +322,65 @@ def test_score_composite_threat_downwind_scores_higher_than_upwind():
     s.fuel[downwind] = s.fuel[upwind] = 0.9
     s.slope[downwind] = s.slope[upwind] = 0.5
     assert score_composite_threat(s, downwind) > score_composite_threat(s, upwind)
+
+
+def _state_graph_baselines(ignition=(5, 5)):
+    s = _state_with_fire(ignition=ignition)
+    precompute_betweenness_static(s)
+    precompute_betweenness_dynamic(s)
+    precompute_mtt_pathway_count(s)
+    precompute_neighbourhood_maps(s)
+    return s
+
+
+def test_score_betweenness_static_returns_finite():
+    s = _state_graph_baselines()
+    assert math.isfinite(score_betweenness_static(s, (3, 3)))
+
+
+def test_score_betweenness_static_anchored_at_least_pure():
+    s = _state_graph_baselines()
+    s.state[2, 2] = NodeState.TREATED
+    precompute_neighbourhood_maps(s)
+    assert score_betweenness_static_anchored(s, (3, 3)) >= score_betweenness_static(s, (3, 3))
+
+
+def test_score_betweenness_dynamic_returns_finite():
+    s = _state_graph_baselines()
+    assert math.isfinite(score_betweenness_dynamic(s, (3, 3)))
+
+
+def test_score_betweenness_dynamic_anchored_at_least_pure():
+    s = _state_graph_baselines()
+    s.state[2, 2] = NodeState.TREATED
+    precompute_neighbourhood_maps(s)
+    assert score_betweenness_dynamic_anchored(s, (3, 3)) >= score_betweenness_dynamic(s, (3, 3))
+
+
+def test_score_mtt_pathway_returns_finite():
+    s = _state_graph_baselines()
+    assert math.isfinite(score_mtt_pathway(s, (3, 3)))
+
+
+def test_score_mtt_pathway_anchored_at_least_pure():
+    s = _state_graph_baselines()
+    s.state[2, 2] = NodeState.TREATED
+    precompute_neighbourhood_maps(s)
+    assert score_mtt_pathway_anchored(s, (3, 3)) >= score_mtt_pathway(s, (3, 3))
+
+
+def test_score_frontier_protect_zero_without_burning_neighbour():
+    s = _state_graph_baselines()
+    assert score_frontier_protect(s, (0, 0)) == 0.0
+
+
+def test_score_frontier_protect_positive_with_burning_neighbour():
+    s = _state_graph_baselines(ignition=(5, 5))
+    assert score_frontier_protect(s, (5, 4)) > 0.0
+
+
+def test_score_frontier_protect_anchored_zero_without_burning_neighbour():
+    s = _state_graph_baselines()
+    s.state[0, 1] = NodeState.TREATED
+    precompute_neighbourhood_maps(s)
+    assert score_frontier_protect_anchored(s, (0, 0)) == 0.0

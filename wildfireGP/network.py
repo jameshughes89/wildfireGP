@@ -103,6 +103,9 @@ class GraphState:
     treated_neighbour_count_map: np.ndarray | None = None
     unburned_neighbour_count_map: np.ndarray | None = None
     unburnable_neighbour_count_map: np.ndarray | None = None
+    betweenness_static_map: np.ndarray | None = None
+    betweenness_dynamic_map: np.ndarray | None = None
+    mtt_pathway_count_map: np.ndarray | None = None
     step_burning: int = 0
     step_burned: int = 0
     step_unburned: int = 0
