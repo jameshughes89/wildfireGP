@@ -83,6 +83,43 @@ def test_load_strategies_baselines_always_present():
     assert all(f.__name__ in names for f in ALL_STRATEGIES)
 
 
+def test_main_save_raw_writes_csv_with_per_run_rows(tmp_path):
+    raw_path = tmp_path / "raw.csv"
+    main(
+        [
+            "--rows",
+            "10",
+            "--cols",
+            "10",
+            "--seed",
+            "0",
+            "--runs",
+            "2",
+            "--landscapes",
+            "1",
+            "--max-steps",
+            "10",
+            "--min-burned",
+            "0",
+            "--save-raw",
+            str(raw_path),
+        ]
+    )
+    import csv as _csv
+
+    with open(raw_path) as f:
+        rdr = _csv.reader(f)
+        header = next(rdr)
+        rows = list(rdr)
+    assert header == ["strategy", "landscape_idx", "run_idx", "burned", "peak"]
+    assert len(rows) > 0
+    names = {r[0] for r in rows}
+    assert "no_treatment" in names
+    # Each strategy contributes landscapes * runs = 1 * 2 = 2 rows.
+    runs_per_strategy = sum(1 for r in rows if r[0] == "no_treatment")
+    assert runs_per_strategy == 2
+
+
 def test_main_includes_no_treatment_baseline(capsys):
     main(
         [
