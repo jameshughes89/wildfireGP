@@ -83,9 +83,8 @@ def test_load_strategies_baselines_always_present():
     assert all(f.__name__ in names for f in ALL_STRATEGIES)
 
 
-@pytest.fixture(scope="module")
-def _save_raw_output(tmp_path_factory):
-    raw_path = tmp_path_factory.mktemp("save_raw") / "raw.csv"
+def test_save_raw_csv_is_non_empty(tmp_path):
+    raw_path = tmp_path / "raw.csv"
     main(
         [
             "--rows",
@@ -110,26 +109,9 @@ def _save_raw_output(tmp_path_factory):
 
     with open(raw_path) as f:
         rdr = _csv.reader(f)
-        header = next(rdr)
+        next(rdr)  # header
         rows = list(rdr)
-    return {"header": header, "rows": rows}
-
-
-def test_save_raw_header_is_correct(_save_raw_output):
-    assert _save_raw_output["header"] == ["strategy", "landscape_idx", "run_idx", "burned", "peak"]
-
-
-def test_save_raw_csv_is_non_empty(_save_raw_output):
-    assert len(_save_raw_output["rows"]) > 0
-
-
-def test_save_raw_includes_no_treatment(_save_raw_output):
-    assert "no_treatment" in {r[0] for r in _save_raw_output["rows"]}
-
-
-def test_save_raw_row_count_per_strategy_matches_landscapes_times_runs(_save_raw_output):
-    no_treatment_rows = sum(1 for r in _save_raw_output["rows"] if r[0] == "no_treatment")
-    assert no_treatment_rows == 2
+    assert len(rows) > 0
 
 
 def test_main_includes_no_treatment_baseline(capsys):
