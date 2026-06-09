@@ -23,6 +23,15 @@ for a GP audience:
     score_flank_attack           (lateral attack: perpendicular to wind)
     score_composite_threat       (combined fuel/wind/slope behavioural baseline)
 
+**Graph-theoretic baselines** --- cited published methods from the firefighter-problem and landscape-fuel-management
+literatures. Each is reported in both a pure form (as published) and an anchored form (with the project's standard
+line-extension nudge added), so the effect of the line-extension term can be isolated:
+
+    score_betweenness_static / score_betweenness_static_anchored      (Pais et al. 2021; offline pre-fire)
+    score_betweenness_dynamic / score_betweenness_dynamic_anchored    (Pais et al. 2021; online per-step variant)
+    score_mtt_pathway / score_mtt_pathway_anchored                    (Finney 2001; MTT pathway density)
+    score_frontier_protect / score_frontier_protect_anchored          (Cai, Verbin, Yang 2008; greedy frontier)
+
 If GP cannot outperform :func:`score_by_fire_proximity` --- the strongest single-feature doctrine baseline --- it is not
 producing useful strategies.
 
@@ -35,6 +44,14 @@ lower bound is a run with ``treatments_per_step=0``, which ``compare_strategies.
 
 References
 ----------
+Cai, L., Verbin, E., & Yang, L. (2008). Firefighting on Trees: (1 - 1/e)-Approximation, Fixed Parameter Tractability
+    and a Subexponential Algorithm. In Algorithms and Computation, ISAAC 2008. Lecture Notes in Computer Science,
+    vol 5369. Springer.
+Finbow, S., & MacGillivray, G. (2009). The Firefighter Problem: A Survey of Results, Directions and Questions. AKCE
+    International Journal of Graphs and Combinatorics, 6(1), 57-77.
+Finney, M. A. (2001). Design of regular landscape fuel treatment patterns for modifying fire growth and behavior.
+    Forest Science, 47(2), 219-228. See also Finney, M. A. (2007). PNW-GTR-610 Chapter 9: Landscape fire simulation
+    and fuel treatment optimization.
 National Wildfire Coordinating Group. (2004). Fireline Handbook. NWCG Handbook 3, PMS 410-1.
 National Wildfire Coordinating Group. (2022). Incident Response Pocket Guide. PMS 461.
 Pais, C., Carrasco, J., Martell, D. L., Weintraub, A., & Woodruff, D. L. (2021). Cell2Fire: A Cell-Based Forest
@@ -48,6 +65,8 @@ import random
 
 from wildfireGP.evaluate import annotate_required_precomputes
 from wildfireGP.features import (
+    betweenness_dynamic,
+    betweenness_static,
     burning_neighbour_count,
     distance_to_fire,
     elevation,
@@ -55,10 +74,12 @@ from wildfireGP.features import (
     fuel_level,
     has_treated_neighbour,
     mean_neighbour_fuel,
+    mtt_pathway_count,
     reachable_unburned_area,
     slope,
     treated_neighbour_count,
     unburnable_neighbour_count,
+    unburned_neighbour_count,
     wind_fire_alignment,
 )
 from wildfireGP.network import GraphState
@@ -232,6 +253,86 @@ def score_composite_threat(state: GraphState, node: tuple, min_distance: int = 2
     ) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
 
 
+def score_betweenness_static(state: GraphState, node: tuple) -> float:
+    """Prioritise cells with high static betweenness centrality on the burnable subgraph.
+
+    Topological choke-point baseline: betweenness centrality is computed once at t=0 on the initial landscape graph
+    (edges weighted by inverse mean fuel as a resistance-to-spread proxy). Cells on many shortest fire-travel paths
+    score highest. Not re-evaluated as fire grows --- matches the offline pre-fire treatment-planning use case from
+    Pais et al.
+
+    Reference: Pais et al. (2021), Cell2Fire.
+    """
+    return betweenness_static(state, node)
+
+
+def score_betweenness_static_anchored(state: GraphState, node: tuple) -> float:
+    """Apply the standard line-extension nudge to :func:`score_betweenness_static`.
+
+    Same scoring as the pure form plus :data:`ANCHOR_WEIGHT` times a treated-neighbour indicator, to favour continuous
+    treatment lines over scattered placements. Reported alongside the pure form so the effect of the line-extension
+    term can be isolated from the underlying centrality signal.
+    """
+    return betweenness_static(state, node) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
+
+
+def score_betweenness_dynamic(state: GraphState, node: tuple) -> float:
+    """Prioritise cells with high betweenness centrality, recomputed each timestep.
+
+    As :func:`score_betweenness_static` but recomputes betweenness on the current UNBURNED-LAND subgraph each timestep
+    --- burned, treated, and burning cells are removed before centrality is recomputed. Higher fidelity than static but
+    substantially more expensive per landscape.
+
+    References: Pais et al. (2021); Finbow & MacGillivray (2009).
+    """
+    return betweenness_dynamic(state, node)
+
+
+def score_betweenness_dynamic_anchored(state: GraphState, node: tuple) -> float:
+    """Apply the standard line-extension nudge to :func:`score_betweenness_dynamic`."""
+    return betweenness_dynamic(state, node) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
+
+
+def score_mtt_pathway(state: GraphState, node: tuple) -> float:
+    """Prioritise cells on many minimum-travel-time fire-arrival paths to landscape boundaries.
+
+    Source-anchored topological baseline: from the current burning set, multi-source Dijkstra to each perimeter LAND
+    cell with edge weights = inverse mean fuel. A cell's score is the count of shortest fire-arrival paths that pass
+    through it. Distinct from betweenness centrality, which is computed over all pairs of cells; MTT pathway is
+    anchored to the current burning set.
+
+    Reference: Finney (2001) --- the MTT method underlies FlamMap.
+    """
+    return mtt_pathway_count(state, node)
+
+
+def score_mtt_pathway_anchored(state: GraphState, node: tuple) -> float:
+    """Apply the standard line-extension nudge to :func:`score_mtt_pathway`."""
+    return mtt_pathway_count(state, node) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
+
+
+def score_frontier_protect(state: GraphState, node: tuple) -> float:
+    """Prioritise cells adjacent to the burning set, tiebroken by out-degree to unburned land.
+
+    Classical firefighter-problem greedy heuristic: only consider cells adjacent to the burning set; among those, prefer
+    cells whose treatment denies the fire access to the largest unburned region (approximated by unburned-neighbour
+    count). The (1 - 1/e) approximation bound from Cai, Verbin, Yang applies to this strict greedy form. Improvement
+    over :func:`score_by_burning_neighbors`, which breaks ties at random.
+
+    References: Cai, Verbin, Yang (2008); Finbow & MacGillivray (2009).
+    """
+    if burning_neighbour_count(state, node) == 0:
+        return 0.0
+    return float(unburned_neighbour_count(state, node))
+
+
+def score_frontier_protect_anchored(state: GraphState, node: tuple) -> float:
+    """Apply the standard line-extension nudge to :func:`score_frontier_protect`."""
+    if burning_neighbour_count(state, node) == 0:
+        return 0.0
+    return float(unburned_neighbour_count(state, node)) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
+
+
 ALL_STRATEGIES = [
     random_score,
     score_by_fuel,
@@ -246,6 +347,14 @@ ALL_STRATEGIES = [
     score_fire_run,
     score_flank_attack,
     score_composite_threat,
+    score_betweenness_static,
+    score_betweenness_static_anchored,
+    score_betweenness_dynamic,
+    score_betweenness_dynamic_anchored,
+    score_mtt_pathway,
+    score_mtt_pathway_anchored,
+    score_frontier_protect,
+    score_frontier_protect_anchored,
 ]
 
 annotate_required_precomputes(random_score, [])
@@ -270,4 +379,15 @@ annotate_required_precomputes(score_head_fire, ["distance_to_fire", "wind_fire_a
 annotate_required_precomputes(score_flank_attack, ["distance_to_fire", "wind_fire_alignment", "has_treated_neighbour"])
 annotate_required_precomputes(
     score_composite_threat, ["distance_to_fire", "wind_fire_alignment", "has_treated_neighbour"]
+)
+annotate_required_precomputes(score_betweenness_static, ["betweenness_static"])
+annotate_required_precomputes(score_betweenness_static_anchored, ["betweenness_static", "has_treated_neighbour"])
+annotate_required_precomputes(score_betweenness_dynamic, ["betweenness_dynamic"])
+annotate_required_precomputes(score_betweenness_dynamic_anchored, ["betweenness_dynamic", "has_treated_neighbour"])
+annotate_required_precomputes(score_mtt_pathway, ["mtt_pathway_count"])
+annotate_required_precomputes(score_mtt_pathway_anchored, ["mtt_pathway_count", "has_treated_neighbour"])
+annotate_required_precomputes(score_frontier_protect, ["burning_neighbour_count", "unburned_neighbour_count"])
+annotate_required_precomputes(
+    score_frontier_protect_anchored,
+    ["burning_neighbour_count", "unburned_neighbour_count", "has_treated_neighbour"],
 )

@@ -35,10 +35,13 @@ from typing import Callable
 import numpy as np
 
 from wildfireGP.features import (
+    precompute_betweenness_dynamic,
+    precompute_betweenness_static,
     precompute_burnable_fire_map,
     precompute_burning_two_hop_map,
     precompute_fire_distance_map,
     precompute_fire_map,
+    precompute_mtt_pathway_count,
     precompute_neighbourhood_maps,
     precompute_reachable_unburned_area,
     precompute_state_counts,
@@ -59,6 +62,9 @@ ALL_PRECOMPUTES = frozenset(
         "state_counts",
         "neighbourhood_maps",
         "burning_two_hop_map",
+        "betweenness_static",
+        "betweenness_dynamic",
+        "mtt_pathway_count",
     }
 )
 
@@ -80,6 +86,9 @@ _FEATURE_PRECOMPUTE_MAP = {
     "total_burned": {"state_counts"},
     "total_unburned": {"state_counts"},
     "total_treated": {"state_counts"},
+    "betweenness_static": {"betweenness_static"},
+    "betweenness_dynamic": {"betweenness_dynamic"},
+    "mtt_pathway_count": {"mtt_pathway_count"},
 }
 
 
@@ -205,21 +214,26 @@ def _safe_score(func: Callable[[GraphState, tuple], float], state: GraphState, n
     return score if math.isfinite(score) else float("-inf")
 
 
+_PRECOMPUTE_DISPATCH = {
+    "burnable_fire_map": precompute_burnable_fire_map,
+    "reachable_unburned_area": precompute_reachable_unburned_area,
+    "state_counts": precompute_state_counts,
+    "neighbourhood_maps": precompute_neighbourhood_maps,
+    "burning_two_hop_map": precompute_burning_two_hop_map,
+    "betweenness_static": precompute_betweenness_static,
+    "betweenness_dynamic": precompute_betweenness_dynamic,
+    "mtt_pathway_count": precompute_mtt_pathway_count,
+}
+
+
 def _run_required_precomputes(state: GraphState, required_precomputes: frozenset[str]) -> None:
     if "fire_map" in required_precomputes:
         precompute_fire_map(state)
     elif "fire_distance_map" in required_precomputes:
         precompute_fire_distance_map(state)
-    if "burnable_fire_map" in required_precomputes:
-        precompute_burnable_fire_map(state)
-    if "reachable_unburned_area" in required_precomputes:
-        precompute_reachable_unburned_area(state)
-    if "state_counts" in required_precomputes:
-        precompute_state_counts(state)
-    if "neighbourhood_maps" in required_precomputes:
-        precompute_neighbourhood_maps(state)
-    if "burning_two_hop_map" in required_precomputes:
-        precompute_burning_two_hop_map(state)
+    for name, fn in _PRECOMPUTE_DISPATCH.items():
+        if name in required_precomputes:
+            fn(state)
 
 
 def annotate_required_precomputes(func, feature_names: set[str] | list[str] | tuple[str, ...]):

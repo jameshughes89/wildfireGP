@@ -16,6 +16,7 @@ vector for the dot product. This is not a distance measurement.
 import math
 from collections import deque
 
+import networkx as nx
 import numpy as np
 from scipy.ndimage import convolve, distance_transform_cdt, label
 
@@ -215,6 +216,115 @@ def reachable_unburned_area(state: GraphState, node: tuple) -> float:
     if state.reachable_unburned_area_map is None:
         return 0.0
     return float(state.reachable_unburned_area_map[node])
+
+
+# ---------------------------------------------------------------------------
+# Graph-theoretic --- precompute_betweenness_static / precompute_betweenness_dynamic /
+# precompute_mtt_pathway_count. Built on a NetworkX view of the landscape with
+# edge weights = inverse mean fuel (proxy for resistance to spread).
+# ---------------------------------------------------------------------------
+
+_EDGE_WEIGHT_EPS = 0.01
+
+
+def _edge_weight(state: GraphState, u: tuple, v: tuple) -> float:
+    return 1.0 / (0.5 * (float(state.fuel[u]) + float(state.fuel[v])) + _EDGE_WEIGHT_EPS)
+
+
+def _build_landscape_graph(state: GraphState, node_mask: np.ndarray) -> nx.Graph:
+    g = nx.Graph()
+    nodes = [(int(r), int(c)) for r, c in np.argwhere(node_mask)]
+    g.add_nodes_from(nodes)
+    for u in nodes:
+        for v in state.neighbours(u):
+            if g.has_node(v) and v > u:
+                g.add_edge(u, v, weight=_edge_weight(state, u, v))
+    return g
+
+
+def precompute_betweenness_static(state: GraphState) -> None:
+    """Compute betweenness centrality on the full burnable-LAND subgraph once and cache it.
+
+    Idempotent: subsequent calls within the same evaluation are no-ops. Edges are weighted by the inverse mean fuel of
+    their endpoints, so high-fuel corridors carry low weight (easy for fire to traverse). Matches the offline pre-fire
+    treatment-planning use case from Pais et al. (2021).
+    """
+    if state.betweenness_static_map is not None:
+        return
+    arr = np.zeros((state.rows, state.cols), dtype=np.float32)
+    g = _build_landscape_graph(state, state.terrain == TerrainType.LAND)
+    if len(g) > 0:
+        bc = nx.betweenness_centrality(g, weight="weight", normalized=True)
+        for node, score in bc.items():
+            arr[node] = score
+    state.betweenness_static_map = arr
+
+
+def precompute_betweenness_dynamic(state: GraphState) -> None:
+    """Compute betweenness centrality on the current UNBURNED-LAND subgraph each timestep.
+
+    BURNED, BURNING, and TREATED cells are removed from the graph before centrality is recomputed, so the
+    high-centrality cells shift as the fire grows.
+    """
+    arr = np.zeros((state.rows, state.cols), dtype=np.float32)
+    mask = (state.terrain == TerrainType.LAND) & (state.state == NodeState.UNBURNED)
+    g = _build_landscape_graph(state, mask)
+    if len(g) > 0:
+        bc = nx.betweenness_centrality(g, weight="weight", normalized=True)
+        for node, score in bc.items():
+            arr[node] = score
+    state.betweenness_dynamic_map = arr
+
+
+def precompute_mtt_pathway_count(state: GraphState) -> None:
+    """Count minimum-travel-time fire-arrival pathways through each cell.
+
+    From the current BURNING set, run multi-source Dijkstra on the LAND subgraph (BURNED and TREATED cells excluded)
+    with edge weights = inverse mean fuel. For each perimeter LAND cell, count how often each interior cell appears on
+    the shortest fire-arrival path to that perimeter cell. Implements Finney's (2001) MTT pathway-density logic.
+    """
+    counts = np.zeros((state.rows, state.cols), dtype=np.float32)
+    mask = (state.terrain == TerrainType.LAND) & (state.state != NodeState.BURNED) & (state.state != NodeState.TREATED)
+    g = _build_landscape_graph(state, mask)
+    burning = [
+        (int(r), int(c)) for r, c in np.argwhere(state.state == NodeState.BURNING) if g.has_node((int(r), int(c)))
+    ]
+    if not burning or len(g) == 0:
+        state.mtt_pathway_count_map = counts
+        return
+    rows, cols = state.rows, state.cols
+    boundary = [
+        (r, c)
+        for r in range(rows)
+        for c in range(cols)
+        if (r == 0 or r == rows - 1 or c == 0 or c == cols - 1) and g.has_node((r, c))
+    ]
+    _, paths = nx.multi_source_dijkstra(g, burning, weight="weight")
+    for target in boundary:
+        path = paths.get(target)
+        if path is None:
+            continue
+        for node in path:
+            counts[node] += 1
+    state.mtt_pathway_count_map = counts
+
+
+def betweenness_static(state: GraphState, node: tuple) -> float:
+    if state.betweenness_static_map is None:
+        return 0.0
+    return float(state.betweenness_static_map[node])
+
+
+def betweenness_dynamic(state: GraphState, node: tuple) -> float:
+    if state.betweenness_dynamic_map is None:
+        return 0.0
+    return float(state.betweenness_dynamic_map[node])
+
+
+def mtt_pathway_count(state: GraphState, node: tuple) -> float:
+    if state.mtt_pathway_count_map is None:
+        return 0.0
+    return float(state.mtt_pathway_count_map[node])
 
 
 def elevation_delta_to_fire(state: GraphState, node: tuple) -> float:
