@@ -107,6 +107,14 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     results = []
+    raw_rows: list[tuple[str, int, int, float, float]] = []
+
+    def _record_raw(name: str, burned: np.ndarray, peak: np.ndarray) -> None:
+        if args.save_raw is None:
+            return
+        for i, (b, p) in enumerate(zip(burned, peak)):
+            raw_rows.append((name, i // args.runs, i % args.runs, float(b), float(p)))
+
     log.info("  no_treatment ...")
     burned, peak = _run_strategy(
         lambda g, n: 0.0,
@@ -120,6 +128,7 @@ def main(argv: list[str] | None = None) -> None:
         args.min_treatment_distance,
     )
     results.append(("no_treatment", burned.mean(), burned.std(), peak.mean(), peak.std()))
+    _record_raw("no_treatment", burned, peak)
 
     for name, func in strategies:
         log.info("  %s ...", name)
@@ -135,9 +144,14 @@ def main(argv: list[str] | None = None) -> None:
             args.min_treatment_distance,
         )
         results.append((name, burned.mean(), burned.std(), peak.mean(), peak.std()))
+        _record_raw(name, burned, peak)
 
     results.sort(key=lambda r: r[1])
     _print_table(results)
+
+    if args.save_raw is not None:
+        _save_raw_csv(args.save_raw, raw_rows)
+        log.info("Saved per-run results to %s", args.save_raw)
 
 
 def _run_strategy(
@@ -206,10 +220,33 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     add_multi_landscape_args(parser)
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--results-dir", type=pathlib.Path, default=None)
+    parser.add_argument(
+        "--save-raw",
+        type=pathlib.Path,
+        default=None,
+        help="If set, write per-(strategy, landscape, run) results to this CSV file. "
+        "Columns: strategy, landscape_idx, run_idx, burned, peak. Useful for "
+        "distribution comparison (KS test, bootstrap CIs, box plots).",
+    )
     gp_source = parser.add_mutually_exclusive_group()
     gp_source.add_argument("--hof", type=pathlib.Path, nargs="+", default=None)
     gp_source.add_argument("--expr", type=str, default=None, help="Load a candidate by expression string.")
     return parser.parse_args(argv)
+
+
+def _save_raw_csv(path: pathlib.Path, rows: list[tuple[str, int, int, float, float]]) -> None:
+    """Save per-(strategy, landscape, run) results as a CSV for distribution analysis.
+
+    Columns: strategy, landscape_idx, run_idx, burned, peak. Creates parent directories
+    if needed.
+    """
+    import csv as _csv
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="") as f:
+        wr = _csv.writer(f)
+        wr.writerow(["strategy", "landscape_idx", "run_idx", "burned", "peak"])
+        wr.writerows(rows)
 
 
 def _print_table(results: list[tuple]) -> None:
