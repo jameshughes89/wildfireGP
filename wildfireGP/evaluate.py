@@ -68,6 +68,13 @@ ALL_PRECOMPUTES = frozenset(
     }
 )
 
+# Fallback precompute set for callables without an explicit ``_required_precomputes`` annotation. Excludes the
+# graph-theoretic precomputes (betweenness_*, mtt_pathway_count): those are expensive and never appear in the GP
+# language's primitive set (see :mod:`wildfireGP.language`), so falling back to ALL_PRECOMPUTES would silently
+# trigger ~100x slower simulations for any unannotated GP tree. Strategies that need these must annotate
+# themselves via :func:`annotate_required_precomputes`.
+DEFAULT_FALLBACK_PRECOMPUTES = ALL_PRECOMPUTES - {"betweenness_static", "betweenness_dynamic", "mtt_pathway_count"}
+
 _FEATURE_PRECOMPUTE_MAP = {
     "mean_neighbour_elevation": {"neighbourhood_maps"},
     "mean_neighbour_fuel": {"neighbourhood_maps"},
@@ -117,7 +124,7 @@ def simulate(
     distance to the nearest burning cell is less than this value are removed from the treatment pool. Default 0 models
     aerial retardant (adjacent treatment allowed); positive values model ground-crew safety zones.
     """
-    required_precomputes = getattr(func, "_required_precomputes", ALL_PRECOMPUTES)
+    required_precomputes = getattr(func, "_required_precomputes", DEFAULT_FALLBACK_PRECOMPUTES)
     if min_treatment_distance > 0:
         required_precomputes = required_precomputes | {"fire_distance_map"}
     for step in range(max_steps):
@@ -191,7 +198,7 @@ def _apply_treatments(
     candidates = [(int(r), int(c)) for r, c in candidate_arr]
     rng.shuffle(candidates)
     scores = {n: _safe_score(func, state, n) for n in candidates}
-    required_precomputes = getattr(func, "_required_precomputes", ALL_PRECOMPUTES)
+    required_precomputes = getattr(func, "_required_precomputes", DEFAULT_FALLBACK_PRECOMPUTES)
     candidate_set = set(candidates)
     candidates.sort(key=lambda n: scores[n], reverse=True)
     for _ in range(min(budget, len(candidates))):
