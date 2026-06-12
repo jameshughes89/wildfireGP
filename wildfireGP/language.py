@@ -25,26 +25,17 @@ from deap import gp
 from wildfireGP.features import (
     burnable_distance_to_fire,
     burning_neighbour_count,
-    burning_two_hop_count,
     distance_to_fire,
-    elevation,
     elevation_delta_to_fire,
     fuel_level,
-    fuel_moisture,
     has_treated_neighbour,
-    mean_neighbour_elevation,
     mean_neighbour_fuel,
     reachable_unburned_area,
     slope,
-    total_burned,
-    total_burning,
-    total_treated,
-    total_unburned,
     treated_neighbour_count,
     unburnable_neighbour_count,
     unburned_neighbour_count,
     wind_fire_alignment,
-    wind_speed,
 )
 from wildfireGP.network import GraphState
 
@@ -75,12 +66,9 @@ def _min2(a: float, b: float) -> float:
 
 _NODE_FEATURES = [
     fuel_level,
-    elevation,
     slope,
-    mean_neighbour_elevation,
     mean_neighbour_fuel,
     burning_neighbour_count,
-    burning_two_hop_count,
     unburned_neighbour_count,
     unburnable_neighbour_count,
     has_treated_neighbour,
@@ -90,15 +78,6 @@ _NODE_FEATURES = [
     reachable_unburned_area,
     wind_fire_alignment,
     elevation_delta_to_fire,
-]
-
-_GRAPH_FEATURES = [
-    wind_speed,
-    fuel_moisture,
-    total_burning,
-    total_burned,
-    total_unburned,
-    total_treated,
 ]
 
 
@@ -117,9 +96,6 @@ def _build() -> gp.PrimitiveSetTyped:
 
     for func in _NODE_FEATURES:
         pset.addPrimitive(func, [GraphState, tuple], float, name=func.__name__)
-
-    for func in _GRAPH_FEATURES:
-        pset.addPrimitive(func, [GraphState], float, name=func.__name__)
 
     pset.addEphemeralConstant("const", partial(random.uniform, -20.0, 20.0), float)
 

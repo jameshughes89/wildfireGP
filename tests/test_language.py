@@ -65,14 +65,6 @@ def test_compiled_node_feature_tree_evaluates():
     assert func(g, node) == pytest.approx(fuel_level(g, node))
 
 
-def test_compiled_graph_feature_tree_evaluates():
-    g = _graph()
-    node = (1, 1)
-    tree = gp.PrimitiveTree.from_string("wind_speed(graph)", PRIMITIVE_SET)
-    func = gp.compile(tree, PRIMITIVE_SET)
-    assert func(g, node) == pytest.approx(10.0)
-
-
 def test_compiled_arithmetic_tree_evaluates():
     g = _graph()
     node = (1, 1)
