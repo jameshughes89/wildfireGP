@@ -10,7 +10,7 @@ from scripts.cli import find_valid_ignition as _find_valid_ignition
 from wildfireGP.network import create_grid, set_fuel_moisture, set_wind
 
 _EXPR_A = "fuel_level(graph, node)"
-_EXPR_B = "slope(graph, node)"
+_EXPR_B = "elevation(graph, node)"
 
 
 def _write_population(directory: pathlib.Path, exprs: list[str]) -> None:

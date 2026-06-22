@@ -113,7 +113,7 @@ def test_gen_grow_terminal_only_types_use_argument_terminals():
 
 
 def test_eval_individual_annotates_compiled_precompute_requirements():
-    expr = gp.PrimitiveTree.from_string("add(distance_to_fire(graph, node), fuel_level(graph, node))", PRIMITIVE_SET)
+    expr = gp.PrimitiveTree.from_string("add(distance_to_fire(graph, node), total_burning(graph))", PRIMITIVE_SET)
     individual = creator.Individual(expr)
     result = _eval_individual(individual, [(_graph(), [(2, 2)])], 2, 5, _rng())
     assert result[0] >= 0.0
