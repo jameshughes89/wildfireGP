@@ -99,9 +99,11 @@ def main(argv: list[str] | None = None) -> None:
         landscapes.append((land_seed, wind_speed, wind_direction, ignition))
 
     strategies = _load_strategies(args)
+    n_extra = 0 if args.no_baselines else 1
     log.info(
-        "Evaluating %d strategies + no_treatment over %d landscapes x %d runs",
-        len(strategies),
+        "Evaluating %d strategies%s over %d landscapes x %d runs",
+        len(strategies) + n_extra,
+        "" if args.no_baselines else " + no_treatment",
         landscapes_count,
         args.runs,
     )
@@ -115,20 +117,21 @@ def main(argv: list[str] | None = None) -> None:
         for i, (b, p) in enumerate(zip(burned, peak)):
             raw_rows.append((name, i // args.runs, i % args.runs, float(b), float(p)))
 
-    log.info("  no_treatment ...")
-    burned, peak = _run_strategy(
-        lambda g, n: 0.0,
-        landscapes,
-        0,
-        grid_kwargs,
-        args.moisture,
-        args.max_steps,
-        run_seed_matrix,
-        args.intervention_delay,
-        args.min_treatment_distance,
-    )
-    results.append(("no_treatment", burned.mean(), burned.std(), peak.mean(), peak.std()))
-    _record_raw("no_treatment", burned, peak)
+    if not args.no_baselines:
+        log.info("  no_treatment ...")
+        burned, peak = _run_strategy(
+            lambda g, n: 0.0,
+            landscapes,
+            0,
+            grid_kwargs,
+            args.moisture,
+            args.max_steps,
+            run_seed_matrix,
+            args.intervention_delay,
+            args.min_treatment_distance,
+        )
+        results.append(("no_treatment", burned.mean(), burned.std(), peak.mean(), peak.std()))
+        _record_raw("no_treatment", burned, peak)
 
     for name, func in strategies:
         log.info("  %s ...", name)
@@ -188,7 +191,7 @@ def _run_strategy(
 
 
 def _load_strategies(args: argparse.Namespace) -> list[tuple[str, object]]:
-    strategies = [(f.__name__, f) for f in ALL_STRATEGIES]
+    strategies = [] if getattr(args, "no_baselines", False) else [(f.__name__, f) for f in ALL_STRATEGIES]
 
     if getattr(args, "expr", None):
         if not args.results_dir:
@@ -220,6 +223,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     add_multi_landscape_args(parser)
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--results-dir", type=pathlib.Path, default=None)
+    parser.add_argument(
+        "--no-baselines",
+        action="store_true",
+        help="Skip ALL_STRATEGIES and no_treatment; only evaluate --hof / --expr strategies. "
+        "Use this to add new GP candidates to an existing comparison without recomputing baselines.",
+    )
     parser.add_argument(
         "--save-raw",
         type=pathlib.Path,
