@@ -301,7 +301,7 @@ def score_mtt_pathway(state: GraphState, node: tuple) -> float:
     through it. Distinct from betweenness centrality, which is computed over all pairs of cells; MTT pathway is
     anchored to the current burning set.
 
-    Reference: Finney (2001) --- the MTT method underlies FlamMap.
+    Reference: Finney (2002) --- the MTT method underlies FlamMap.
     """
     return mtt_pathway_count(state, node)
 
