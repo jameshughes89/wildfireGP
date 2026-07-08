@@ -11,12 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
 
-from wildfireGP.features import (
-    precompute_burnable_fire_map,
-    precompute_fire_map,
-    precompute_reachable_unburned_area,
-    precompute_state_counts,
-)
+from wildfireGP.evaluate import DEFAULT_FALLBACK_PRECOMPUTES, _run_required_precomputes
 from wildfireGP.network import GraphState, NodeState, TerrainType
 
 _WIND_ARROWS = ["↓", "↙", "←", "↖", "↑", "↗", "→", "↘"]
@@ -71,13 +66,11 @@ def render_heatmap(
 ) -> plt.Axes:
     """Render per-node priority scores of a strategy as a spatial heatmap.
 
-    All four precomputes are called internally so any strategy that depends on graph-level precomputed features works
-    correctly without the caller needing to do setup.
+    Precomputes required by the strategy are called internally, driven by its ``_required_precomputes`` annotation
+    (or the default fallback set for unannotated strategies), so any strategy works correctly without caller setup.
     """
-    precompute_fire_map(state)
-    precompute_burnable_fire_map(state)
-    precompute_reachable_unburned_area(state)
-    precompute_state_counts(state)
+    required = getattr(func, "_required_precomputes", DEFAULT_FALLBACK_PRECOMPUTES)
+    _run_required_precomputes(state, required)
 
     rows, cols = state.rows, state.cols
     rgb = _build_rgb(state).copy()
@@ -132,10 +125,8 @@ def animate_heatmap(
         raise ValueError(f"Only GIF output is supported; got: {path}")
 
     for s in states:
-        precompute_fire_map(s)
-        precompute_burnable_fire_map(s)
-        precompute_reachable_unburned_area(s)
-        precompute_state_counts(s)
+        required = getattr(func, "_required_precomputes", DEFAULT_FALLBACK_PRECOMPUTES)
+        _run_required_precomputes(s, required)
 
     all_finite: list[float] = []
     for s in states:
