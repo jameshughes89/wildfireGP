@@ -10,6 +10,7 @@ Use this for evaluation scripts that average results across N independent landsc
 
 find_valid_ignition() probes candidate ignition points on a landscape and returns one where fire spreads meaningfully
 without treatment, filtering out locations where the fire would naturally extinguish regardless of strategy.
+find_valid_ignition_cluster() is the cluster-returning analogue used by run_gp.py to select training ignitions.
 
 load_expr() compiles a single GP expression string against the current PRIMITIVE_SET. Used everywhere a saved candidate
 is loaded back from disk --- nothing is pickled.
@@ -31,7 +32,7 @@ from deap import gp
 
 from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, evaluate
 from wildfireGP.language import PRIMITIVE_SET
-from wildfireGP.network import select_ignition_node
+from wildfireGP.network import select_ignition_cluster, select_ignition_node
 
 log = logging.getLogger(__name__)
 
@@ -322,3 +323,46 @@ def find_valid_ignition(
         log.debug("ignition %s burned %d < %d (attempt %d), resampling", ignition, burned, min_burned, attempt + 1)
     log.warning("No valid ignition found after %d tries (best burned=%d); using best available", max_tries, best_burned)
     return best_ignition
+
+
+def find_valid_ignition_cluster(
+    graph,
+    rng: np.random.Generator,
+    cluster_size: int,
+    max_steps: int,
+    intervention_delay: int,
+    min_burned: int,
+    max_tries: int,
+) -> list[tuple]:
+    """
+    Sample ignition clusters until one produces meaningful fire spread without treatment.
+
+    Cluster-returning analogue of :func:`find_valid_ignition`. Used by run_gp.py to select training ignitions, so
+    training-time ignitions match the fizzle-filter discipline that evaluation scripts already apply. If no cluster
+    burns at least ``min_burned`` nodes within ``max_tries`` attempts, the best seen so far is returned with a warning.
+    """
+    best_cluster = None
+    best_burned = -1
+    for attempt in range(max_tries):
+        cluster = select_ignition_cluster(graph, rng, size=cluster_size)
+        burned, _ = evaluate(
+            lambda g, n: 0.0,
+            graph,
+            cluster,
+            0,
+            max_steps,
+            np.random.default_rng(rng.integers(2**31)),
+            intervention_delay,
+        )
+        if burned >= min_burned:
+            return cluster
+        if burned > best_burned:
+            best_burned = burned
+            best_cluster = cluster
+        log.debug("ignition cluster %s burned %d < %d (attempt %d), resampling", cluster, burned, min_burned, attempt + 1)
+    log.warning(
+        "No valid ignition cluster found after %d tries (best burned=%d); using best available",
+        max_tries,
+        best_burned,
+    )
+    return best_cluster

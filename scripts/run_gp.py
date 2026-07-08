@@ -45,7 +45,9 @@ from deap import tools
 
 from scripts.cli import (
     add_landscape_args,
+    add_multi_landscape_args,
     add_wind_per_landscape_args,
+    find_valid_ignition_cluster,
     landscape_kwargs,
     resolve_landscape_count,
     resolve_wind_for_landscape,
@@ -53,7 +55,6 @@ from scripts.cli import (
 from wildfireGP.gp import GPConfig, run
 from wildfireGP.network import (
     create_grid,
-    select_ignition_cluster,
     set_fuel_moisture,
     set_wind,
 )
@@ -90,7 +91,15 @@ def main(argv: list[str] | None = None) -> None:
         graph = create_grid(**landscape_kwargs(args), seed=land_seed)
         set_wind(graph, speed=wind_speed, direction=wind_direction)
         set_fuel_moisture(graph, moisture=args.moisture)
-        ignition_nodes = select_ignition_cluster(graph, rng, size=args.ignition_cluster_size)
+        ignition_nodes = find_valid_ignition_cluster(
+            graph,
+            rng,
+            cluster_size=args.ignition_cluster_size,
+            max_steps=args.max_steps,
+            intervention_delay=args.intervention_delay,
+            min_burned=args.min_burned,
+            max_tries=args.max_ignition_tries,
+        )
         log.info("  ignition cluster (%d nodes): %s", len(ignition_nodes), ignition_nodes)
         scenarios.append((graph, ignition_nodes))
         land_ignitions.append(ignition_nodes)
@@ -161,6 +170,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run wildfire GP and save results.")
     add_landscape_args(parser)
     add_wind_per_landscape_args(parser)
+    add_multi_landscape_args(parser)
     parser.add_argument("--results-dir", type=pathlib.Path, default=DEFAULT_RESULTS_DIR)
     parser.add_argument("--ignition-cluster-size", type=int, default=3, help="Number of nodes to ignite at t=0.")
     parser.add_argument("--pop", type=int, default=GPConfig.population_size)

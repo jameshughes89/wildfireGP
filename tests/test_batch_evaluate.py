@@ -7,6 +7,7 @@ import pytest
 
 from scripts.batch_evaluate import _load_candidates, main
 from scripts.cli import find_valid_ignition as _find_valid_ignition
+from scripts.cli import find_valid_ignition_cluster as _find_valid_ignition_cluster
 from wildfireGP.network import create_grid, set_fuel_moisture, set_wind
 
 _EXPR_A = "fuel_level(graph, node)"
@@ -90,6 +91,65 @@ def test_find_valid_ignition_falls_back_when_min_burned_impossible(caplog):
         )
     assert ignition is not None
     assert "No valid ignition" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# _find_valid_ignition_cluster
+# ---------------------------------------------------------------------------
+
+
+def test_find_valid_ignition_cluster_returns_a_list_of_tuples():
+    g = create_grid(10, 10, seed=0)
+    set_wind(g, speed=20.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.2)
+    cluster = _find_valid_ignition_cluster(
+        g, np.random.default_rng(0), cluster_size=3, max_steps=50, intervention_delay=0, min_burned=0, max_tries=5
+    )
+    assert isinstance(cluster, list)
+    for node in cluster:
+        assert isinstance(node, tuple)
+
+
+def test_find_valid_ignition_cluster_respects_size():
+    g = create_grid(10, 10, seed=0)
+    set_wind(g, speed=20.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.2)
+    cluster = _find_valid_ignition_cluster(
+        g, np.random.default_rng(0), cluster_size=3, max_steps=50, intervention_delay=0, min_burned=0, max_tries=5
+    )
+    assert len(cluster) <= 3
+    assert len(cluster) >= 1
+
+
+def test_find_valid_ignition_cluster_returns_nodes_in_graph():
+    g = create_grid(10, 10, seed=0)
+    set_wind(g, speed=20.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.2)
+    cluster = _find_valid_ignition_cluster(
+        g, np.random.default_rng(0), cluster_size=3, max_steps=50, intervention_delay=0, min_burned=0, max_tries=5
+    )
+    for r, c in cluster:
+        assert 0 <= r < g.rows and 0 <= c < g.cols
+
+
+def test_find_valid_ignition_cluster_falls_back_when_min_burned_impossible(caplog):
+    g = create_grid(10, 10, seed=0)
+    set_wind(g, speed=20.0, direction=0.0)
+    set_fuel_moisture(g, moisture=0.2)
+    import logging
+
+    with caplog.at_level(logging.WARNING):
+        cluster = _find_valid_ignition_cluster(
+            g,
+            np.random.default_rng(0),
+            cluster_size=3,
+            max_steps=5,
+            intervention_delay=0,
+            min_burned=99999,
+            max_tries=3,
+        )
+    assert cluster is not None
+    assert "No valid ignition cluster" in caplog.text
 
 
 # ---------------------------------------------------------------------------
