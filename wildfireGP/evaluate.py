@@ -160,7 +160,9 @@ def evaluate(
     :param min_treatment_distance: Hard exclusion zone around active fire. Default 0 = adjacent treatment allowed
         (aerial retardant). Positive values exclude cells within that chessboard distance of any burning cell from
         the treatment candidate pool (ground-crew safety zone).
-    :return: ``(total_burned, peak_burning)``. Both should be minimised.
+    :return: ``(total_burned, peak_burning)``, both to be minimised. ``total_burned`` counts cells in
+        ``NodeState.BURNED`` at termination; cells still in ``NodeState.BURNING`` when ``max_steps`` is reached are
+        not counted.
     """
     state = state.copy()
     init_ignition(state, ignition_nodes)

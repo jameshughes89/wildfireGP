@@ -3,7 +3,8 @@ Plot per-node treatment and burn frequency heatmaps for a GP or baseline strateg
 
 Runs N independent simulations on the same landscape and accumulates, for each node:
     - treatment frequency: fraction of runs in which the node was treated at any point
-    - burn frequency: fraction of runs in which the node burned
+    - burn frequency: fraction of runs in which the node completed burning (NodeState.BURNED at termination),
+      matching the fitness convention in :func:`wildfireGP.evaluate.evaluate`
 
 Two heatmaps are plotted side by side. Comparing them reveals whether the strategy places
 treatments ahead of the fire (treatment-heavy nodes in low-burn areas) or reactively
@@ -144,7 +145,7 @@ def _run_and_collect(
     for _step, _ in simulate(s, func, treatments_per_step, max_steps, rng, intervention_delay, min_treatment_distance):
         pass
     treated_mask = s.state == NodeState.TREATED
-    burned_mask = (s.state == NodeState.BURNED) | (s.state == NodeState.BURNING)
+    burned_mask = s.state == NodeState.BURNED
     return treated_mask, burned_mask
 
 
