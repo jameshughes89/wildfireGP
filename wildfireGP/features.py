@@ -374,7 +374,7 @@ def precompute_mtt_pathway_count(state: GraphState) -> None:
     asymmetries from wind and slope and stays consistent with the simulator's own physics. Computed via scipy
     sparse Dijkstra.
 
-    Reference: Finney (2001) MTT method (PNW-GTR-610), adapted to use the simulator's own ignition probabilities.
+    Reference: Finney (2002) MTT method, adapted to use the simulator's own ignition probabilities.
     """
     rows, cols = state.rows, state.cols
     counts = np.zeros((rows, cols), dtype=np.float32)

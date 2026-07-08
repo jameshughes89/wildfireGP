@@ -29,7 +29,7 @@ line-extension nudge added), so the effect of the line-extension term can be iso
 
     score_betweenness_static / score_betweenness_static_anchored      (Pais et al. 2021; offline pre-fire)
     score_betweenness_dynamic / score_betweenness_dynamic_anchored    (Pais et al. 2021; online per-step variant)
-    score_mtt_pathway / score_mtt_pathway_anchored                    (Finney 2001; MTT pathway density)
+    score_mtt_pathway / score_mtt_pathway_anchored                    (Finney 2002; MTT pathway density)
     score_frontier_protect / score_frontier_protect_anchored          (Cai, Verbin, Yang 2008; greedy frontier)
 
 If GP cannot outperform :func:`score_by_fire_proximity` --- the strongest single-feature doctrine baseline --- it is not
@@ -49,9 +49,8 @@ Cai, L., Verbin, E., & Yang, L. (2008). Firefighting on Trees: (1 - 1/e)-Approxi
     vol 5369. Springer.
 Finbow, S., & MacGillivray, G. (2009). The Firefighter Problem: A Survey of Results, Directions and Questions. AKCE
     International Journal of Graphs and Combinatorics, 6(1), 57-77.
-Finney, M. A. (2001). Design of regular landscape fuel treatment patterns for modifying fire growth and behavior.
-    Forest Science, 47(2), 219-228. See also Finney, M. A. (2007). PNW-GTR-610 Chapter 9: Landscape fire simulation
-    and fuel treatment optimization.
+Finney, M. A. (2002). Fire growth using minimum travel time methods. Canadian Journal of Forest Research, 32(8),
+    1420-1424.
 National Wildfire Coordinating Group. (2004). Fireline Handbook. NWCG Handbook 3, PMS 410-1.
 National Wildfire Coordinating Group. (2022). Incident Response Pocket Guide. PMS 461.
 Pais, C., Carrasco, J., Martell, D. L., Weintraub, A., & Woodruff, D. L. (2021). Cell2Fire: A Cell-Based Forest
@@ -150,11 +149,14 @@ def score_anchor_flank(state: GraphState, node: tuple, min_distance: int = 2, ma
 
 
 def score_bottleneck(state: GraphState, node: tuple, min_distance: int = 2, max_distance: int = 10) -> float:
-    """Prioritise cells that gate access to large connected unburned regions (gateway protection).
+    """Prioritise cells that belong to large connected unburned components (component-size proxy for gateway
+    protection).
 
-    Indirect-attack reasoning generalised to landscape topology: a cell whose treatment denies the fire access to a
-    large connected unburned component is worth more than one fronting a small pocket. Approximates the
-    betweenness-centrality / minimum-travel-time placement heuristics used in landscape fuel-management planning.
+    Indirect-attack reasoning approximated on landscape topology: a cell in a large connected unburned region is
+    scored higher than one in a small pocket, on the intuition that treating cells associated with larger unburned
+    regions is more valuable. Note that :func:`reachable_unburned_area` measures the size of the connected
+    component the cell belongs to, not the area its treatment would strictly deny the fire; this is a coarse
+    proxy for gateway protection rather than a min-cut computation.
 
     Reference: Pais et al. (2021), Cell2Fire --- discusses graph-theoretic placement heuristics including
     centrality-based approaches for strategic fuel treatment.
@@ -296,10 +298,13 @@ def score_betweenness_dynamic_anchored(state: GraphState, node: tuple) -> float:
 def score_mtt_pathway(state: GraphState, node: tuple) -> float:
     """Prioritise cells on many minimum-travel-time fire-arrival paths to landscape boundaries.
 
-    Source-anchored topological baseline: from the current burning set, multi-source Dijkstra to each perimeter LAND
-    cell with edge weights = inverse mean fuel. A cell's score is the count of shortest fire-arrival paths that pass
+    Source-anchored topological baseline: from the current burning set, multi-source Dijkstra to each burnable
+    perimeter LAND cell over a directed graph whose edge weights are the simulator's own per-edge ignition
+    probability (Alexandridis 2008), transformed as -log(P(ignite u -> v)) so that a shortest path is the
+    most-likely fire propagation route. A cell's score is the count of shortest fire-arrival paths that pass
     through it. Distinct from betweenness centrality, which is computed over all pairs of cells; MTT pathway is
-    anchored to the current burning set.
+    anchored to the current burning set. The current implementation captures the directional asymmetries from
+    wind and slope, and supersedes earlier undirected inverse-mean-fuel formulations.
 
     Reference: Finney (2002) --- the MTT method underlies FlamMap.
     """
