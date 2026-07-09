@@ -30,7 +30,7 @@ import pathlib
 import numpy as np
 from deap import gp
 
-from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, evaluate
+from wildfireGP.evaluate import DEFAULT_INTERVENTION_DELAY, annotate_required_precomputes, evaluate
 from wildfireGP.language import PRIMITIVE_SET
 from wildfireGP.network import select_ignition_cluster, select_ignition_node
 
@@ -41,10 +41,17 @@ def load_expr(expr: str) -> object:
     """
     Compile a single GP expression string into a callable ``func(state, node) -> float``.
 
+    The returned callable is annotated with its required precomputes (via ``_required_precomputes``) using the
+    parsed tree, matching what :func:`wildfireGP.gp._eval_individual` does during training. Downstream evaluation
+    then runs only the precomputes the tree actually needs each step, rather than falling back to the full default
+    set --- correct in either case, but noticeably faster for typical evolved policies.
+
     Raises ValueError if the expression references a primitive that no longer exists in PRIMITIVE_SET.
     """
     tree = gp.PrimitiveTree.from_string(expr, PRIMITIVE_SET)
-    return gp.compile(tree, pset=PRIMITIVE_SET)
+    func = gp.compile(tree, pset=PRIMITIVE_SET)
+    annotate_required_precomputes(func, {node.name for node in tree if getattr(node, "name", None) is not None})
+    return func
 
 
 def read_population_exprs(results_dir: pathlib.Path) -> list[str]:

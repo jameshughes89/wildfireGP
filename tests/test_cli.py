@@ -26,6 +26,22 @@ def test_load_expr_unknown_primitive_raises():
         load_expr("nonexistent_primitive(graph, node)")
 
 
+def test_load_expr_annotates_required_precomputes():
+    func = load_expr("distance_to_fire(graph, node)")
+    assert hasattr(func, "_required_precomputes")
+    assert func._required_precomputes == frozenset({"fire_distance_map"})
+
+
+def test_load_expr_annotates_only_features_the_tree_uses():
+    func = load_expr("fuel_level(graph, node)")
+    assert func._required_precomputes == frozenset()
+
+
+def test_load_expr_annotation_covers_composite_tree():
+    func = load_expr("add(distance_to_fire(graph, node), fuel_level(graph, node))")
+    assert func._required_precomputes == frozenset({"fire_distance_map"})
+
+
 def test_load_candidate_by_expr_finds_in_population(tmp_path):
     _write_population(tmp_path, [_EXPR])
     assert callable(load_candidate_by_expr(tmp_path, _EXPR))
