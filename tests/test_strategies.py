@@ -384,3 +384,34 @@ def test_score_frontier_protect_anchored_zero_without_burning_neighbour():
     s.state[0, 1] = NodeState.TREATED
     precompute_neighbourhood_maps(s)
     assert score_frontier_protect_anchored(s, (0, 0)) == 0.0
+
+
+def test_score_frontier_protect_excludes_water_neighbours():
+    """CVY greedy semantics: water cells are not part of the unburned region the fire could reach."""
+    s = _state_graph_baselines(ignition=(5, 5))
+    # (5, 4) is a burning-adjacent LAND cell. Baseline score before doctoring neighbours.
+    baseline = score_frontier_protect(s, (5, 4))
+
+    # Turn one of (5, 4)'s neighbours into water. Water cells are UNBURNED for the whole sim but never burn, so
+    # the CVY "unburned area the fire could reach" count should DROP, not stay flat.
+    from wildfireGP.network import TerrainType
+
+    s.terrain[4, 3] = TerrainType.WATER
+    s.fuel[4, 3] = 0.0
+    precompute_neighbourhood_maps(s)
+    with_water = score_frontier_protect(s, (5, 4))
+    assert with_water < baseline
+
+
+def test_score_frontier_protect_excludes_rock_neighbours():
+    """CVY greedy semantics: rock cells are not part of the unburned region the fire could reach."""
+    s = _state_graph_baselines(ignition=(5, 5))
+    baseline = score_frontier_protect(s, (5, 4))
+
+    from wildfireGP.network import TerrainType
+
+    s.terrain[4, 3] = TerrainType.ROCK
+    s.fuel[4, 3] = 0.0
+    precompute_neighbourhood_maps(s)
+    with_rock = score_frontier_protect(s, (5, 4))
+    assert with_rock < baseline

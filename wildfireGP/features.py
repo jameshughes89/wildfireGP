@@ -232,27 +232,29 @@ _BETWEENNESS_SAMPLE_K = 100
 _BETWEENNESS_SEED = 0
 
 
-def _edge_weight(state: GraphState, u: tuple, v: tuple) -> float:
-    return 1.0 / (0.5 * (float(state.fuel[u]) + float(state.fuel[v])) + _EDGE_WEIGHT_EPS)
+def _edge_weight(state: GraphState, u: tuple, v: tuple, fuel: np.ndarray | None = None) -> float:
+    src = state.fuel if fuel is None else fuel
+    return 1.0 / (0.5 * (float(src[u]) + float(src[v])) + _EDGE_WEIGHT_EPS)
 
 
-def _build_landscape_graph(state: GraphState, node_mask: np.ndarray) -> nx.Graph:
+def _build_landscape_graph(state: GraphState, node_mask: np.ndarray, fuel: np.ndarray | None = None) -> nx.Graph:
     g = nx.Graph()
     nodes = [(int(r), int(c)) for r, c in np.argwhere(node_mask)]
     g.add_nodes_from(nodes)
     for u in nodes:
         for v in state.neighbours(u):
             if g.has_node(v) and v > u:
-                g.add_edge(u, v, weight=_edge_weight(state, u, v))
+                g.add_edge(u, v, weight=_edge_weight(state, u, v, fuel=fuel))
     return g
 
 
 def precompute_betweenness_static(state: GraphState) -> None:
-    """Compute betweenness centrality on the full burnable-LAND subgraph once and cache it.
+    """Compute betweenness centrality on the pristine burnable-LAND subgraph once and cache it.
 
     Idempotent: subsequent calls within the same evaluation are no-ops. Edges are weighted by the inverse mean fuel of
-    their endpoints, so high-fuel corridors carry low weight (easy for fire to traverse). Matches the offline pre-fire
-    treatment-planning use case from Pais et al. (2021).
+    their endpoints, so high-fuel corridors carry low weight (easy for fire to traverse). Uses the pristine fuel
+    snapshot cached at graph creation, so this baseline is genuinely pre-fire regardless of when it is first invoked
+    during a simulation --- matching the offline pre-fire treatment-planning use case from Pais et al. (2021).
 
     Uses Brandes & Pich (2007) k-source sampling (k=:data:`_BETWEENNESS_SAMPLE_K`) for tractable runtime on 50x50
     grids; exact BC takes ~37 s/sim vs ~1.6 s/sim approximate. Rank ordering is preserved within ~3% across seeds.
@@ -260,7 +262,8 @@ def precompute_betweenness_static(state: GraphState) -> None:
     if state.betweenness_static_map is not None:
         return
     arr = np.zeros((state.rows, state.cols), dtype=np.float32)
-    g = _build_landscape_graph(state, state.terrain == TerrainType.LAND)
+    pristine = state.pristine_fuel if state.pristine_fuel is not None else state.fuel
+    g = _build_landscape_graph(state, state.terrain == TerrainType.LAND, fuel=pristine)
     if len(g) > 0:
         k = min(_BETWEENNESS_SAMPLE_K, len(g))
         bc = nx.betweenness_centrality(g, k=k, weight="weight", normalized=True, seed=_BETWEENNESS_SEED)

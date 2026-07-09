@@ -633,6 +633,36 @@ def test_precompute_betweenness_static_is_idempotent():
     assert s.betweenness_static_map is original
 
 
+def test_precompute_betweenness_static_uses_pristine_fuel():
+    # Compute BC at t=0.
+    s0 = _state_with_burning_centre()
+    precompute_betweenness_static(s0)
+    bc_pristine = s0.betweenness_static_map.copy()
+
+    # Now simulate the effect of burnout by zeroing fuel on several cells, then compute BC again on a fresh state
+    # where the *live* fuel has been zeroed but pristine_fuel is preserved. The fix means BC should NOT depend on
+    # live fuel and should match the pristine result.
+    s1 = _state_with_burning_centre()
+    for r, c in [(1, 1), (2, 2), (4, 4)]:
+        s1.fuel[r, c] = 0.0
+    precompute_betweenness_static(s1)
+    assert np.allclose(s1.betweenness_static_map, bc_pristine)
+
+
+def test_pristine_fuel_populated_by_create_grid():
+    s = create_grid(6, 6, seed=0)
+    assert s.pristine_fuel is not None
+    assert np.array_equal(s.pristine_fuel, s.fuel)
+
+
+def test_pristine_fuel_unchanged_when_live_fuel_zeros():
+    s = create_grid(6, 6, seed=0)
+    pristine_before = s.pristine_fuel.copy()
+    s.fuel[2, 2] = 0.0
+    s.fuel[3, 3] = 0.0
+    assert np.array_equal(s.pristine_fuel, pristine_before)
+
+
 def test_betweenness_dynamic_zero_for_burning_cell():
     s = _state_with_burning_centre()
     precompute_betweenness_dynamic(s)

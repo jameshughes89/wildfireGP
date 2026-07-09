@@ -88,6 +88,7 @@ class GraphState:
     slope: np.ndarray
     terrain: np.ndarray
     burn_timer: np.ndarray
+    pristine_fuel: np.ndarray | None = None
     wind_speed: float = 0.0
     wind_direction: float = 0.0
     fuel_moisture: float = 0.0
@@ -112,7 +113,11 @@ class GraphState:
     step_treated: int = 0
 
     def copy(self) -> "GraphState":
-        """Return a deep copy of the state arrays; precomputes are reset to empty."""
+        """Return a deep copy of the state arrays; precomputes are reset to empty.
+
+        ``pristine_fuel`` is a read-only snapshot of the initial fuel field --- it never changes after creation, so
+        the copy shares the underlying array with the original rather than duplicating it.
+        """
         return GraphState(
             rows=self.rows,
             cols=self.cols,
@@ -122,6 +127,7 @@ class GraphState:
             slope=self.slope.copy(),
             terrain=self.terrain.copy(),
             burn_timer=self.burn_timer.copy(),
+            pristine_fuel=self.pristine_fuel,
             wind_speed=self.wind_speed,
             wind_direction=self.wind_direction,
             fuel_moisture=self.fuel_moisture,
@@ -191,15 +197,17 @@ def create_grid(
         fuel_norm[rock_mask] = 0.0
         terrain_type[rock_mask] = TerrainType.ROCK
 
+    fuel_arr = fuel_norm.astype(np.float32)
     return GraphState(
         rows=rows,
         cols=cols,
         state=np.full((rows, cols), NodeState.UNBURNED, dtype=np.int8),
-        fuel=fuel_norm.astype(np.float32),
+        fuel=fuel_arr,
         elevation=terrain_height.astype(np.float32),
         slope=slope_norm.astype(np.float32),
         terrain=terrain_type,
         burn_timer=np.zeros((rows, cols), dtype=np.int8),
+        pristine_fuel=fuel_arr.copy(),
         cell_size_m=cell_size_m,
     )
 

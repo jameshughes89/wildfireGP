@@ -78,10 +78,9 @@ from wildfireGP.features import (
     slope,
     treated_neighbour_count,
     unburnable_neighbour_count,
-    unburned_neighbour_count,
     wind_fire_alignment,
 )
-from wildfireGP.network import GraphState
+from wildfireGP.network import GraphState, NodeState, TerrainType
 
 ANCHOR_WEIGHT = 0.1
 
@@ -316,26 +315,44 @@ def score_mtt_pathway_anchored(state: GraphState, node: tuple) -> float:
     return mtt_pathway_count(state, node) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
 
 
+def _burnable_unburned_neighbour_count(state: GraphState, node: tuple) -> int:
+    """Count neighbours in ``UNBURNED`` state that are also LAND with positive fuel (i.e., could actually burn).
+
+    Used by :func:`score_frontier_protect` as its "unburned area the fire could reach" proxy. The general
+    :func:`unburned_neighbour_count` feature counts every neighbour in ``NodeState.UNBURNED`` --- including water
+    and rock cells, which are UNBURNED for the duration of the simulation but never burn. That is consistent with
+    the state machine and appropriate for the GP language, but it inflates the CVY-greedy "save-degree" term of
+    :func:`score_frontier_protect` on landscapes with barriers. This helper matches the CVY specification by
+    counting only neighbours that are UNBURNED, LAND, and have positive fuel.
+    """
+    return sum(
+        1
+        for n in state.neighbours(node)
+        if state.state[n] == NodeState.UNBURNED and state.terrain[n] == TerrainType.LAND and state.fuel[n] > 0.0
+    )
+
+
 def score_frontier_protect(state: GraphState, node: tuple) -> float:
-    """Prioritise cells adjacent to the burning set, tiebroken by out-degree to unburned land.
+    """Prioritise cells adjacent to the burning set, tiebroken by out-degree to burnable unburned neighbours.
 
     Classical firefighter-problem greedy heuristic: only consider cells adjacent to the burning set; among those, prefer
-    cells whose treatment denies the fire access to the largest unburned region (approximated by unburned-neighbour
-    count). The (1 - 1/e) approximation bound from Cai, Verbin, Yang applies to this strict greedy form. Improvement
-    over :func:`score_by_burning_neighbors`, which breaks ties at random.
+    cells whose treatment denies the fire access to the largest unburned region (approximated by
+    :func:`_burnable_unburned_neighbour_count` --- only cells the fire could actually reach are counted). The
+    (1 - 1/e) approximation bound from Cai, Verbin, Yang applies to this strict greedy form. Improvement over
+    :func:`score_by_burning_neighbors`, which breaks ties at random.
 
     References: Cai, Verbin, Yang (2008); Finbow & MacGillivray (2009).
     """
     if burning_neighbour_count(state, node) == 0:
         return 0.0
-    return float(unburned_neighbour_count(state, node))
+    return float(_burnable_unburned_neighbour_count(state, node))
 
 
 def score_frontier_protect_anchored(state: GraphState, node: tuple) -> float:
     """Apply the standard line-extension nudge to :func:`score_frontier_protect`."""
     if burning_neighbour_count(state, node) == 0:
         return 0.0
-    return float(unburned_neighbour_count(state, node)) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
+    return float(_burnable_unburned_neighbour_count(state, node)) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
 
 
 ALL_STRATEGIES = [
@@ -391,8 +408,8 @@ annotate_required_precomputes(score_betweenness_dynamic, ["betweenness_dynamic"]
 annotate_required_precomputes(score_betweenness_dynamic_anchored, ["betweenness_dynamic", "has_treated_neighbour"])
 annotate_required_precomputes(score_mtt_pathway, ["mtt_pathway_count"])
 annotate_required_precomputes(score_mtt_pathway_anchored, ["mtt_pathway_count", "has_treated_neighbour"])
-annotate_required_precomputes(score_frontier_protect, ["burning_neighbour_count", "unburned_neighbour_count"])
+annotate_required_precomputes(score_frontier_protect, ["burning_neighbour_count"])
 annotate_required_precomputes(
     score_frontier_protect_anchored,
-    ["burning_neighbour_count", "unburned_neighbour_count", "has_treated_neighbour"],
+    ["burning_neighbour_count", "has_treated_neighbour"],
 )
