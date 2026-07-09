@@ -71,16 +71,52 @@ def test_run_strategy_different_seeds_produce_variation():
 
 
 class _FakeArgs:
-    def __init__(self, hof=None, results_dir=None, expr=None):
+    def __init__(self, hof=None, results_dir=None, expr=None, strategies=None, no_baselines=False):
         self.hof = hof
         self.results_dir = results_dir
         self.expr = expr
+        self.strategies = strategies
+        self.no_baselines = no_baselines
 
 
 def test_load_strategies_baselines_always_present():
     strategies = _load_strategies(_FakeArgs())
     names = [n for n, _ in strategies]
     assert all(f.__name__ in names for f in ALL_STRATEGIES)
+
+
+def test_load_strategies_filter_keeps_only_requested():
+    strategies = _load_strategies(_FakeArgs(strategies="score_by_fire_proximity,random_score"))
+    names = {n for n, _ in strategies}
+    assert names == {"score_by_fire_proximity", "random_score"}
+
+
+def test_load_strategies_filter_tolerates_whitespace():
+    strategies = _load_strategies(_FakeArgs(strategies=" score_by_fire_proximity , random_score "))
+    names = {n for n, _ in strategies}
+    assert names == {"score_by_fire_proximity", "random_score"}
+
+
+def test_load_strategies_filter_rejects_unknown():
+    with pytest.raises(SystemExit) as exc_info:
+        _load_strategies(_FakeArgs(strategies="score_by_fire_proximity,nonexistent_strategy"))
+    assert "nonexistent_strategy" in str(exc_info.value)
+
+
+def test_load_strategies_filter_accepts_no_treatment():
+    # no_treatment is not in ALL_STRATEGIES (handled specially in main), but the filter should accept it as a
+    # valid name so users can request it via --strategies.
+    strategies = _load_strategies(_FakeArgs(strategies="score_by_fire_proximity,no_treatment"))
+    names = {n for n, _ in strategies}
+    # no_treatment doesn't appear in the returned list (it's added by main); the filter just allows the name.
+    assert names == {"score_by_fire_proximity"}
+
+
+def test_load_strategies_filter_combined_with_hof(hof_file):
+    strategies = _load_strategies(_FakeArgs(strategies="score_by_fire_proximity", hof=[hof_file]))
+    names = {n for n, _ in strategies}
+    assert "score_by_fire_proximity" in names
+    assert hof_file.stem in names
 
 
 def test_save_raw_csv_is_non_empty(tmp_path):

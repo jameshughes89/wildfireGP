@@ -99,11 +99,14 @@ def main(argv: list[str] | None = None) -> None:
         landscapes.append((land_seed, wind_speed, wind_direction, ignition))
 
     strategies = _load_strategies(args)
-    n_extra = 0 if args.no_baselines else 1
+    filter_names = getattr(args, "strategies", None)
+    filter_set = {name.strip() for name in filter_names.split(",") if name.strip()} if filter_names else None
+    include_no_treatment = not args.no_baselines and (filter_set is None or "no_treatment" in filter_set)
+    n_extra = 1 if include_no_treatment else 0
     log.info(
         "Evaluating %d strategies%s over %d landscapes x %d runs",
         len(strategies) + n_extra,
-        "" if args.no_baselines else " + no_treatment",
+        " + no_treatment" if include_no_treatment else "",
         landscapes_count,
         args.runs,
     )
@@ -117,7 +120,7 @@ def main(argv: list[str] | None = None) -> None:
         for i, (b, p) in enumerate(zip(burned, peak)):
             raw_rows.append((name, i // args.runs, i % args.runs, float(b), float(p)))
 
-    if not args.no_baselines:
+    if include_no_treatment:
         log.info("  no_treatment ...")
         burned, peak = _run_strategy(
             lambda g, n: 0.0,
@@ -193,6 +196,15 @@ def _run_strategy(
 def _load_strategies(args: argparse.Namespace) -> list[tuple[str, object]]:
     strategies = [] if getattr(args, "no_baselines", False) else [(f.__name__, f) for f in ALL_STRATEGIES]
 
+    filter_names = getattr(args, "strategies", None)
+    if filter_names:
+        requested = {name.strip() for name in filter_names.split(",") if name.strip()}
+        available = {name for name, _ in strategies} | {"no_treatment"}  # no_treatment handled specially in main()
+        unknown = requested - available
+        if unknown:
+            raise SystemExit(f"Unknown strategy name(s): {sorted(unknown)}. Available: {sorted(available)}")
+        strategies = [(name, func) for name, func in strategies if name in requested]
+
     if getattr(args, "expr", None):
         if not args.results_dir:
             raise SystemExit("--results-dir is required when using --expr.")
@@ -228,6 +240,15 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         action="store_true",
         help="Skip ALL_STRATEGIES and no_treatment; only evaluate --hof / --expr strategies. "
         "Use this to add new GP candidates to an existing comparison without recomputing baselines.",
+    )
+    parser.add_argument(
+        "--strategies",
+        type=str,
+        default=None,
+        help="Comma-separated list of baseline strategy names to include. If set, only strategies from "
+        "ALL_STRATEGIES whose name matches one of these are evaluated, plus any --hof / --expr candidates. "
+        "no_treatment is also skipped unless explicitly listed here. Useful for targeted re-runs where only "
+        "a few baselines need to be regenerated.",
     )
     parser.add_argument(
         "--save-raw",
