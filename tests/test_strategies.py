@@ -72,6 +72,14 @@ def test_score_by_fire_proximity_closer_scores_higher():
     assert score_by_fire_proximity(s, (5, 4)) > score_by_fire_proximity(s, (0, 0))
 
 
+def test_score_by_fire_proximity_ranks_sealed_cell_below_open_cell_at_same_chessboard_distance():
+    s = _state_with_fire(ignition=(5, 5))
+    s.state[:, 6] = NodeState.TREATED
+    precompute_fire_map(s)
+    precompute_burnable_fire_map(s)
+    assert score_by_fire_proximity(s, (5, 3)) > score_by_fire_proximity(s, (5, 7))
+
+
 def test_score_by_burning_neighbors_more_neighbors_scores_higher():
     s = _state_no_fire()
     node = (5, 5)

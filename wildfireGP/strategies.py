@@ -66,6 +66,7 @@ from wildfireGP.evaluate import annotate_required_precomputes
 from wildfireGP.features import (
     betweenness_dynamic,
     betweenness_static,
+    burnable_distance_to_fire,
     burning_neighbour_count,
     distance_to_fire,
     elevation,
@@ -105,9 +106,12 @@ def score_by_fuel(state: GraphState, node: tuple) -> float:
 def score_by_fire_proximity(state: GraphState, node: tuple) -> float:
     """Prioritise nodes closest to the active fire front (direct attack).
 
+    Distance is burnable distance (steps through unburned land), so cells sealed behind treatment lines or barriers
+    rank as far from the fire. This matches the proximity baseline in the Cell2Fire fork.
+
     Reference: NWCG Fireline Handbook (PMS 410-1), 2004 --- direct attack doctrine.
     """
-    return -distance_to_fire(state, node) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
+    return -burnable_distance_to_fire(state, node) + ANCHOR_WEIGHT * has_treated_neighbour(state, node)
 
 
 def score_by_burning_neighbors(state: GraphState, node: tuple) -> float:
@@ -381,7 +385,7 @@ ALL_STRATEGIES = [
 
 annotate_required_precomputes(random_score, [])
 annotate_required_precomputes(score_by_fuel, ["has_treated_neighbour"])
-annotate_required_precomputes(score_by_fire_proximity, ["distance_to_fire", "has_treated_neighbour"])
+annotate_required_precomputes(score_by_fire_proximity, ["burnable_distance_to_fire", "has_treated_neighbour"])
 annotate_required_precomputes(score_by_burning_neighbors, ["burning_neighbour_count", "has_treated_neighbour"])
 annotate_required_precomputes(
     score_indirect_attack, ["distance_to_fire", "mean_neighbour_fuel", "has_treated_neighbour"]
