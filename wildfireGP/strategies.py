@@ -30,7 +30,7 @@ line-extension nudge added), so the effect of the line-extension term can be iso
     score_betweenness_static / score_betweenness_static_anchored      (Pais et al. 2021; offline pre-fire)
     score_betweenness_dynamic / score_betweenness_dynamic_anchored    (Pais et al. 2021; online per-step variant)
     score_mtt_pathway / score_mtt_pathway_anchored                    (Finney 2002; MTT pathway density)
-    score_frontier_protect / score_frontier_protect_anchored          (Cai, Verbin, Yang 2008; greedy frontier)
+    score_frontier_protect / score_frontier_protect_anchored          (Hartnell & Li 2000; greedy frontier proxy)
 
 If GP cannot outperform :func:`score_by_fire_proximity` --- the strongest single-feature doctrine baseline --- it is not
 producing useful strategies.
@@ -44,13 +44,12 @@ lower bound is a run with ``treatments_per_step=0``, which ``compare_strategies.
 
 References
 ----------
-Cai, L., Verbin, E., & Yang, L. (2008). Firefighting on Trees: (1 - 1/e)-Approximation, Fixed Parameter Tractability
-    and a Subexponential Algorithm. In Algorithms and Computation, ISAAC 2008. Lecture Notes in Computer Science,
-    vol 5369. Springer.
-Finbow, S., & MacGillivray, G. (2009). The Firefighter Problem: A Survey of Results, Directions and Questions. AKCE
-    International Journal of Graphs and Combinatorics, 6(1), 57-77.
+Finbow, S., & MacGillivray, G. (2009). The Firefighter Problem: A Survey of Results, Directions and Questions.
+    Australasian Journal of Combinatorics, 43, 57-77.
 Finney, M. A. (2002). Fire growth using minimum travel time methods. Canadian Journal of Forest Research, 32(8),
     1420-1424.
+Hartnell, B., & Li, Q. (2000). Firefighting on trees: how bad is the greedy algorithm? Congressus Numerantium, 145,
+    187-192.
 National Wildfire Coordinating Group. (2004). Fireline Handbook. NWCG Handbook 3, PMS 410-1.
 National Wildfire Coordinating Group. (2022). Incident Response Pocket Guide. PMS 461.
 Pais, C., Carrasco, J., Martell, D. L., Weintraub, A., & Woodruff, D. L. (2021). Cell2Fire: A Cell-Based Forest
@@ -341,11 +340,12 @@ def score_frontier_protect(state: GraphState, node: tuple) -> float:
 
     Classical firefighter-problem greedy heuristic: only consider cells adjacent to the burning set; among those, prefer
     cells whose treatment denies the fire access to the largest unburned region (approximated by
-    :func:`_burnable_unburned_neighbour_count` --- only cells the fire could actually reach are counted). The
-    (1 - 1/e) approximation bound from Cai, Verbin, Yang applies to this strict greedy form. Improvement over
-    :func:`score_by_burning_neighbors`, which breaks ties at random.
+    :func:`_burnable_unburned_neighbour_count` --- only cells the fire could actually reach are counted). This is a
+    local proxy for the greedy heuristic on trees, which protects the threatened vertex with the largest subtree and is
+    a 1/2-approximation (Hartnell & Li, 2000); the guarantee does not carry over to the out-degree proxy or to grids.
+    Improvement over :func:`score_by_burning_neighbors`, which breaks ties at random.
 
-    References: Cai, Verbin, Yang (2008); Finbow & MacGillivray (2009).
+    References: Hartnell & Li (2000); Finbow & MacGillivray (2009).
     """
     if burning_neighbour_count(state, node) == 0:
         return 0.0
