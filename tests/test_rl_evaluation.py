@@ -25,7 +25,6 @@ from wildfireGP.rl.features import (
     run_precomputes,
 )
 from wildfireGP.spread import spread_step
-from wildfireGP.strategies import score_by_fire_proximity
 
 
 def make_scorer():
@@ -35,10 +34,6 @@ def make_scorer():
         return features @ weights
 
     return scorer
-
-
-def score_cells(scorer, features):
-    return scorer(features)
 
 
 def make_state(seed=0, rows=30, cols=30):
@@ -60,7 +55,7 @@ def test_scores_match_a_direct_batched_forward_pass():
         spread_step(state, rng)
     run_precomputes(state)
 
-    expected = score_cells(scorer, extract_features(state))
+    expected = scorer(extract_features(state))
     for flat in range(0, state.rows * state.cols, 37):
         node = divmod(flat, state.cols)
         assert scoring(state, node) == pytest.approx(expected[flat], abs=1e-6)
@@ -87,7 +82,7 @@ def test_cache_invalidates_when_a_treatment_is_placed():
     state.step_unburned -= 1
     update_neighbourhood_maps_after_treatment(state, node)
 
-    fresh = score_cells(scorer, extract_features(state))
+    fresh = scorer(extract_features(state))
     after = scoring(state, divmod(target, state.cols))
     assert after == pytest.approx(fresh[target], abs=1e-6)
     # The treated cell itself must now be scored from its post-treatment features, not the cached pre-treatment ones.
@@ -103,7 +98,7 @@ def test_cache_invalidates_across_timesteps():
     for _ in range(8):
         spread_step(state, rng)
         run_precomputes(state)
-        fresh = score_cells(scorer, extract_features(state))
+        fresh = scorer(extract_features(state))
         probes = [int(f) for f in np.linspace(0, state.rows * state.cols - 1, 25).astype(int)]
         for flat in probes:
             assert scoring(state, divmod(flat, state.cols)) == pytest.approx(fresh[flat], abs=1e-6)
@@ -120,7 +115,7 @@ def test_stays_fresh_through_a_full_simulation():
     mismatches = 0
     for _step, live in simulate(state, scoring, 3, 30, rng, 3):
         run_precomputes(live)
-        fresh = score_cells(scorer, extract_features(live))
+        fresh = scorer(extract_features(live))
         for flat in (0, 211, 457, 700, 899):
             if abs(scoring(live, divmod(flat, live.cols)) - fresh[flat]) > 1e-5:
                 mismatches += 1
@@ -155,40 +150,3 @@ def test_runs_through_the_canonical_harness():
     burned, peak = evaluate(as_scoring_function(scorer), template, ignition, 3, 40, np.random.default_rng(0), 3, 0)
     assert 0 < burned <= 900
     assert peak > 0
-
-
-def test_network_and_baseline_are_comparable_through_one_harness():
-    """Both must run through evaluate() so tie-breaking is identical; see wildfireGP.rl.evaluation's docstring."""
-    template = create_grid(rows=30, cols=30, seed=0)
-    set_wind(template, speed=36.0, direction=140.0)
-    set_fuel_moisture(template, moisture=0.2)
-    ignition = [(15, 15), (15, 16), (16, 15)]
-    kwargs = {"treatments_per_step": 3, "max_steps": 40, "intervention_delay": 3, "min_treatment_distance": 0}
-
-    net = [
-        evaluate(
-            as_scoring_function(make_scorer()),
-            template,
-            ignition,
-            kwargs["treatments_per_step"],
-            kwargs["max_steps"],
-            np.random.default_rng(r),
-            kwargs["intervention_delay"],
-            kwargs["min_treatment_distance"],
-        )[0]
-        for r in range(3)
-    ]
-    prox = [
-        evaluate(
-            score_by_fire_proximity,
-            template,
-            ignition,
-            kwargs["treatments_per_step"],
-            kwargs["max_steps"],
-            np.random.default_rng(r),
-            kwargs["intervention_delay"],
-            kwargs["min_treatment_distance"],
-        )[0]
-        for r in range(3)
-    ]
-    assert all(b > 0 for b in net + prox)

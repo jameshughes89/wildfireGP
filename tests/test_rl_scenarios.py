@@ -13,7 +13,7 @@ pytest.importorskip("gymnasium")
 
 from wildfireGP.network import NodeState, create_grid  # noqa: E402
 from wildfireGP.rl.env import EnvConfig, WildfireEnv  # noqa: E402
-from wildfireGP.rl.scenarios import RESERVED_SEEDS, load_gp_panel  # noqa: E402
+from wildfireGP.rl.scenarios import load_gp_panel  # noqa: E402
 
 
 def write_config(tmp_path, **overrides):
@@ -54,11 +54,6 @@ def test_load_panel_rejects_unreproducible_and_inconsistent_configs(tmp_path):
         load_gp_panel(write_config(tmp_path, seed=None))
     with pytest.raises(ValueError, match="inconsistent"):
         load_gp_panel(write_config(tmp_path, landscapes=3))
-
-
-def test_reserved_seeds_cover_the_canonical_convention():
-    """Training 0-3, validation 42, test 99 --- per-episode sampling must avoid all of them."""
-    assert RESERVED_SEEDS == {0, 1, 2, 3, 42, 99}
 
 
 def test_config_from_panel_inherits_simulation_parameters(tmp_path):

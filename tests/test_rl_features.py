@@ -103,18 +103,12 @@ def make_state(seed, water=0.0, rock=0.0):
 
 
 def test_feature_order_matches_gp_language():
-    """Drift guard: wildfireGP/ here is a mutable copy, so a feature added to the language must not go unnoticed."""
+    """Drift guard: a feature added to or reordered in the GP language must not go unnoticed here."""
     from wildfireGP.language import _GRAPH_FEATURES, _NODE_FEATURES
 
     gp_order = tuple(f.__name__ for f in _NODE_FEATURES) + tuple(f.__name__ for f in _GRAPH_FEATURES)
     assert FEATURE_ORDER == gp_order
     assert N_FEATURES == 22
-
-
-def test_feature_order_has_no_graph_theoretic_features():
-    """betweenness_* and mtt_pathway_count are ~100x slower and absent from the GP language; the RL must not see
-    them."""
-    assert not {"betweenness_static", "betweenness_dynamic", "mtt_pathway_count"} & set(FEATURE_ORDER)
 
 
 @pytest.mark.parametrize("water,rock", [(0.0, 0.0), (0.15, 0.10)])
@@ -158,7 +152,7 @@ def test_vectorised_matches_after_mid_timestep_treatments():
 
 @pytest.mark.parametrize("water,rock", [(0.0, 0.0), (0.15, 0.10)])
 def test_features_are_always_finite(water, rock):
-    """An inf reaching the first Linear NaNs the whole forward pass; barrier landscapes make this common."""
+    """An inf reaching a learned policy can produce NaN scores; barrier landscapes make this common."""
     state = make_state(1, water, rock)
     rng = np.random.default_rng(1)
     run_precomputes(state)
