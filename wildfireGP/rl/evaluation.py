@@ -30,7 +30,7 @@ from collections.abc import Callable
 import numpy as np
 
 from wildfireGP.evaluate import annotate_required_precomputes
-from wildfireGP.network import GraphState, NodeState
+from wildfireGP.network import GraphState
 from wildfireGP.rl.features import FEATURE_ORDER, extract_features
 
 CellScorer = Callable[[np.ndarray], np.ndarray]
@@ -62,8 +62,3 @@ def as_scoring_function(scorer: CellScorer) -> Callable[[GraphState, tuple], flo
         return float(cache["scores"][node[0] * state.cols + node[1]])
 
     return annotate_required_precomputes(score, FEATURE_ORDER)
-
-
-def treated_cell_count(state: GraphState) -> int:
-    """Return the number of treated cells in ``state``."""
-    return int((state.state == NodeState.TREATED).sum())

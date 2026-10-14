@@ -235,12 +235,6 @@ def set_fuel_moisture(state: GraphState, moisture: float) -> None:
     state.fuel_moisture = float(moisture)
 
 
-def reset_states(state: GraphState) -> None:
-    """Reset all node states to UNBURNED and clear burn timers."""
-    state.state[:] = NodeState.UNBURNED
-    state.burn_timer[:] = 0
-
-
 def select_ignition_node(state: GraphState, rng: np.random.Generator, centre_fraction: float = 0.5) -> tuple:
     """Return a randomly selected burnable node from the central region of the landscape.
 

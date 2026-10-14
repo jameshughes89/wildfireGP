@@ -6,7 +6,6 @@ from wildfireGP.network import (
     NodeState,
     TerrainType,
     create_grid,
-    reset_states,
     select_ignition_cluster,
     select_ignition_node,
     set_fuel_moisture,
@@ -129,22 +128,6 @@ def test_set_fuel_moisture_rejects_above_one():
 
 def test_create_grid_default_burn_timer_is_zero():
     state = create_grid(4, 5)
-    assert (state.burn_timer == 0).all()
-
-
-def test_reset_states_all_cells_become_unburned():
-    state = create_grid(3, 3)
-    state.state[0, 0] = NodeState.BURNING
-    state.state[0, 1] = NodeState.BURNED
-    state.state[0, 2] = NodeState.TREATED
-    reset_states(state)
-    assert (state.state == NodeState.UNBURNED).all()
-
-
-def test_reset_states_all_burn_timers_return_to_zero():
-    state = create_grid(3, 3)
-    state.burn_timer[:] = 3
-    reset_states(state)
     assert (state.burn_timer == 0).all()
 
 
