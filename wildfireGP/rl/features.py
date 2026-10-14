@@ -185,8 +185,6 @@ def extract_features(state: GraphState, unreachable_distance: float | None = Non
     safe_row = np.where(has_fire, fire_row, 0)
     safe_col = np.where(has_fire, fire_col, 0)
 
-    # Sign convention is copied verbatim from wildfireGP.features.wind_fire_alignment, including its asymmetry
-    # (north measured fire->node, east measured node->fire). Do not "fix" it here: the GP sees these values.
     north = (safe_row - row_idx).astype(np.float64)
     east = (col_idx - safe_col).astype(np.float64)
     magnitude = np.sqrt(north**2 + east**2)
