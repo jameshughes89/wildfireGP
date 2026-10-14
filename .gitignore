@@ -8,6 +8,8 @@
 
 # Claude Code local settings (project settings are tracked via .claude/CLAUDE.md)
 .claude/settings.local.json
+.claude/CLAUDE.md
+.github/copilot-instructions.md
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
