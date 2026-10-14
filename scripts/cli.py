@@ -366,7 +366,9 @@ def find_valid_ignition_cluster(
         if burned > best_burned:
             best_burned = burned
             best_cluster = cluster
-        log.debug("ignition cluster %s burned %d < %d (attempt %d), resampling", cluster, burned, min_burned, attempt + 1)
+        log.debug(
+            "ignition cluster %s burned %d < %d (attempt %d), resampling", cluster, burned, min_burned, attempt + 1
+        )
     log.warning(
         "No valid ignition cluster found after %d tries (best burned=%d); using best available",
         max_tries,

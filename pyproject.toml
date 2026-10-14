@@ -48,9 +48,11 @@ line-length = 120
 target-version = ["py312"]
 
 [tool.codespell]
+ignore-words-list = "pich"
 
 [tool.isort]
 profile = "black"
+line_length = 120
 multi_line_output = 3
 
 [tool.flake8]
