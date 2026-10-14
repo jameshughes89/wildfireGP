@@ -39,6 +39,9 @@ dependencies = [
   "scipy>=1.12",
 ]
 
+[project.optional-dependencies]
+rl = ["gymnasium==1.3.0"]
+
 [project.scripts]
 format = "scripts.dev:run_formatters"
 verify = "scripts.dev:run_verification"
